@@ -9,7 +9,6 @@
   <br />
 
   <a href="https://embedino.app"><strong>Website</strong></a> &nbsp;&bull;&nbsp;
-  <a href="https://github.com/umarfaruq0z/embedino-workspace-web"><strong>Landing Web</strong></a> &nbsp;&bull;&nbsp;
   <a href="#overview"><strong>Overview</strong></a> &nbsp;&bull;&nbsp;
   <a href="#core-pillars"><strong>Pillars</strong></a> &nbsp;&bull;&nbsp;
   <a href="#getting-started"><strong>Getting Started</strong></a>
