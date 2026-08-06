@@ -1,6 +1,6 @@
 <div align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/umarfaruq0z/embedino-workspace-web/main/favicon.svg" alt="Embedino Logo" width="100" height="100" />
+  <img src="https://raw.githubusercontent.com/embedino/embedino/f5ef203ffdd8c615b2cb552da1f54628052c8c47/logo.svg" alt="Embedino Logo" width="100" height="100" />
   <br />
   <br />
   <h1>Embedino Workspace</h1>
