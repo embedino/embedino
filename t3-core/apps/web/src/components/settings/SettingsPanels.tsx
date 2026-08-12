@@ -1822,8 +1822,8 @@ export function GeneralSettingsPanel() {
                   {activeToolchain === "platformio"
                     ? "PlatformIO"
                     : activeToolchain === "arduino"
-                    ? "Arduino CLI"
-                    : "None (Not Selected)"}
+                      ? "Arduino CLI"
+                      : "None (Not Selected)"}
                 </SelectValue>
               </SelectTrigger>
               <SelectPopup alignItemWithTrigger={false}>

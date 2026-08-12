@@ -1076,4 +1076,3 @@ export const WsRpcGroup = RpcGroup.make(
   WsToolchainInstallArduinoRpc,
   WsToolchainGetStatusRpc,
 );
-

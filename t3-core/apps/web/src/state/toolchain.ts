@@ -66,10 +66,7 @@ export type ActiveToolchain = Schema.Schema.Type<typeof ActiveToolchainSchema>;
 function getToolchainStatusEffect(environmentId: EnvironmentId) {
   return Effect.gen(function* () {
     const registry = yield* EnvironmentRegistry;
-    return yield* registry.run(
-      environmentId,
-      request(WS_METHODS.toolchainGetStatus, {}),
-    );
+    return yield* registry.run(environmentId, request(WS_METHODS.toolchainGetStatus, {}));
   });
 }
 
@@ -128,9 +125,5 @@ export function useActiveToolchain(): [
   ActiveToolchain,
   (value: ActiveToolchain | ((val: ActiveToolchain) => ActiveToolchain)) => void,
 ] {
-  return useLocalStorage(
-    "embedino-active-toolchain",
-    null,
-    ActiveToolchainSchema,
-  );
+  return useLocalStorage("embedino-active-toolchain", null, ActiveToolchainSchema);
 }

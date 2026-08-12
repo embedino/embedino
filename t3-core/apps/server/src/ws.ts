@@ -2057,11 +2057,9 @@ const makeWsRpcLayer = (
             { "rpc.aggregate": "toolchain" },
           ),
         [WS_METHODS.toolchainGetStatus]: (_input) =>
-          observeRpcEffect(
-            WS_METHODS.toolchainGetStatus,
-            ToolchainService.getToolchainStatus(),
-            { "rpc.aggregate": "toolchain" },
-          ),
+          observeRpcEffect(WS_METHODS.toolchainGetStatus, ToolchainService.getToolchainStatus(), {
+            "rpc.aggregate": "toolchain",
+          }),
         [WS_METHODS.subscribeTerminalEvents]: (_input) =>
           observeRpcStream(
             WS_METHODS.subscribeTerminalEvents,

@@ -1,3 +1,203 @@
+# Refactoring Strategy & Replacement Plan Report: M1 Toolchain Setup (`ToolchainSetup.tsx` & `toolchain.ts`)
+
+**Working Directory**: `apps/web/src`  
+**Author**: M1 Toolchain Setup Explorer (`explorer_m1_1`)  
+**Date**: 2026-08-12
+
+---
+
+## 1. Observation
+
+A detailed read-only code audit of `apps/web/src/components/wiring/ToolchainSetup.tsx` and `apps/web/src/state/toolchain.ts` revealed four major categories of defects:
+
+### 1.1 Raw Mutable Singleton Hack (`ToolchainSetup.tsx`, Lines 21–51)
+
+`ToolchainSetup.tsx` contains an ad-hoc module-level mutable singleton state object (`let state: ToolchainGlobalState = { ... }`) combined with a custom listener `Set<() => void>` and `useSyncExternalStore` subscription. This bypasses the codebase's central reactive state system (`appAtomRegistry` and `@effect/atom` / `effect/unstable/reactivity`), hindering testability and state coherence across environment switching.
+
+### 1.2 TypeScript Compilation Errors (6 Errors in `ToolchainSetup.tsx`)
+
+Running `pnpm typecheck` (`tsgo --noEmit`) produces 6 specific compilation failures:
+
+1. `src/components/wiring/ToolchainSetup.tsx(164,9)`: `error TS2304: Cannot find name 'fetchStatus'.`
+2. `src/components/wiring/ToolchainSetup.tsx(167,25)`: `error TS2339: Property 'failures' does not exist on type 'Cause<...>'`
+3. `src/components/wiring/ToolchainSetup.tsx(168,25)`: `error TS2339: Property 'failures' does not exist on type 'Cause<...>'`
+4. `src/components/wiring/ToolchainSetup.tsx(174,47)`: `error TS2304: Cannot find name 'fetchStatus'.`
+5. `src/components/wiring/ToolchainSetup.tsx(260,18)`: `error TS2304: Cannot find name 'fetchStatus'.`
+6. `src/components/wiring/ToolchainSetup.tsx(315,57)`: `error TS2339: Property 'error' does not exist on type 'Failure<void, ...>'`
+
+**Root Causes**:
+
+- `fetchStatus` (lines 67–90) was declared locally inside a `useEffect` closure inside `useToolchainState()`, rendering it inaccessible to `ToolchainSetupPill` (lines 164, 174, 260).
+- `result.cause` from an `AtomCommandResult` is an Effect `Cause` object, which does not have a `.failures` property.
+- `result` on failure (`_tag === "Failure"`) does not have a `.error` string property; error extraction requires standard `Cause.squash(result.cause)`.
+
+### 1.3 Unused Code, Console Logs & Bypassed Schema Types
+
+- **Unused Callback**: `handleInstall` (lines 129–175) in `ToolchainSetupPill` is defined but never invoked because installation UI controls reside exclusively in `ToolchainSetupDialog`. This causes `eslint(no-unused-vars)`.
+- **Debug Logs**: Production code contains `console.log("[Toolchain] Starting install:...", ...)` (lines 141, 149, 154).
+- **Unsafe Schema Cast (`toolchain.ts`, Line 77)**: `useActiveToolchain()` uses `Schema.String as any` instead of a strongly typed `Schema.NullOr(Schema.Literal("platformio", "arduino"))`, bypassing schema validation for local storage.
+
+### 1.4 Hardcoded CSS Hex Values (`ToolchainSetup.tsx`)
+
+UI elements use hardcoded dark hex color strings (`#111111`, `#2A2A2A`, `#1A1A1A`, `#222222`, `#2B60FF`, `#141d18`, `#A0A0A0`, `#E0E0E0`, `#3A3A3A`) instead of standard Tailwind CSS semantic theme tokens (`bg-background`, `border-border`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `bg-primary`, `bg-secondary`, etc.).
+
+---
+
+## 2. Logic Chain
+
+1. **State Store Architecture**: Moving the toolchain global state from component-local `let state` into `apps/web/src/state/toolchain.ts` as an Effect Atom (`toolchainStateAtom = Atom.make<ToolchainState>(initialToolchainState)`) aligns toolchain state management with `activeEnvironmentIdAtom` and `appAtomRegistry`. Components read state using `useAtomValue(toolchainStateAtom)` and update state via `updateToolchainState(patch)`.
+2. **Scoping & Callbacks**: Exposing `fetchStatus` as part of the `useToolchainState()` return object (`{ snap, fetchStatus }`) and removing the duplicate unused `handleInstall` callback in `ToolchainSetupPill` eliminates out-of-scope function references (fixing TS2304 errors on lines 164, 174, 260) and satisfies ESLint `no-unused-vars`.
+3. **Effect Error Handling**: Replacing `.failures` and `.error` property access with Effect's canonical `Cause.squash(result.cause)` extracts printable error messages safely while ensuring full type safety (fixing TS2339 errors on lines 167, 168, 315).
+4. **Theme Alignment**: Replacing inline hex values with Tailwind semantic theme tokens (`border-border`, `bg-background`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `bg-primary`) guarantees proper light/dark theme adaptability across the application.
+
+---
+
+## 3. Caveats
+
+- **Effect Atom Reactivity**: Updating `toolchainStateAtom` via `appAtomRegistry.update(...)` requires `appAtomRegistry` to be initialized, which is standard in the app's React root tree (`AppAtomRegistryProvider`).
+- **Settings Component Integration**: Note that `SettingsPanels.tsx` select dropdown locking behavior (R1.3) should be addressed alongside these changes to ensure selecting "Manage Toolchain..." in Settings resets back to `activeToolchain ?? "none"` when closed.
+
+---
+
+## 4. Conclusion & Complete Step-by-Step Code Replacement Plans
+
+### 4.1 Step-by-Step Replacement Plan: `apps/web/src/state/toolchain.ts`
+
+Replace the entire contents of `apps/web/src/state/toolchain.ts` with the following code:
+
+```typescript
+import { EnvironmentId, WS_METHODS } from "@t3tools/contracts";
+import { EnvironmentRegistry } from "@t3tools/client-runtime/connection";
+import { request, runStream } from "@t3tools/client-runtime/rpc";
+import { createRuntimeCommand } from "@t3tools/client-runtime/state/runtime";
+import * as Effect from "effect/Effect";
+import * as Stream from "effect/Stream";
+import * as Schema from "effect/Schema";
+import { Atom } from "effect/unstable/reactivity";
+import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { appAtomRegistry } from "~/rpc/atomRegistry";
+import { connectionAtomRuntime } from "../connection/runtime";
+
+// ---------------------------------------------------------------------------
+// Toolchain State Atom & Registry Management
+// ---------------------------------------------------------------------------
+
+export interface ToolchainState {
+  readonly installing: "platformio" | "arduino" | null;
+  readonly progress: number;
+  readonly error: string | null;
+  readonly platformioInstalled: boolean;
+  readonly platformioVersion: string | null;
+  readonly arduinoInstalled: boolean;
+  readonly arduinoVersion: string | null;
+  readonly statusLoaded: boolean;
+}
+
+export const initialToolchainState: ToolchainState = {
+  installing: null,
+  progress: 0,
+  error: null,
+  platformioInstalled: false,
+  platformioVersion: null,
+  arduinoInstalled: false,
+  arduinoVersion: null,
+  statusLoaded: false,
+};
+
+export const toolchainStateAtom = Atom.make<ToolchainState>(initialToolchainState).pipe(
+  Atom.keepAlive,
+  Atom.withLabel("web-toolchain-state"),
+);
+
+export function updateToolchainState(patch: Partial<ToolchainState>): void {
+  appAtomRegistry.update(toolchainStateAtom, (current) => ({
+    ...current,
+    ...patch,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// toolchainGetStatus — unary RPC via createRuntimeCommand
+// Pattern: exactly matches linkEnvironmentAtoms.ts + linkEnvironment.ts
+// ---------------------------------------------------------------------------
+
+function getToolchainStatusEffect(environmentId: EnvironmentId) {
+  return Effect.gen(function* () {
+    const registry = yield* EnvironmentRegistry;
+    return yield* registry.run(environmentId, request(WS_METHODS.toolchainGetStatus, {}));
+  });
+}
+
+export const toolchainGetStatusCommand = createRuntimeCommand(connectionAtomRuntime, {
+  label: "toolchain-get-status",
+  execute: (input: { readonly environmentId: EnvironmentId }) =>
+    getToolchainStatusEffect(input.environmentId),
+});
+
+// ---------------------------------------------------------------------------
+// toolchainInstall — streaming RPC via createRuntimeCommand
+// Pattern: exactly matches cloudInstallRelayClient in linkEnvironment.ts
+// ---------------------------------------------------------------------------
+
+function installToolchainEffect(
+  environmentId: EnvironmentId,
+  type: "platformio" | "arduino",
+  onProgress: (progress: number, stdout?: string) => void,
+) {
+  return Effect.gen(function* () {
+    const registry = yield* EnvironmentRegistry;
+    const method =
+      type === "platformio"
+        ? WS_METHODS.toolchainInstallPlatformio
+        : WS_METHODS.toolchainInstallArduino;
+    yield* registry
+      .runStream(
+        environmentId,
+        runStream(method, {}).pipe(
+          Stream.tap((event) =>
+            Effect.sync(() => {
+              const e = event as { progress?: number; stdout?: string };
+              onProgress(e.progress ?? 0, e.stdout);
+            }),
+          ),
+        ),
+      )
+      .pipe(Stream.runDrain);
+  });
+}
+
+export const toolchainInstallCommand = createRuntimeCommand(connectionAtomRuntime, {
+  label: "toolchain-install",
+  execute: (input: {
+    readonly environmentId: EnvironmentId;
+    readonly type: "platformio" | "arduino";
+    readonly onProgress: (progress: number, stdout?: string) => void;
+  }) => installToolchainEffect(input.environmentId, input.type, input.onProgress),
+});
+
+// ---------------------------------------------------------------------------
+// LocalStorage hook for active toolchain preference
+// ---------------------------------------------------------------------------
+
+export type ActiveToolchain = "platformio" | "arduino" | null;
+export const ActiveToolchainSchema = Schema.NullOr(Schema.Literal("platformio", "arduino"));
+
+export function useActiveToolchain() {
+  return useLocalStorage<ActiveToolchain, ActiveToolchain>(
+    "embedino-active-toolchain",
+    null,
+    ActiveToolchainSchema,
+  );
+}
+```
+
+---
+
+### 4.2 Step-by-Step Replacement Plan: `apps/web/src/components/wiring/ToolchainSetup.tsx`
+
+Replace the entire contents of `apps/web/src/components/wiring/ToolchainSetup.tsx` with the following code:
+
+```typescript
 import { ArrowDownCircle, Check, Download, Info, X, AlertTriangle, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
@@ -15,7 +215,6 @@ import {
 import { primaryEnvironmentIdAtom } from "~/state/primaryEnvironment";
 import { useAtomCommand } from "~/state/use-atom-command";
 import {
-  ToolchainState,
   toolchainGetStatusCommand,
   toolchainInstallCommand,
   toolchainStateAtom,
@@ -24,10 +223,11 @@ import {
 } from "~/state/toolchain";
 
 // ---------------------------------------------------------------------------
-// Hooks for toolchain status fetching and state consumption
+// Global hook for toolchain state & status fetching
 // ---------------------------------------------------------------------------
-export function useFetchToolchainStatus() {
+export function useToolchainState() {
   const environmentId = useAtomValue(primaryEnvironmentIdAtom);
+  const snap = useAtomValue(toolchainStateAtom);
   const getStatus = useAtomCommand(toolchainGetStatusCommand, {
     label: "toolchain-get-status",
     reportFailure: false,
@@ -62,20 +262,12 @@ export function useFetchToolchainStatus() {
     [environmentId, getStatus],
   );
 
-  return fetchStatus;
-}
-
-export function useToolchainState(): ToolchainState {
-  const environmentId = useAtomValue(primaryEnvironmentIdAtom);
-  const snap = useAtomValue(toolchainStateAtom);
-  const fetchStatus = useFetchToolchainStatus();
-
   useEffect(() => {
     if (!environmentId || snap.statusLoaded) return;
     void fetchStatus();
   }, [environmentId, snap.statusLoaded, fetchStatus]);
 
-  return snap;
+  return { snap, fetchStatus };
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +276,7 @@ export function useToolchainState(): ToolchainState {
 export function ToolchainSetupPill() {
   const [open, setOpen] = useState(false);
   const [activeToolchain, setActiveToolchain] = useActiveToolchain();
-  const snap = useToolchainState();
-  const fetchStatus = useFetchToolchainStatus();
+  const { snap, fetchStatus } = useToolchainState();
 
   useEffect(() => {
     const handleOpen = () => setOpen(true);
@@ -99,13 +290,7 @@ export function ToolchainSetupPill() {
       if (snap.platformioInstalled) setActiveToolchain("platformio");
       else if (snap.arduinoInstalled) setActiveToolchain("arduino");
     }
-  }, [
-    snap.statusLoaded,
-    snap.platformioInstalled,
-    snap.arduinoInstalled,
-    activeToolchain,
-    setActiveToolchain,
-  ]);
+  }, [snap.statusLoaded, snap.platformioInstalled, snap.arduinoInstalled, activeToolchain, setActiveToolchain]);
 
   // Error banner auto-dismiss after 6s
   useEffect(() => {
@@ -185,7 +370,9 @@ export function ToolchainSetupPill() {
     >
       <div className="flex w-full flex-col gap-2 rounded-2xl border border-border bg-background p-3">
         <div className="flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-foreground">Getting Started</span>
+          <span className="text-[13px] font-semibold text-foreground">
+            Getting Started
+          </span>
         </div>
         <DialogTrigger className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-muted py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <ArrowDownCircle className="size-4" />
@@ -204,8 +391,7 @@ export function ToolchainSetupPill() {
 export function ToolchainSetupDialog() {
   const environmentId = useAtomValue(primaryEnvironmentIdAtom);
   const [activeToolchain, setActiveToolchain] = useActiveToolchain();
-  const snap = useToolchainState();
-  const fetchStatus = useFetchToolchainStatus();
+  const { snap, fetchStatus } = useToolchainState();
   const install = useAtomCommand(toolchainInstallCommand, {
     label: "toolchain-install",
     reportFailure: false,
@@ -214,9 +400,7 @@ export function ToolchainSetupDialog() {
   const handleInstall = useCallback(
     async (type: "platformio" | "arduino") => {
       if (!environmentId) {
-        updateToolchainState({
-          error: "No environment connected. Please wait for the connection.",
-        });
+        updateToolchainState({ error: "No environment connected. Please wait for the connection." });
         return;
       }
       if (snap.installing) return;
@@ -254,7 +438,7 @@ export function ToolchainSetupDialog() {
   );
 
   return (
-    <DialogPopup className="max-w-xl border border-border bg-background">
+    <DialogPopup className="max-w-xl">
       <DialogHeader className="pb-2">
         <DialogTitle className="flex items-center gap-2 text-foreground">
           <ArrowDownCircle className="size-6" />
@@ -289,13 +473,7 @@ export function ToolchainSetupDialog() {
               )}
             </div>
             <Button
-              variant={
-                snap.platformioInstalled
-                  ? activeToolchain === "platformio"
-                    ? "outline"
-                    : "secondary"
-                  : "default"
-              }
+              variant={snap.platformioInstalled ? (activeToolchain === "platformio" ? "outline" : "secondary") : "default"}
               className={
                 snap.platformioInstalled
                   ? activeToolchain === "platformio"
@@ -326,8 +504,8 @@ export function ToolchainSetupDialog() {
             </Button>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Professional multi-platform build engine, supports 1,000+ boards, ESP-IDF, FreeRTOS, and
-            library management.
+            Professional multi-platform build engine, supports 1,000+ boards, ESP-IDF, FreeRTOS,
+            and library management.
           </p>
         </div>
 
@@ -350,13 +528,7 @@ export function ToolchainSetupDialog() {
               )}
             </div>
             <Button
-              variant={
-                snap.arduinoInstalled
-                  ? activeToolchain === "arduino"
-                    ? "outline"
-                    : "secondary"
-                  : "outline"
-              }
+              variant={snap.arduinoInstalled ? (activeToolchain === "arduino" ? "outline" : "secondary") : "outline"}
               className={
                 snap.arduinoInstalled
                   ? activeToolchain === "arduino"
@@ -387,8 +559,8 @@ export function ToolchainSetupDialog() {
             </Button>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Official lightweight Arduino command line toolchain for quick sketching and AVR and SAMD
-            boards.
+            Official lightweight Arduino command line toolchain for quick sketching and AVR and
+            SAMD boards.
           </p>
         </div>
       </DialogPanel>
@@ -404,3 +576,32 @@ export function ToolchainSetupDialog() {
     </DialogPopup>
   );
 }
+```
+
+---
+
+## 5. Verification Method
+
+To verify these changes after implementation, execute the following commands from project root (`c:\Users\rapid\Desktop\embedino workspace\t3-core`):
+
+1. **TypeScript Type Checking**:
+
+   ```bash
+   pnpm typecheck
+   ```
+
+   _Expected Output_: Exit status 0 with zero compilation errors in `@t3tools/web`.
+
+2. **Linter Verification**:
+
+   ```bash
+   pnpm lint
+   ```
+
+   _Expected Output_: Exit status 0 with zero ESLint warnings regarding unused `handleInstall` variable.
+
+3. **Frontend Production Build**:
+   ```bash
+   pnpm build
+   ```
+   _Expected Output_: Build completed successfully.
