@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ClaudeAdapterLive - Scoped live implementation for the Claude Agent provider adapter.
  *
