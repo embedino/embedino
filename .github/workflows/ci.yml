@@ -36,4 +36,4 @@ jobs:
         run: vp check
 
       - name: Build Workspace
-        run: pnpm run build
+        run: vp run build
