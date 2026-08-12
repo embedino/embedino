@@ -25,6 +25,7 @@ const workspaceFiles = [
   "packages/effect-acp/package.json",
   "packages/effect-codex-app-server/package.json",
   "scripts/package.json",
+  "scripts/clean-tsgo-backups.mjs",
 ] as const;
 
 function copyWorkspaceManifestFixture(targetRoot: string): void {
@@ -199,9 +200,13 @@ try {
 
   NodeFS.rmSync(NodePath.resolve(tempRoot, "pnpm-lock.yaml"), { force: true });
 
-  NodeChildProcess.execFileSync("vp", ["install", "--lockfile-only", "--ignore-scripts"], {
+  const vpCmd = process.platform === "win32" ? "pnpm.cmd" : "vp";
+  const vpArgs = process.platform === "win32" ? ["exec", "vp", "install", "--lockfile-only", "--ignore-scripts"] : ["install", "--lockfile-only", "--ignore-scripts"];
+
+  NodeChildProcess.execFileSync(vpCmd, vpArgs, {
     cwd: tempRoot,
     stdio: "inherit",
+    shell: true,
   });
 
   const lockfile = NodeFS.readFileSync(NodePath.resolve(tempRoot, "pnpm-lock.yaml"), "utf8");
