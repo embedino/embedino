@@ -16,8 +16,8 @@ defaults:
     working-directory: ./t3-core
 
 jobs:
-  build_and_check:
-    name: Build & Check
+  check_and_build:
+    name: Check & Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -32,8 +32,27 @@ jobs:
           run-install: true
           working-directory: t3-core
 
-      - name: Check Formatting & Lint
+      - name: Check Formatting & Linting
         run: vp check
 
-      - name: Build Workspace
+      - name: Build Workspace Packages
         run: vp run build
+
+  unit_tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+          working-directory: t3-core
+
+      - name: Run Test Suite
+        run: vp run test
