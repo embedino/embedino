@@ -395,6 +395,25 @@ importers:
         specifier: 'catalog:'
         version: 0.2.2(@types/node@24.12.4)(jiti@2.7.0)(msw@2.12.11(@types/node@24.12.4))(yaml@2.9.0)
 
+  oxlint-plugin-t3code:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 4.0.0-beta.103
+        version: 4.0.0-beta.103(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))(ioredis@5.11.1)
+      '@oxlint/plugins':
+        specifier: ^1.63.0
+        version: 1.78.0
+      effect:
+        specifier: 4.0.0-beta.103
+        version: 4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6)
+    devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.103
+        version: 4.0.0-beta.103(patch_hash=a16b1e870d8c29e4a98b17cc4c638a4ff471753d8ca3487f78a22b759caf951b)(effect@4.0.0-beta.103(patch_hash=af36b7948b6f9c56623074662b51dade5699880c1a7c71245de73e13c3185fb6))
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.2(@types/node@24.12.4)(jiti@2.7.0)(msw@2.12.11(@types/node@24.12.4))(yaml@2.9.0)
+
   packages/client-runtime:
     dependencies:
       '@t3tools/contracts':
@@ -8649,13 +8668,13 @@ snapshots:
 
   node-abi@4.33.0:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-addon-api@7.1.1: {}
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-fetch-h2@2.3.0:
     dependencies:
@@ -8677,7 +8696,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.1.0
-      semver: 7.7.4
+      semver: 7.8.5
       tar: 7.5.22
       tinyglobby: 0.2.17
       undici: 6.28.0
