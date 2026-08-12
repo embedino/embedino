@@ -32,7 +32,7 @@ jobs:
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
         with:
-          node-version-file: t3-core/package.json
+          node-version-file: package.json
           cache: true
           run-install: true
           working-directory: t3-core
@@ -79,7 +79,7 @@ jobs:
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
         with:
-          node-version-file: t3-core/package.json
+          node-version-file: package.json
           cache: true
           run-install: true
           working-directory: t3-core
@@ -133,7 +133,7 @@ jobs:
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
         with:
-          node-version-file: t3-core/package.json
+          node-version-file: package.json
           cache: true
           run-install: |
             args:
