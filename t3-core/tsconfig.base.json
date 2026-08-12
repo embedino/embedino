@@ -23,6 +23,8 @@
         "name": "@effect/language-service",
         "namespaceImportPackages": ["@effect/platform-node", "effect"],
         "diagnosticSeverity": {
+          "unnecessaryFailYieldableError": "off",
+          "unnecessaryEffectGen": "off",
           "importFromBarrel": "error",
           "anyUnknownInErrorContext": "error",
           "unsafeEffectTypeAssertion": "error",
