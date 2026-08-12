@@ -1,4 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off
+/* oxlint-disable t3code/no-global-process-runtime */
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
@@ -200,8 +201,11 @@ try {
 
   NodeFS.rmSync(NodePath.resolve(tempRoot, "pnpm-lock.yaml"), { force: true });
 
-  const vpCmd = process.platform === "win32" ? "pnpm.cmd" : "vp";
-  const vpArgs = process.platform === "win32" ? ["exec", "vp", "install", "--lockfile-only", "--ignore-scripts"] : ["install", "--lockfile-only", "--ignore-scripts"];
+  const vpCmd = NodeOS.platform() === "win32" ? "pnpm.cmd" : "vp";
+  const vpArgs =
+    NodeOS.platform() === "win32"
+      ? ["exec", "vp", "install", "--lockfile-only", "--ignore-scripts"]
+      : ["install", "--lockfile-only", "--ignore-scripts"];
 
   NodeChildProcess.execFileSync(vpCmd, vpArgs, {
     cwd: tempRoot,
