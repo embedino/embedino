@@ -1,5 +1,6 @@
 {
   "name": "@t3tools/monorepo",
+  "_t3UpstreamVersion": "v10.15.0-beta.2 (Tracked to ensure we don't drift from T3 core)",
   "private": true,
   "type": "module",
   "scripts": {

@@ -142,6 +142,8 @@ import {
 } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 import { ProjectFavicon } from "../ProjectFavicon";
+import { useActiveToolchain } from "~/state/toolchain";
+import { ToolchainSetupDialog, useToolchainState } from "../wiring/ToolchainSetup";
 
 const ENVIRONMENT_IDENTIFICATION_LABELS: Record<EnvironmentIdentificationMode, string> = {
   artwork: "Artwork",
@@ -1788,10 +1790,54 @@ export function GeneralSettingsPanel() {
     settings.backgroundActivity,
     DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
   );
+  const [activeToolchain, setActiveToolchain] = useActiveToolchain();
+  const snap = useToolchainState();
+  const [manageToolchainOpen, setManageToolchainOpen] = useState(false);
+  const [toolchainSelectKey, setToolchainSelectKey] = useState(0);
 
   return (
     <SettingsPageContainer>
       <SettingsSection title="General">
+        <SettingsRow
+          id="build-toolchain"
+          title="Active Build Toolchain"
+          description="Select the engine used to compile and flash your embedded projects."
+          control={
+            <Select
+              key={toolchainSelectKey}
+              value={activeToolchain ?? "none"}
+              onValueChange={(val) => {
+                if (val === "manage") {
+                  setManageToolchainOpen(true);
+                  setToolchainSelectKey((k) => k + 1);
+                } else if (val === "none") {
+                  setActiveToolchain(null);
+                } else {
+                  setActiveToolchain(val as "platformio" | "arduino");
+                }
+              }}
+            >
+              <SelectTrigger aria-label="Active toolchain">
+                <SelectValue>
+                  {activeToolchain === "platformio"
+                    ? "PlatformIO"
+                    : activeToolchain === "arduino"
+                    ? "Arduino CLI"
+                    : "None (Not Selected)"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup alignItemWithTrigger={false}>
+                <SelectItem value="none">None (Not Selected)</SelectItem>
+                {snap.platformioInstalled && <SelectItem value="platformio">PlatformIO</SelectItem>}
+                {snap.arduinoInstalled && <SelectItem value="arduino">Arduino CLI</SelectItem>}
+                <SelectItem value="manage">Manage Toolchain...</SelectItem>
+              </SelectPopup>
+            </Select>
+          }
+        />
+        <Dialog open={manageToolchainOpen} onOpenChange={setManageToolchainOpen}>
+          <ToolchainSetupDialog />
+        </Dialog>
         <SettingsRow
           {...searchableSetting("project-grouping")}
           description="Combine matching repositories across environments."

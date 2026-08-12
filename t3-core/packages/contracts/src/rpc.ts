@@ -186,6 +186,11 @@ import {
   SourceControlRepositoryLookupInput,
 } from "./sourceControl.ts";
 import { VcsError } from "./vcs.ts";
+import {
+  ToolchainInstallError,
+  ToolchainInstallProgressEvent,
+  ToolchainStatus,
+} from "./toolchain.ts";
 
 export const WS_METHODS = {
   // Project registry methods
@@ -248,6 +253,11 @@ export const WS_METHODS = {
   // Server meta
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
+
+  // Toolchain
+  toolchainInstallPlatformio: "toolchain.installPlatformio",
+  toolchainInstallArduino: "toolchain.installArduino",
+  toolchainGetStatus: "toolchain.getStatus",
   serverRefreshProviders: "server.refreshProviders",
   serverUpdateProvider: "server.updateProvider",
   serverUpdateServer: "server.updateServer",
@@ -897,6 +907,26 @@ export const WsOrchestrationSubscribeThreadRpc = Rpc.make(
   },
 );
 
+export const WsToolchainInstallPlatformioRpc = Rpc.make(WS_METHODS.toolchainInstallPlatformio, {
+  payload: Schema.Struct({}),
+  success: ToolchainInstallProgressEvent,
+  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+export const WsToolchainInstallArduinoRpc = Rpc.make(WS_METHODS.toolchainInstallArduino, {
+  payload: Schema.Struct({}),
+  success: ToolchainInstallProgressEvent,
+  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+export const WsToolchainGetStatusRpc = Rpc.make(WS_METHODS.toolchainGetStatus, {
+  payload: Schema.Struct({}),
+  success: ToolchainStatus,
+  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+});
+
 export const WsSubscribeTerminalEventsRpc = Rpc.make(WS_METHODS.subscribeTerminalEvents, {
   payload: Schema.Struct({}),
   success: TerminalEvent,
@@ -1042,4 +1072,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsOrchestrationGetArchivedShellSnapshotRpc,
   WsOrchestrationSubscribeShellRpc,
   WsOrchestrationSubscribeThreadRpc,
+  WsToolchainInstallPlatformioRpc,
+  WsToolchainInstallArduinoRpc,
+  WsToolchainGetStatusRpc,
 );
+

@@ -30,6 +30,7 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { SidebarProviderUpdatePill } from "./SidebarProviderUpdatePill";
 import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./SidebarUpdatePill";
+import { ToolchainSetupPill } from "../wiring/ToolchainSetup";
 
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron,
@@ -158,9 +159,10 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
   }, [closeMobileSidebar, navigate]);
 
   return (
-    <SidebarFooter className="p-[var(--sidebar-content-inset)]">
+    <SidebarFooter className="p-[var(--sidebar-content-inset)] gap-2">
       <SidebarProviderUpdatePill />
       <SidebarUpdateArchitectureWarning />
+      <ToolchainSetupPill />
       <SidebarMenu className="flex-row items-center">
         {currentFooterPage ? (
           <SidebarMenuItem className="min-w-0 flex-1">

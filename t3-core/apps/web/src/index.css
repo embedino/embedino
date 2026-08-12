@@ -852,7 +852,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
 
   .dialog-glass {
     border-color: color-mix(in srgb, var(--foreground) 10%, transparent);
-    box-shadow: 0 24px 64px -24px rgb(0 0 0 / 65%);
+    box-shadow: 0 12px 24px -12px rgb(0 0 0 / 30%);
   }
 
   .dark .dropdown-glass {
@@ -871,7 +871,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
     border-color: color-mix(in srgb, var(--color-white) 8%, transparent);
     box-shadow:
       inset 0 1px rgb(255 255 255 / 4%),
-      0 24px 72px -20px rgb(0 0 0 / 90%);
+      0 12px 24px -12px rgb(0 0 0 / 50%);
   }
 
   .dark .dialog-backdrop {

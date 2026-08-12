@@ -71,6 +71,7 @@ import {
   projectThreadDetailSnapshot,
 } from "./orchestration/ActivityPayloadProjection.ts";
 import { normalizeDispatchCommand } from "./orchestration/Normalizer.ts";
+import * as ToolchainService from "./toolchain/ToolchainService.ts";
 import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
 import * as ProjectionSnapshotQuery from "./orchestration/Services/ProjectionSnapshotQuery.ts";
 import {
@@ -2043,6 +2044,24 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.terminalClose, terminalManager.close(input), {
             "rpc.aggregate": "terminal",
           }),
+        [WS_METHODS.toolchainInstallPlatformio]: (_input) =>
+          observeRpcStream(
+            WS_METHODS.toolchainInstallPlatformio,
+            ToolchainService.installToolchainPlatformio(),
+            { "rpc.aggregate": "toolchain" },
+          ),
+        [WS_METHODS.toolchainInstallArduino]: (_input) =>
+          observeRpcStream(
+            WS_METHODS.toolchainInstallArduino,
+            ToolchainService.installToolchainArduino(),
+            { "rpc.aggregate": "toolchain" },
+          ),
+        [WS_METHODS.toolchainGetStatus]: (_input) =>
+          observeRpcEffect(
+            WS_METHODS.toolchainGetStatus,
+            ToolchainService.getToolchainStatus(),
+            { "rpc.aggregate": "toolchain" },
+          ),
         [WS_METHODS.subscribeTerminalEvents]: (_input) =>
           observeRpcStream(
             WS_METHODS.subscribeTerminalEvents,
