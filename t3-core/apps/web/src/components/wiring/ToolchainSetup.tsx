@@ -299,7 +299,9 @@ export function ToolchainSetupDialog() {
               {snap.platformioInstalled ? (
                 <span className="flex items-center gap-1 rounded-full border border-emerald-800/50 bg-emerald-950/40 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
                   <Check className="size-3" />
-                  INSTALLED
+                  {snap.platformioVersion
+                    ? snap.platformioVersion.replace(/^PlatformIO\s*/i, "")
+                    : "INSTALLED"}
                 </span>
               ) : (
                 <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-xs font-bold tracking-wide text-primary">
@@ -379,7 +381,9 @@ export function ToolchainSetupDialog() {
               {snap.arduinoInstalled && (
                 <span className="flex items-center gap-1 rounded-full border border-emerald-800/50 bg-emerald-950/40 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
                   <Check className="size-3" />
-                  INSTALLED
+                  {snap.arduinoVersion
+                    ? snap.arduinoVersion.replace(/^Arduino CLI\s*/i, "")
+                    : "INSTALLED"}
                 </span>
               )}
             </div>
