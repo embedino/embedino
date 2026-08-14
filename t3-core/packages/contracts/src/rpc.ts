@@ -71,6 +71,7 @@ import {
   PullRequestActionInput,
   PullRequestActivity,
   PullRequestCommentInput,
+  PullRequestCommentUpdateInput,
   PullRequestDetail,
   PullRequestDiffFileContentsInput,
   PullRequestDiffFileContentsResult,
@@ -80,6 +81,7 @@ import {
   PullRequestListStatsInput,
   PullRequestListStatsResult,
   PullRequestOperationError,
+  PullRequestReactionInput,
   PullRequestRef,
   PullRequestReviewerCandidateList,
   PullRequestReviewerRequestInput,
@@ -87,6 +89,7 @@ import {
   PullRequestThreadReplyInput,
   PullRequestThreadResolutionInput,
   PullRequestUnavailableError,
+  PullRequestUpdateInput,
 } from "./pullRequest.ts";
 import {
   RelayClientInstallFailedError,
@@ -126,6 +129,7 @@ import {
 } from "./terminal.ts";
 import {
   DiscoveredLocalServerList,
+  ConfiguredLocalServerUrls,
   PreviewCloseInput,
   PreviewError,
   PreviewEvent,
@@ -253,11 +257,6 @@ export const WS_METHODS = {
   // Server meta
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
-
-  // Toolchain
-  toolchainInstallPlatformio: "toolchain.installPlatformio",
-  toolchainInstallArduino: "toolchain.installArduino",
-  toolchainGetStatus: "toolchain.getStatus",
   serverRefreshProviders: "server.refreshProviders",
   serverUpdateProvider: "server.updateProvider",
   serverUpdateServer: "server.updateServer",
@@ -282,6 +281,11 @@ export const WS_METHODS = {
   cloudGetRelayClientStatus: "cloud.getRelayClientStatus",
   cloudInstallRelayClient: "cloud.installRelayClient",
 
+  // Toolchain methods
+  toolchainInstallPlatformio: "toolchain.installPlatformio",
+  toolchainInstallArduino: "toolchain.installArduino",
+  toolchainGetStatus: "toolchain.getStatus",
+
   // Pull request methods
   pullRequestsList: "pullRequests.list",
   pullRequestsListStats: "pullRequests.listStats",
@@ -289,10 +293,13 @@ export const WS_METHODS = {
   pullRequestsActivity: "pullRequests.activity",
   pullRequestsDiffFileContents: "pullRequests.diffFileContents",
   pullRequestsRunAction: "pullRequests.runAction",
+  pullRequestsUpdate: "pullRequests.update",
   pullRequestsComment: "pullRequests.comment",
+  pullRequestsUpdateComment: "pullRequests.updateComment",
   pullRequestsSubmitReview: "pullRequests.submitReview",
   pullRequestsReplyToThread: "pullRequests.replyToThread",
   pullRequestsSetThreadResolution: "pullRequests.setThreadResolution",
+  pullRequestsSetReaction: "pullRequests.setReaction",
   pullRequestsInvalidate: "pullRequests.invalidate",
   pullRequestsReviewerCandidates: "pullRequests.reviewerCandidates",
   pullRequestsRequestReviewers: "pullRequests.requestReviewers",
@@ -517,8 +524,20 @@ export const WsPullRequestsRunActionRpc = Rpc.make(WS_METHODS.pullRequestsRunAct
   error: PullRequestRpcError,
 });
 
+export const WsPullRequestsUpdateRpc = Rpc.make(WS_METHODS.pullRequestsUpdate, {
+  payload: PullRequestUpdateInput,
+  success: Schema.Void,
+  error: PullRequestRpcError,
+});
+
 export const WsPullRequestsCommentRpc = Rpc.make(WS_METHODS.pullRequestsComment, {
   payload: PullRequestCommentInput,
+  success: Schema.Void,
+  error: PullRequestRpcError,
+});
+
+export const WsPullRequestsUpdateCommentRpc = Rpc.make(WS_METHODS.pullRequestsUpdateComment, {
+  payload: PullRequestCommentUpdateInput,
   success: Schema.Void,
   error: PullRequestRpcError,
 });
@@ -543,6 +562,12 @@ export const WsPullRequestsSetThreadResolutionRpc = Rpc.make(
     error: PullRequestRpcError,
   },
 );
+
+export const WsPullRequestsSetReactionRpc = Rpc.make(WS_METHODS.pullRequestsSetReaction, {
+  payload: PullRequestReactionInput,
+  success: Schema.Void,
+  error: PullRequestRpcError,
+});
 
 export const WsPullRequestsInvalidateRpc = Rpc.make(WS_METHODS.pullRequestsInvalidate, {
   payload: PullRequestInvalidateInput,
@@ -835,7 +860,9 @@ export const WsSubscribePreviewEventsRpc = Rpc.make(WS_METHODS.subscribePreviewE
 export const WsSubscribeDiscoveredLocalServersRpc = Rpc.make(
   WS_METHODS.subscribeDiscoveredLocalServers,
   {
-    payload: Schema.Struct({}),
+    payload: Schema.Struct({
+      configuredUrls: Schema.optional(ConfiguredLocalServerUrls),
+    }),
     success: DiscoveredLocalServerList,
     error: EnvironmentAuthorizationError,
     stream: true,
@@ -907,26 +934,6 @@ export const WsOrchestrationSubscribeThreadRpc = Rpc.make(
   },
 );
 
-export const WsToolchainInstallPlatformioRpc = Rpc.make(WS_METHODS.toolchainInstallPlatformio, {
-  payload: Schema.Struct({}),
-  success: ToolchainInstallProgressEvent,
-  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
-  stream: true,
-});
-
-export const WsToolchainInstallArduinoRpc = Rpc.make(WS_METHODS.toolchainInstallArduino, {
-  payload: Schema.Struct({}),
-  success: ToolchainInstallProgressEvent,
-  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
-  stream: true,
-});
-
-export const WsToolchainGetStatusRpc = Rpc.make(WS_METHODS.toolchainGetStatus, {
-  payload: Schema.Struct({}),
-  success: ToolchainStatus,
-  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
-});
-
 export const WsSubscribeTerminalEventsRpc = Rpc.make(WS_METHODS.subscribeTerminalEvents, {
   payload: Schema.Struct({}),
   success: TerminalEvent,
@@ -976,6 +983,26 @@ export const WsSubscribeResourceTelemetryRpc = Rpc.make(WS_METHODS.subscribeReso
   stream: true,
 });
 
+export const WsToolchainInstallPlatformioRpc = Rpc.make(WS_METHODS.toolchainInstallPlatformio, {
+  payload: Schema.Struct({}),
+  success: ToolchainInstallProgressEvent,
+  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+export const WsToolchainInstallArduinoRpc = Rpc.make(WS_METHODS.toolchainInstallArduino, {
+  payload: Schema.Struct({}),
+  success: ToolchainInstallProgressEvent,
+  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+export const WsToolchainGetStatusRpc = Rpc.make(WS_METHODS.toolchainGetStatus, {
+  payload: Schema.Struct({}),
+  success: ToolchainStatus,
+  error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+});
+
 export const WsRpcGroup = RpcGroup.make(
   WsServerProbeRpc,
   WsServerGetConfigRpc,
@@ -1006,10 +1033,13 @@ export const WsRpcGroup = RpcGroup.make(
   WsPullRequestsActivityRpc,
   WsPullRequestsDiffFileContentsRpc,
   WsPullRequestsRunActionRpc,
+  WsPullRequestsUpdateRpc,
   WsPullRequestsCommentRpc,
+  WsPullRequestsUpdateCommentRpc,
   WsPullRequestsSubmitReviewRpc,
   WsPullRequestsReplyToThreadRpc,
   WsPullRequestsSetThreadResolutionRpc,
+  WsPullRequestsSetReactionRpc,
   WsPullRequestsInvalidateRpc,
   WsPullRequestsReviewerCandidatesRpc,
   WsPullRequestsRequestReviewersRpc,

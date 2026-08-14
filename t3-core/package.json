@@ -63,5 +63,5 @@
       "apps/web/public"
     ]
   },
-  "_t3UpstreamVersion": "v10.15.0-beta.2 (Tracked to ensure we don't drift from T3 core)"
+  "_t3UpstreamVersion": "commit 038560e (Upstream main synced on 2026-08-14)"
 }

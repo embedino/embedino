@@ -1942,7 +1942,13 @@ const ExecutionEnvironmentCapabilities = effect_Schema.Struct({
 	serverSelfUpdate: effect_Schema.optionalKey(ServerSelfUpdateCapability),
 	/** Server can stream self-update progress before acknowledging the
 	restart. Clients fall back to server.updateServer when absent. */
-	serverSelfUpdateProgress: effect_Schema.optionalKey(effect_Schema.Boolean)
+	serverSelfUpdateProgress: effect_Schema.optionalKey(effect_Schema.Boolean),
+	/** Agent-activity publishes (push notifications and Live Activities)
+	currently leave this environment: the publish opt-in is enabled and the
+	relay link credentials exist. Clients skip seeding a Live Activity when
+	this is false — no update would ever repaint it. Absent on older
+	servers, which may still publish, so only an explicit false skips. */
+	agentActivityPublishing: effect_Schema.optionalKey(effect_Schema.Boolean)
 });
 const ExecutionEnvironmentDescriptor = effect_Schema.Struct({
 	environmentId: EnvironmentId,
@@ -3447,6 +3453,7 @@ effect_Schema.Struct({
 const VcsProcessExitFailureKind = effect_Schema.Literals([
 	"authentication",
 	"not-found",
+	"rate-limited",
 	"command-failed"
 ]);
 var VcsProcessSpawnError = class VcsProcessSpawnError extends effect_Schema.TaggedErrorClass()("VcsProcessSpawnError", {
@@ -3481,7 +3488,7 @@ var VcsProcessExitError = class VcsProcessExitError extends effect_Schema.Tagged
 		return `VCS process failed in ${this.operation}: ${this.command} (${this.cwd}) exited with ${this.exitCode} - ${this.detail}`;
 	}
 	static fromProcessExit(context, error, failureKind) {
-		const detail = failureKind === "authentication" ? "Authentication failed." : failureKind === "not-found" ? context.command === "glab" ? "Merge request not found." : context.command === "gh" || context.command === "az" ? "Pull request not found." : "VCS resource not found." : "Process exited with a non-zero status.";
+		const detail = failureKind === "authentication" ? "Authentication failed." : failureKind === "rate-limited" ? "API rate limit exceeded." : failureKind === "not-found" ? context.command === "glab" ? "Merge request not found." : context.command === "gh" || context.command === "az" ? "Pull request not found." : "VCS resource not found." : "Process exited with a non-zero status.";
 		return new VcsProcessExitError({
 			...context,
 			exitCode: error.exitCode,
@@ -3752,6 +3759,49 @@ const PullRequestListState = effect_Schema.Literals([
 	"closed",
 	"merged"
 ]);
+/** Where a review stands overall, as a host that summarises its reviews reports it. */
+const PullRequestReviewDecision = effect_Schema.Literals([
+	"approved",
+	"changes-requested",
+	"review-required"
+]);
+/** One qualifier's value, bounded because it is written into a host's own search query. */
+const PullRequestQualifierValue = TrimmedNonEmptyString.check(effect_Schema.isMaxLength(200));
+const PullRequestQualifierValues = effect_Schema.Array(PullRequestQualifierValue).check(effect_Schema.isMaxLength(10));
+/**
+* Narrowings beyond state and involvement, each absent by default — an absent field filters
+* nothing, which is what every listing did before there were any. Optional as a whole so a page
+* and a server of different ages still speak to each other.
+*
+* `checks` is host-side only: no row carries its own check state, so a host that cannot match it
+* answers unnarrowed rather than the page pretending to know.
+*/
+const PullRequestListFilters = effect_Schema.Struct({
+	draft: effect_Schema.optional(effect_Schema.Literals(["only", "hide"])),
+	review: effect_Schema.optional(effect_Schema.Literals([
+		"approved",
+		"changes-requested",
+		"review-required",
+		"none"
+	])),
+	checks: effect_Schema.optional(effect_Schema.Literals(["passing", "failing"])),
+	/**
+	* Labels as GitHub's own search reads them: each group is one `label:` qualifier, a row must
+	* satisfy every group, and a group holding several names is satisfied by any one of them —
+	* `label:size:S,size:XS` finds either size. Typed rather than picked, since a project's labels
+	* are its own and no menu can list them. Bounded because each becomes a host search qualifier.
+	*/
+	labels: effect_Schema.optional(effect_Schema.Array(PullRequestQualifierValues).check(effect_Schema.isMaxLength(10))),
+	excludedLabels: effect_Schema.optional(PullRequestQualifierValues),
+	/** One login, as `author:` names it. */
+	author: effect_Schema.optional(PullRequestQualifierValue)
+});
+/** The one-glyph summary of a change request's checks, as its list row wears it. */
+const PullRequestChecksState = effect_Schema.Literals([
+	"passing",
+	"failing",
+	"pending"
+]);
 const PullRequestMergeability = effect_Schema.Literals([
 	"mergeable",
 	"conflicting",
@@ -3767,7 +3817,29 @@ const PullRequestAction = effect_Schema.Literals([
 	"ready",
 	"draft",
 	"close",
-	"reopen"
+	"reopen",
+	"update-branch",
+	"enable-auto-merge",
+	"disable-auto-merge"
+]);
+/**
+* How a stale branch catches up with its base: a merge commit, or a rebase onto it. The two are
+* the host's own choices, not this page's — GitHub offers both and refuses a rebase it cannot
+* replay, so what is offered comes from the host and what is allowed comes from the viewer.
+*/
+const PullRequestUpdateMethod = effect_Schema.Literals(["merge", "rebase"]);
+/**
+* Where the branch stands against the base it would merge into. Separate from `mergeability`,
+* which answers a different question: a branch can be behind and still merge cleanly, and that
+* pairing — out of date, no conflicts — is the one an update button exists for.
+*
+* "unknown" where the host was not asked or could not say, which is every host but GitHub and
+* every pull request whose head repository could not be compared.
+*/
+const PullRequestBaseComparison = effect_Schema.Literals([
+	"up-to-date",
+	"behind",
+	"unknown"
 ]);
 const PullRequestActor = effect_Schema.Struct({
 	login: TrimmedNonEmptyString,
@@ -3793,6 +3865,35 @@ const PullRequestCheck = effect_Schema.Struct({
 	description: effect_Schema.NullOr(effect_Schema.String),
 	url: effect_Schema.NullOr(effect_Schema.String)
 });
+/**
+* The reactions a remark can carry. GitHub's eight, which is also what the picker offers: GitLab
+* accepts any emoji as an award, and the ones outside this set are read as nothing rather than
+* shown under a name no other host would recognise.
+*/
+const PullRequestReactionContent = effect_Schema.Literals([
+	"thumbs-up",
+	"thumbs-down",
+	"laugh",
+	"hooray",
+	"confused",
+	"heart",
+	"rocket",
+	"eyes"
+]);
+/** One reaction and everyone behind it, which is what the hover on a reaction pill says. */
+const PullRequestReaction = effect_Schema.Struct({
+	content: PullRequestReactionContent,
+	count: PositiveInt,
+	/**
+	* Who reacted, as far as the host named them. A host that reports fewer names than it counts
+	* leaves the rest out, so this is never longer than `count` and may be shorter. When
+	* `viewerHasReacted` is true, the viewer's own login is left out of this list — the page names
+	* them "You" instead — but `count` still counts them along with everyone else.
+	*/
+	actors: effect_Schema.Array(TrimmedNonEmptyString),
+	/** The signed-in account is one of them, so pressing the pill takes the reaction back. */
+	viewerHasReacted: effect_Schema.Boolean
+});
 const PullRequestCommentKind = effect_Schema.Literals([
 	"issue-comment",
 	"review-comment",
@@ -3806,7 +3907,9 @@ const PullRequestComment = effect_Schema.Struct({
 	createdAt: IsoDateTime,
 	url: effect_Schema.NullOr(effect_Schema.String),
 	path: effect_Schema.NullOr(effect_Schema.String),
-	reviewState: effect_Schema.NullOr(effect_Schema.String)
+	reviewState: effect_Schema.NullOr(effect_Schema.String),
+	/** Absent from a host with no reactions at all, which is a different thing from none on this. */
+	reactions: effect_Schema.optional(effect_Schema.Array(PullRequestReaction))
 });
 /**
 * Which file a diff line belongs to: `left` is the version before the change, `right` the
@@ -3825,7 +3928,8 @@ const PullRequestThreadComment = effect_Schema.Struct({
 	author: effect_Schema.NullOr(PullRequestActor),
 	body: effect_Schema.String,
 	createdAt: IsoDateTime,
-	url: effect_Schema.NullOr(effect_Schema.String)
+	url: effect_Schema.NullOr(effect_Schema.String),
+	reactions: effect_Schema.optional(effect_Schema.Array(PullRequestReaction))
 });
 /**
 * A conversation anchored to a line of the diff. The detail carries these alongside `comments`
@@ -3907,6 +4011,18 @@ const PullRequestReviewCapabilities = effect_Schema.Struct({
 	verdicts: effect_Schema.Array(PullRequestReviewVerdict)
 });
 /**
+* What a host lets be rewritten after it has been posted. The two are separate because a host can
+* take one without the other: Azure DevOps takes a new title and description through the same
+* command that closes a pull request, and has no way to post a remark here at all — so nothing it
+* shows in a conversation can be rewritten either.
+*/
+const PullRequestEditCapabilities = effect_Schema.Struct({
+	/** The change request's own title and description can be rewritten. */
+	changeRequest: effect_Schema.Boolean,
+	/** A remark can be rewritten by whoever wrote it. */
+	comment: effect_Schema.Boolean
+});
+/**
 * What a host can do about who reviews. The two are independent: a host can take a request without
 * publishing who may receive one, which is Azure DevOps.
 */
@@ -3938,13 +4054,32 @@ const PullRequestCapabilities = effect_Schema.Struct({
 	/** Merge strategies the provider itself offers, before repository settings narrow them. */
 	mergeMethods: effect_Schema.Array(PullRequestMergeMethod),
 	/**
+	* How this host can bring a stale branch up to date. Absent where it cannot at all, which is
+	* every host that has not said otherwise — so a provider that says nothing offers nothing.
+	*/
+	updateMethods: effect_Schema.optional(effect_Schema.Array(PullRequestUpdateMethod)),
+	/**
 	* The host can narrow a listing by free text. False means it answers unnarrowed and whoever
 	* asked has to do the narrowing — which is a different promise, so the page is told rather
 	* than left to show every change request on that host as a search result.
 	*/
 	search: effect_Schema.Boolean,
+	/**
+	* Reactions can be read from a remark, and added to one or taken back. One flag for both:
+	* neither host here reports reactions it will not also take, and a surface that could show a
+	* pill it may never press is a surface offering nothing. Optional for the same reason as
+	* `updateMethods` and `edit`: a server that says nothing about reactions has none, which is
+	* what every server before this field was.
+	*/
+	reactions: effect_Schema.optional(effect_Schema.Boolean),
 	review: PullRequestReviewCapabilities,
-	reviewers: PullRequestReviewerCapabilities
+	reviewers: PullRequestReviewerCapabilities,
+	/**
+	* What can be rewritten after the fact. Optional so a page and a server of different ages still
+	* speak to each other: a server that says nothing about rewriting is one that cannot, which is
+	* what every server before this one was.
+	*/
+	edit: effect_Schema.optional(PullRequestEditCapabilities)
 });
 /**
 * What the signed-in account may do with this change request, which is a different question from
@@ -3966,7 +4101,12 @@ const PullRequestViewerPermissions = effect_Schema.Struct({
 	/** The verdicts this viewer may submit a review with. Empty means they may not review. */
 	verdicts: effect_Schema.Array(PullRequestReviewVerdict),
 	/** This viewer may ask somebody for a review, and take the request back again. */
-	requestReviewers: effect_Schema.Boolean
+	requestReviewers: effect_Schema.Boolean,
+	/**
+	* The ways this viewer may bring the branch up to date, narrowed from what the host offers.
+	* Absent or empty means they may not, which is also what a host with no such action says.
+	*/
+	updateMethods: effect_Schema.optional(effect_Schema.Array(PullRequestUpdateMethod))
 });
 const PullRequestMergeCapabilities = effect_Schema.Struct({
 	merge: effect_Schema.Boolean,
@@ -4003,7 +4143,11 @@ const PullRequestListEntry = effect_Schema.Struct({
 	createdAt: IsoDateTime,
 	updatedAt: IsoDateTime,
 	viewerReviewRequested: effect_Schema.Boolean,
-	labels: effect_Schema.Array(PullRequestLabel)
+	labels: effect_Schema.Array(PullRequestLabel),
+	/** Absent where the host does not summarise its reviews, which is every host but GitHub. */
+	reviewDecision: effect_Schema.optional(PullRequestReviewDecision),
+	/** Absent where the host reports no check rollup, or the change request has no checks. */
+	checksState: effect_Schema.optional(PullRequestChecksState)
 });
 /**
 * Where each repository a listing already reached carries on from, keyed `"<host> <repository>"`
@@ -4017,7 +4161,14 @@ const PullRequestListCursors = effect_Schema.Record(TrimmedNonEmptyString, Trimm
 const PullRequestListInput = effect_Schema.Struct({
 	state: PullRequestListState,
 	involvement: effect_Schema.optional(PullRequestInvolvement),
+	filters: effect_Schema.optional(PullRequestListFilters),
 	projectId: effect_Schema.optional(ProjectId),
+	/**
+	* Only these projects, for a client that assigns each shared repository to one of its
+	* connections and asks the others to stay quiet about it. Absent means every project, which
+	* is what every listing asked for before there were several connections to spread across.
+	*/
+	projectIds: effect_Schema.optional(effect_Schema.Array(ProjectId).check(effect_Schema.isMaxLength(100))),
 	/**
 	* Narrows the listing to one host, named as the host itself rather than as its provider kind:
 	* github.com and a GitHub Enterprise install are two accounts, and a kind cannot tell them
@@ -4170,7 +4321,28 @@ const PullRequestDetail = effect_Schema.Struct({
 	reviewers: effect_Schema.Array(PullRequestActor),
 	labels: effect_Schema.Array(PullRequestLabel),
 	checks: effect_Schema.Array(PullRequestCheck),
-	mergeCapabilities: PullRequestMergeCapabilities
+	mergeCapabilities: PullRequestMergeCapabilities,
+	/**
+	* Who the host says the reader is, which is the one thing a conversation cannot be read without
+	* to tell the reader's own remarks from everybody else's — and rewriting a remark is offered
+	* only where the two names agree. Absent where the host could not say, which offers nothing
+	* rather than everything.
+	*/
+	viewer: effect_Schema.optional(TrimmedNonEmptyString),
+	/**
+	* Where the branch stands against its base. Optional so a host that cannot compare says
+	* nothing rather than claiming the branch is current — the page shows a banner only where the
+	* answer is "behind", and silence is not that answer.
+	*/
+	baseComparison: effect_Schema.optional(PullRequestBaseComparison),
+	/** How many commits the base is ahead by, where the host counted them. */
+	behindBy: effect_Schema.optional(NonNegativeInt),
+	/**
+	* Whether the host is already armed to merge this on its own. Absent where the host does not
+	* report it, which is not the same as off: a page that reads silence as "not armed" offers to
+	* arm something that is already armed, and a second arming is a write nobody asked for.
+	*/
+	autoMergeEnabled: effect_Schema.optional(effect_Schema.Boolean)
 });
 /**
 * The slower, conversation-shaped half of a change request. It is read independently from the
@@ -4196,7 +4368,12 @@ const PullRequestActivity = effect_Schema.Struct({
 	*/
 	commentsTruncated: effect_Schema.Boolean,
 	reviewThreads: effect_Schema.Array(PullRequestReviewThread),
-	commits: effect_Schema.Array(PullRequestCommit)
+	commits: effect_Schema.Array(PullRequestCommit),
+	/**
+	* The change request's own reactions — the ones on its description, which every host counts
+	* against the change request itself rather than against a remark in the conversation.
+	*/
+	reactions: effect_Schema.optional(effect_Schema.Array(PullRequestReaction))
 });
 effect_Schema.Struct({
 	...PullRequestDetail.fields,
@@ -4223,6 +4400,12 @@ const PullRequestDiffInput = effect_Schema.Struct({
 	*/
 	commit: effect_Schema.optional(TrimmedNonEmptyString)
 });
+/** Real line counts for a file whose hunks the host withheld from the patch. */
+const PullRequestOmittedFileStat = effect_Schema.Struct({
+	path: TrimmedNonEmptyString,
+	additions: effect_Schema.Number,
+	deletions: effect_Schema.Number
+});
 const PullRequestDiffResult = effect_Schema.Struct({
 	patch: effect_Schema.String,
 	/**
@@ -4231,7 +4414,12 @@ const PullRequestDiffResult = effect_Schema.Struct({
 	*/
 	truncated: effect_Schema.Boolean,
 	/** Where the next slice starts, or null once the diff is whole. */
-	nextCursor: effect_Schema.NullOr(TrimmedNonEmptyString)
+	nextCursor: effect_Schema.NullOr(TrimmedNonEmptyString),
+	/**
+	* The host's own counts for the files whose hunks it withheld, so a file the patch cannot
+	* show still reports what changed instead of a zero the diff never had.
+	*/
+	omittedFileStats: effect_Schema.optional(effect_Schema.Array(PullRequestOmittedFileStat))
 });
 /** The complete old and new files Pierre needs to open omitted context in a host-backed patch. */
 const PullRequestDiffFileContentsInput = effect_Schema.Struct({
@@ -4255,11 +4443,48 @@ const PullRequestDiffFileContentsResult = effect_Schema.Struct({
 const PullRequestActionInput = effect_Schema.Struct({
 	...PullRequestRef.fields,
 	action: PullRequestAction,
-	mergeMethod: effect_Schema.optional(PullRequestMergeMethod)
+	/**
+	* Which strategy the merge uses, read for `merge` and for `enable-auto-merge` alike — a merge
+	* the host performs later is still a merge, and the strategy is chosen when it is armed rather
+	* than at the moment it happens. Absent means the host's own default.
+	*/
+	mergeMethod: effect_Schema.optional(PullRequestMergeMethod),
+	/** Only read for `update-branch`, where absent means the host's own default. */
+	updateMethod: effect_Schema.optional(PullRequestUpdateMethod)
 });
 const CommentBody = effect_Schema.String.check(effect_Schema.isNonEmpty()).check(effect_Schema.isMaxLength(65536));
 const PullRequestCommentInput = effect_Schema.Struct({
 	...PullRequestRef.fields,
+	body: CommentBody
+});
+/**
+* A change request's own words rewritten: its title, its description, or both. Each is optional
+* because the page rewrites them apart — a title corrected on its own must not carry a description
+* nobody opened — and the service refuses a request that carries neither.
+*
+* The title is bounded far past what any host takes, GitHub refusing one past 256 characters, so
+* an oversized one is turned away before it reaches a subprocess. The body is not trimmed for the
+* same reason a comment is not: it is markdown, where leading spaces open a code block. An empty
+* one is allowed, which is how a description is cleared.
+*/
+const PullRequestUpdateInput = effect_Schema.Struct({
+	...PullRequestRef.fields,
+	title: effect_Schema.optional(TrimmedNonEmptyString.check(effect_Schema.isMaxLength(1024))),
+	body: effect_Schema.optional(effect_Schema.String.check(effect_Schema.isMaxLength(65536)))
+});
+/**
+* A remark already posted, rewritten by whoever wrote it. The kind travels beside the id because
+* an id alone does not say which endpoint addresses it: GitHub rewrites a comment on the
+* conversation and a comment on a line through two different mutations.
+*
+* A review's own summary is not among them. The hosts disagree about what one even is — the entry
+* Bitbucket shows is a vote this page renders as a remark, with no words behind it to rewrite —
+* and a control that worked on one host and failed on another is worse than one that is not there.
+*/
+const PullRequestCommentUpdateInput = effect_Schema.Struct({
+	...PullRequestRef.fields,
+	commentId: TrimmedNonEmptyString,
+	kind: effect_Schema.Literals(["issue-comment", "review-comment"]),
 	body: CommentBody
 });
 /** One remark in a review that has not been sent yet, anchored to a line of the diff. */
@@ -4296,6 +4521,21 @@ const PullRequestThreadResolutionInput = effect_Schema.Struct({
 	...PullRequestRef.fields,
 	threadId: TrimmedNonEmptyString,
 	resolved: effect_Schema.Boolean
+});
+/**
+* Reacting and taking the reaction back are one operation with `reacted` turned around, which is
+* what pressing the same pill twice is.
+*/
+const PullRequestReactionInput = effect_Schema.Struct({
+	...PullRequestRef.fields,
+	/**
+	* Which remark to react to, as it arrived in the conversation. Absent reacts to the change
+	* request itself, which is where its description's reactions live — the id a host uses for
+	* that is its own to work out.
+	*/
+	subjectId: effect_Schema.optional(TrimmedNonEmptyString),
+	content: PullRequestReactionContent,
+	reacted: effect_Schema.Boolean
 });
 /**
 * Asking for a review and taking the request back are one operation with `requested` turned
@@ -5026,6 +5266,9 @@ var EnvironmentRequestInvalidError = class EnvironmentRequestInvalidError extend
 	[effect_unstable_http_HttpServerRespondable.symbol]() {
 		return effect_unstable_http_HttpServerResponse.schemaJson(EnvironmentRequestInvalidError)(this, { status: 400 });
 	}
+	get message() {
+		return `The environment rejected the request (${this.reason}).`;
+	}
 };
 var EnvironmentAuthInvalidError = class EnvironmentAuthInvalidError extends effect_Schema.TaggedErrorClass()("EnvironmentAuthInvalidError", {
 	code: effect_Schema.Literal("auth_invalid"),
@@ -5034,6 +5277,9 @@ var EnvironmentAuthInvalidError = class EnvironmentAuthInvalidError extends effe
 }, { httpApiStatus: 401 }) {
 	[effect_unstable_http_HttpServerRespondable.symbol]() {
 		return effect_unstable_http_HttpServerResponse.schemaJson(EnvironmentAuthInvalidError)(this, { status: 401 });
+	}
+	get message() {
+		return `The environment rejected this client's credentials (${this.reason}).`;
 	}
 };
 var EnvironmentScopeRequiredError = class EnvironmentScopeRequiredError extends effect_Schema.TaggedErrorClass()("EnvironmentScopeRequiredError", {
@@ -5044,6 +5290,9 @@ var EnvironmentScopeRequiredError = class EnvironmentScopeRequiredError extends 
 	[effect_unstable_http_HttpServerRespondable.symbol]() {
 		return effect_unstable_http_HttpServerResponse.schemaJson(EnvironmentScopeRequiredError)(this, { status: 403 });
 	}
+	get message() {
+		return `This request needs the ${this.requiredScope} scope, which this client does not have.`;
+	}
 };
 var EnvironmentOperationForbiddenError = class EnvironmentOperationForbiddenError extends effect_Schema.TaggedErrorClass()("EnvironmentOperationForbiddenError", {
 	code: effect_Schema.Literal("operation_forbidden"),
@@ -5052,6 +5301,9 @@ var EnvironmentOperationForbiddenError = class EnvironmentOperationForbiddenErro
 }, { httpApiStatus: 403 }) {
 	[effect_unstable_http_HttpServerRespondable.symbol]() {
 		return effect_unstable_http_HttpServerResponse.schemaJson(EnvironmentOperationForbiddenError)(this, { status: 403 });
+	}
+	get message() {
+		return `The environment refused this operation (${this.reason}).`;
 	}
 };
 var EnvironmentInternalError = class EnvironmentInternalError extends effect_Schema.TaggedErrorClass()("EnvironmentInternalError", {
@@ -5062,6 +5314,9 @@ var EnvironmentInternalError = class EnvironmentInternalError extends effect_Sch
 	[effect_unstable_http_HttpServerRespondable.symbol]() {
 		return effect_unstable_http_HttpServerResponse.schemaJson(EnvironmentInternalError)(this, { status: 500 });
 	}
+	get message() {
+		return `The environment failed to answer this request (${this.reason}).`;
+	}
 };
 const EnvironmentResourceNotFoundReason = effect_Schema.Literals(["thread_not_found"]);
 var EnvironmentResourceNotFoundError = class EnvironmentResourceNotFoundError extends effect_Schema.TaggedErrorClass()("EnvironmentResourceNotFoundError", {
@@ -5071,6 +5326,9 @@ var EnvironmentResourceNotFoundError = class EnvironmentResourceNotFoundError ex
 }, { httpApiStatus: 404 }) {
 	[effect_unstable_http_HttpServerRespondable.symbol]() {
 		return effect_unstable_http_HttpServerResponse.schemaJson(EnvironmentResourceNotFoundError)(this, { status: 404 });
+	}
+	get message() {
+		return `The environment could not find what this request named (${this.reason}).`;
 	}
 };
 const EnvironmentHttpCommonError = effect_Schema.Union([
@@ -5410,19 +5668,8 @@ const AdvertisedEndpoint = effect_Schema.Struct({
 	isDefault: effect_Schema.optional(effect_Schema.Boolean),
 	description: effect_Schema.optional(TrimmedNonEmptyString)
 });
-//#endregion
-//#region ../../packages/contracts/src/preview.ts
-/**
-* Preview - Schemas for the in-app browser preview surface.
-*
-* The preview is desktop-only (Chromium <webview>); the server tracks per-thread
-* tab metadata so it survives client reconnects and multi-window. The desktop
-* renderer mediates: it owns the actual <webview> and reports navigation back to
-* the server via these RPCs, the server fans events to all subscribers.
-*
-* @module Preview
-*/
 const Url = TrimmedNonEmptyString.check(effect.Schema.isMaxLength(2048));
+const ConfiguredLocalServerUrls = effect.Schema.Array(Url).check(effect.Schema.isMaxLength(32));
 const Title = effect.Schema.String.check(effect.Schema.isMaxLength(512));
 const PreviewTabId = TrimmedNonEmptyString.check(effect.Schema.isMaxLength(128));
 const PREVIEW_VIEWPORT_MAX_DIMENSION = 3840;
@@ -5615,7 +5862,8 @@ const DiscoveredLocalServer = effect.Schema.Struct({
 });
 const DiscoveredLocalServerList = effect.Schema.Struct({
 	servers: effect.Schema.Array(DiscoveredLocalServer),
-	scannedAt: effect.Schema.String
+	scannedAt: effect.Schema.String,
+	configuredUrlProbing: effect.Schema.optional(effect.Schema.Literal(true))
 });
 var PreviewSessionLookupError = class extends effect.Schema.TaggedErrorClass()("PreviewSessionLookupError", {
 	threadId: effect.Schema.String,
@@ -6301,6 +6549,11 @@ const DesktopPreviewColorSchemeSchema = effect_Schema.Literals([
 	"light",
 	"dark"
 ]);
+const DesktopPreviewFaviconSchema = effect_Schema.Struct({
+	dataUrl: effect_Schema.String.check(effect_Schema.isMaxLength(8192), effect_Schema.isPattern(/^data:image\/png;base64,[a-z0-9+/]+={0,2}$/i)),
+	pageUrl: effect_Schema.String.check(effect_Schema.isMaxLength(2048)),
+	capturedAt: effect_Schema.Number.check(effect_Schema.isFinite(), effect_Schema.isGreaterThanOrEqualTo(0), effect_Schema.isLessThanOrEqualTo(864e13))
+});
 const DesktopPreviewTabIdSchema = effect_Schema.String.check(effect_Schema.isTrimmed()).check(effect_Schema.isNonEmpty());
 const DesktopPreviewNavStatusSchema = effect_Schema.Union([
 	effect_Schema.Struct({ kind: effect_Schema.Literal("Idle") }),
@@ -6336,6 +6589,7 @@ effect_Schema.Struct({
 		"agent",
 		"none"
 	]),
+	favicon: effect_Schema.optionalKey(DesktopPreviewFaviconSchema),
 	updatedAt: effect_Schema.String
 });
 effect_Schema.Struct({
@@ -8101,6 +8355,7 @@ const ClientSettingsSchema = effect_Schema.Struct({
 	planModeEnabled: effect_Schema.Boolean.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(false))),
 	legacySidebarEnabled: effect_Schema.Boolean.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(false))),
 	sidebarAutoSettleAfterDays: effect_Schema.NullOr(SidebarAutoSettleAfterDays).pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(3))),
+	sidebarAutoSettleOnMerge: effect_Schema.Boolean.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(true))),
 	sidebarProjectGroupingMode: SidebarProjectGroupingMode.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(DEFAULT_SIDEBAR_PROJECT_GROUPING_MODE))),
 	sidebarProjectGroupingOverrides: effect_Schema.Record(TrimmedNonEmptyString, SidebarProjectGroupingMode).pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed({}))),
 	sidebarProjectSortOrder: SidebarProjectSortOrder.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(DEFAULT_SIDEBAR_PROJECT_SORT_ORDER))),
@@ -8454,6 +8709,7 @@ effect_Schema.Struct({
 	planModeEnabled: effect_Schema.optionalKey(effect_Schema.Boolean),
 	legacySidebarEnabled: effect_Schema.optionalKey(effect_Schema.Boolean),
 	sidebarAutoSettleAfterDays: effect_Schema.optionalKey(effect_Schema.NullOr(SidebarAutoSettleAfterDays)),
+	sidebarAutoSettleOnMerge: effect_Schema.optionalKey(effect_Schema.Boolean),
 	sidebarProjectGroupingMode: effect_Schema.optionalKey(SidebarProjectGroupingMode),
 	sidebarProjectGroupingOverrides: effect_Schema.optionalKey(effect_Schema.Record(TrimmedNonEmptyString, SidebarProjectGroupingMode)),
 	sidebarProjectSortOrder: effect_Schema.optionalKey(SidebarProjectSortOrder),
@@ -10187,6 +10443,24 @@ var UsageReadError = class extends effect_Schema.TaggedErrorClass()("UsageReadEr
 	}
 };
 //#endregion
+//#region ../../packages/contracts/src/toolchain.ts
+const ToolchainInstallProgressEvent = effect_Schema.Struct({
+	type: effect_Schema.Literal("progress"),
+	progress: effect_Schema.Number,
+	stdout: effect_Schema.optional(effect_Schema.String),
+	stderr: effect_Schema.optional(effect_Schema.String)
+});
+var ToolchainInstallError = class extends effect_Schema.TaggedErrorClass()("ToolchainInstallError", {
+	message: effect_Schema.String,
+	details: effect_Schema.optional(effect_Schema.String)
+}) {};
+const ToolchainStatus = effect_Schema.Struct({
+	platformioInstalled: effect_Schema.Boolean,
+	platformioVersion: effect_Schema.NullOr(effect_Schema.String),
+	arduinoInstalled: effect_Schema.Boolean,
+	arduinoVersion: effect_Schema.NullOr(effect_Schema.String)
+});
+//#endregion
 //#region ../../packages/contracts/src/rpc.ts
 const WS_METHODS = {
 	projectsList: "projects.list",
@@ -10253,16 +10527,22 @@ const WS_METHODS = {
 	serverGetUsageSummary: "server.getUsageSummary",
 	cloudGetRelayClientStatus: "cloud.getRelayClientStatus",
 	cloudInstallRelayClient: "cloud.installRelayClient",
+	toolchainInstallPlatformio: "toolchain.installPlatformio",
+	toolchainInstallArduino: "toolchain.installArduino",
+	toolchainGetStatus: "toolchain.getStatus",
 	pullRequestsList: "pullRequests.list",
 	pullRequestsListStats: "pullRequests.listStats",
 	pullRequestsDetail: "pullRequests.detail",
 	pullRequestsActivity: "pullRequests.activity",
 	pullRequestsDiffFileContents: "pullRequests.diffFileContents",
 	pullRequestsRunAction: "pullRequests.runAction",
+	pullRequestsUpdate: "pullRequests.update",
 	pullRequestsComment: "pullRequests.comment",
+	pullRequestsUpdateComment: "pullRequests.updateComment",
 	pullRequestsSubmitReview: "pullRequests.submitReview",
 	pullRequestsReplyToThread: "pullRequests.replyToThread",
 	pullRequestsSetThreadResolution: "pullRequests.setThreadResolution",
+	pullRequestsSetReaction: "pullRequests.setReaction",
 	pullRequestsInvalidate: "pullRequests.invalidate",
 	pullRequestsReviewerCandidates: "pullRequests.reviewerCandidates",
 	pullRequestsRequestReviewers: "pullRequests.requestReviewers",
@@ -10446,8 +10726,18 @@ const WsPullRequestsRunActionRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.pullR
 	success: effect_Schema.Void,
 	error: PullRequestRpcError
 });
+const WsPullRequestsUpdateRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.pullRequestsUpdate, {
+	payload: PullRequestUpdateInput,
+	success: effect_Schema.Void,
+	error: PullRequestRpcError
+});
 const WsPullRequestsCommentRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.pullRequestsComment, {
 	payload: PullRequestCommentInput,
+	success: effect_Schema.Void,
+	error: PullRequestRpcError
+});
+const WsPullRequestsUpdateCommentRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.pullRequestsUpdateComment, {
+	payload: PullRequestCommentUpdateInput,
 	success: effect_Schema.Void,
 	error: PullRequestRpcError
 });
@@ -10463,6 +10753,11 @@ const WsPullRequestsReplyToThreadRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.p
 });
 const WsPullRequestsSetThreadResolutionRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.pullRequestsSetThreadResolution, {
 	payload: PullRequestThreadResolutionInput,
+	success: effect_Schema.Void,
+	error: PullRequestRpcError
+});
+const WsPullRequestsSetReactionRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.pullRequestsSetReaction, {
+	payload: PullRequestReactionInput,
 	success: effect_Schema.Void,
 	error: PullRequestRpcError
 });
@@ -10700,7 +10995,7 @@ const WsSubscribePreviewEventsRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.subs
 	stream: true
 });
 const WsSubscribeDiscoveredLocalServersRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.subscribeDiscoveredLocalServers, {
-	payload: effect_Schema.Struct({}),
+	payload: effect_Schema.Struct({ configuredUrls: effect_Schema.optional(ConfiguredLocalServerUrls) }),
 	success: DiscoveredLocalServerList,
 	error: EnvironmentAuthorizationError,
 	stream: true
@@ -10793,7 +11088,24 @@ const WsSubscribeResourceTelemetryRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.
 	error: EnvironmentAuthorizationError,
 	stream: true
 });
-const WsRpcGroup = effect_unstable_rpc_RpcGroup.make(WsServerProbeRpc, WsServerGetConfigRpc, WsServerRefreshProvidersRpc, WsServerUpdateProviderRpc, WsServerUpdateServerRpc, WsServerUpdateServerWithProgressRpc, WsServerUpsertKeybindingRpc, WsServerRemoveKeybindingRpc, WsServerGetSettingsRpc, WsServerUpdateSettingsRpc, WsServerDiscoverSourceControlRpc, WsServerGetTraceDiagnosticsRpc, WsServerGetProcessDiagnosticsRpc, WsServerGetProcessResourceHistoryRpc, WsServerGetResourceTelemetryHistoryRpc, WsServerRetryResourceTelemetryRpc, WsServerGetUsageSummaryRpc, WsServerSignalProcessRpc, WsServerReportClientActivityRpc, WsServerReportHostPowerStateRpc, WsServerGetBackgroundPolicyRpc, WsCloudGetRelayClientStatusRpc, WsCloudInstallRelayClientRpc, WsPullRequestsListRpc, WsPullRequestsListStatsRpc, WsPullRequestsDetailRpc, WsPullRequestsActivityRpc, WsPullRequestsDiffFileContentsRpc, WsPullRequestsRunActionRpc, WsPullRequestsCommentRpc, WsPullRequestsSubmitReviewRpc, WsPullRequestsReplyToThreadRpc, WsPullRequestsSetThreadResolutionRpc, WsPullRequestsInvalidateRpc, WsPullRequestsReviewerCandidatesRpc, WsPullRequestsRequestReviewersRpc, WsSourceControlLookupRepositoryRpc, WsSourceControlCloneRepositoryRpc, WsSourceControlPublishRepositoryRpc, WsProjectsListEntriesRpc, WsProjectsReadFileRpc, WsProjectsSearchContentsRpc, WsProjectsSearchEntriesRpc, WsProjectsWriteFileRpc, WsShellOpenInEditorRpc, WsFilesystemBrowseRpc, WsAssetsCreateUrlRpc, WsSubscribeVcsStatusRpc, WsVcsPullRpc, WsVcsRefreshStatusRpc, WsGitRunStackedActionRpc, WsGitResolvePullRequestRpc, WsGitPreparePullRequestThreadRpc, WsVcsListRefsRpc, WsVcsCreateWorktreeRpc, WsVcsRemoveWorktreeRpc, WsVcsCreateRefRpc, WsVcsSwitchRefRpc, WsVcsInitRpc, WsReviewGetDiffPreviewRpc, WsReviewGetDiffFileContentsRpc, WsTerminalOpenRpc, WsTerminalAttachRpc, WsTerminalWriteRpc, WsTerminalResizeRpc, WsTerminalClearRpc, WsTerminalRestartRpc, WsTerminalCloseRpc, WsSubscribeTerminalEventsRpc, WsSubscribeTerminalMetadataRpc, WsPreviewOpenRpc, WsPreviewNavigateRpc, WsPreviewResizeRpc, WsPreviewRefreshRpc, WsPreviewCloseRpc, WsPreviewListRpc, WsPreviewReportStatusRpc, WsPreviewAutomationConnectRpc, WsPreviewAutomationRespondRpc, WsPreviewAutomationFocusHostRpc, WsSubscribePreviewEventsRpc, WsSubscribeDiscoveredLocalServersRpc, WsSubscribeServerConfigRpc, WsSubscribeServerLifecycleRpc, WsSubscribeAuthAccessRpc, WsSubscribeBackgroundPolicyRpc, WsSubscribeResourceTelemetryRpc, WsOrchestrationDispatchCommandRpc, WsOrchestrationGetWorkflowScriptRpc, WsOrchestrationGetTurnDiffRpc, WsOrchestrationGetFullThreadDiffRpc, WsOrchestrationSearchThreadsRpc, WsOrchestrationGetArchivedShellSnapshotRpc, WsOrchestrationSubscribeShellRpc, WsOrchestrationSubscribeThreadRpc);
+const WsToolchainInstallPlatformioRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.toolchainInstallPlatformio, {
+	payload: effect_Schema.Struct({}),
+	success: ToolchainInstallProgressEvent,
+	error: effect_Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+	stream: true
+});
+const WsToolchainInstallArduinoRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.toolchainInstallArduino, {
+	payload: effect_Schema.Struct({}),
+	success: ToolchainInstallProgressEvent,
+	error: effect_Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
+	stream: true
+});
+const WsToolchainGetStatusRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.toolchainGetStatus, {
+	payload: effect_Schema.Struct({}),
+	success: ToolchainStatus,
+	error: effect_Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError])
+});
+const WsRpcGroup = effect_unstable_rpc_RpcGroup.make(WsServerProbeRpc, WsServerGetConfigRpc, WsServerRefreshProvidersRpc, WsServerUpdateProviderRpc, WsServerUpdateServerRpc, WsServerUpdateServerWithProgressRpc, WsServerUpsertKeybindingRpc, WsServerRemoveKeybindingRpc, WsServerGetSettingsRpc, WsServerUpdateSettingsRpc, WsServerDiscoverSourceControlRpc, WsServerGetTraceDiagnosticsRpc, WsServerGetProcessDiagnosticsRpc, WsServerGetProcessResourceHistoryRpc, WsServerGetResourceTelemetryHistoryRpc, WsServerRetryResourceTelemetryRpc, WsServerGetUsageSummaryRpc, WsServerSignalProcessRpc, WsServerReportClientActivityRpc, WsServerReportHostPowerStateRpc, WsServerGetBackgroundPolicyRpc, WsCloudGetRelayClientStatusRpc, WsCloudInstallRelayClientRpc, WsPullRequestsListRpc, WsPullRequestsListStatsRpc, WsPullRequestsDetailRpc, WsPullRequestsActivityRpc, WsPullRequestsDiffFileContentsRpc, WsPullRequestsRunActionRpc, WsPullRequestsUpdateRpc, WsPullRequestsCommentRpc, WsPullRequestsUpdateCommentRpc, WsPullRequestsSubmitReviewRpc, WsPullRequestsReplyToThreadRpc, WsPullRequestsSetThreadResolutionRpc, WsPullRequestsSetReactionRpc, WsPullRequestsInvalidateRpc, WsPullRequestsReviewerCandidatesRpc, WsPullRequestsRequestReviewersRpc, WsSourceControlLookupRepositoryRpc, WsSourceControlCloneRepositoryRpc, WsSourceControlPublishRepositoryRpc, WsProjectsListEntriesRpc, WsProjectsReadFileRpc, WsProjectsSearchContentsRpc, WsProjectsSearchEntriesRpc, WsProjectsWriteFileRpc, WsShellOpenInEditorRpc, WsFilesystemBrowseRpc, WsAssetsCreateUrlRpc, WsSubscribeVcsStatusRpc, WsVcsPullRpc, WsVcsRefreshStatusRpc, WsGitRunStackedActionRpc, WsGitResolvePullRequestRpc, WsGitPreparePullRequestThreadRpc, WsVcsListRefsRpc, WsVcsCreateWorktreeRpc, WsVcsRemoveWorktreeRpc, WsVcsCreateRefRpc, WsVcsSwitchRefRpc, WsVcsInitRpc, WsReviewGetDiffPreviewRpc, WsReviewGetDiffFileContentsRpc, WsTerminalOpenRpc, WsTerminalAttachRpc, WsTerminalWriteRpc, WsTerminalResizeRpc, WsTerminalClearRpc, WsTerminalRestartRpc, WsTerminalCloseRpc, WsSubscribeTerminalEventsRpc, WsSubscribeTerminalMetadataRpc, WsPreviewOpenRpc, WsPreviewNavigateRpc, WsPreviewResizeRpc, WsPreviewRefreshRpc, WsPreviewCloseRpc, WsPreviewListRpc, WsPreviewReportStatusRpc, WsPreviewAutomationConnectRpc, WsPreviewAutomationRespondRpc, WsPreviewAutomationFocusHostRpc, WsSubscribePreviewEventsRpc, WsSubscribeDiscoveredLocalServersRpc, WsSubscribeServerConfigRpc, WsSubscribeServerLifecycleRpc, WsSubscribeAuthAccessRpc, WsSubscribeBackgroundPolicyRpc, WsSubscribeResourceTelemetryRpc, WsOrchestrationDispatchCommandRpc, WsOrchestrationGetWorkflowScriptRpc, WsOrchestrationGetTurnDiffRpc, WsOrchestrationGetFullThreadDiffRpc, WsOrchestrationSearchThreadsRpc, WsOrchestrationGetArchivedShellSnapshotRpc, WsOrchestrationSubscribeShellRpc, WsOrchestrationSubscribeThreadRpc, WsToolchainInstallPlatformioRpc, WsToolchainInstallArduinoRpc, WsToolchainGetStatusRpc);
 //#endregion
 //#region src/electron/ElectronTheme.ts
 var ElectronThemeSetSourceError = class extends effect_Schema.TaggedErrorClass()("ElectronThemeSetSourceError", {
@@ -16901,6 +17213,550 @@ function makePreviewAutomationKeySequence(input, options) {
 	};
 }
 //#endregion
+//#region src/preview/FaviconCapture.ts
+const MAX_FAVICON_RESPONSE_BYTES = 1e5;
+const MAX_FAVICON_CANDIDATE_INPUT_UNITS = 262144;
+const MIN_FAVICON_CANDIDATE_INPUT_UNITS = 256;
+const MAX_FAVICON_SOURCE_PIXELS = 1048576;
+const MAX_FAVICON_INLINE_URL_LENGTH = Math.ceil(MAX_FAVICON_RESPONSE_BYTES * 4 / 3) + 128;
+const FAVICON_CAPTURE_TIMEOUT_MS = 5e3;
+const FAVICON_RASTER_WORLD_ID = 1001;
+const FAVICON_RASTER_TIMEOUT_MS = 1e3;
+const PNG_SIGNATURE = Buffer.from([
+	137,
+	80,
+	78,
+	71,
+	13,
+	10,
+	26,
+	10
+]);
+const rasterizationGates = /* @__PURE__ */ new WeakMap();
+async function waitForRasterLaunch(previous, signal) {
+	if (signal.aborted) return;
+	await new Promise((resolve) => {
+		const finish = () => {
+			signal.removeEventListener("abort", finish);
+			resolve();
+		};
+		signal.addEventListener("abort", finish, { once: true });
+		previous.then(finish);
+	});
+}
+function safeHttpOrigin(url) {
+	try {
+		const parsed = new URL(url);
+		return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.origin : null;
+	} catch {
+		return null;
+	}
+}
+function selectFaviconCandidates(candidates) {
+	const selected = [];
+	const seen = /* @__PURE__ */ new Set();
+	let inputUnits = 0;
+	for (const candidate of candidates) {
+		inputUnits += Math.max(MIN_FAVICON_CANDIDATE_INPUT_UNITS, candidate.length);
+		if (inputUnits > MAX_FAVICON_CANDIDATE_INPUT_UNITS) break;
+		if (!isSupportedFaviconUrl(candidate) || seen.has(candidate)) continue;
+		seen.add(candidate);
+		selected.push(candidate);
+		if (selected.length === 8) break;
+	}
+	return selected;
+}
+async function captureFavicon(input) {
+	const pageOrigin = safeHttpOrigin(input.pageUrl);
+	if (!pageOrigin) return { kind: "none" };
+	const captureTimeout = AbortSignal.timeout(FAVICON_CAPTURE_TIMEOUT_MS);
+	const captureSignal = AbortSignal.any([input.signal, captureTimeout]);
+	for (const candidate of selectFaviconCandidates(input.candidates)) {
+		if (captureSignal.aborted) return input.signal.aborted ? { kind: "none" } : { kind: "timed-out" };
+		const captured = await captureCandidate({
+			webContents: input.webContents,
+			pageOrigin,
+			candidate,
+			signal: captureSignal
+		});
+		if (captureSignal.aborted) return input.signal.aborted ? { kind: "none" } : { kind: "timed-out" };
+		if (captured.kind === "captured" || captured.kind === "timed-out") return captured;
+	}
+	return { kind: "none" };
+}
+async function captureCandidate(input) {
+	try {
+		const inline = parseInlineFavicon(input.candidate);
+		if (inline) return await normalizeFaviconBuffer(input.webContents, inline.mime, inline.buffer, input.signal);
+		const candidateOrigin = safeHttpOrigin(input.candidate);
+		if (!candidateOrigin) return { kind: "none" };
+		const response = await input.webContents.session.fetch(input.candidate, {
+			credentials: candidateOrigin === input.pageOrigin ? "include" : "omit",
+			redirect: "error",
+			signal: input.signal
+		});
+		if (!response.ok) {
+			await response.body?.cancel();
+			return { kind: "none" };
+		}
+		const buffer = await readFaviconResponse(response, input.signal);
+		if (!buffer || input.signal.aborted) return { kind: "none" };
+		const mime = response.headers.get("content-type")?.split(";", 1)[0] ?? null;
+		return await normalizeFaviconBuffer(input.webContents, mime, buffer, input.signal);
+	} catch {
+		return { kind: "none" };
+	}
+}
+async function readFaviconResponse(response, signal) {
+	const contentLength = Number(response.headers.get("content-length"));
+	if (Number.isFinite(contentLength) && contentLength > 1e5) {
+		await response.body?.cancel();
+		return null;
+	}
+	if (!response.body) {
+		const buffer = Buffer.from(await response.arrayBuffer());
+		return buffer.byteLength <= 1e5 ? buffer : null;
+	}
+	const reader = response.body.getReader();
+	const cancelForAbort = () => {
+		reader.cancel(signal.reason).catch(() => void 0);
+	};
+	signal.addEventListener("abort", cancelForAbort, { once: true });
+	if (signal.aborted) cancelForAbort();
+	const chunks = [];
+	let byteLength = 0;
+	try {
+		while (true) {
+			const next = await reader.read();
+			if (next.done) return Buffer.concat(chunks, byteLength);
+			byteLength += next.value.byteLength;
+			if (byteLength > 1e5) {
+				await reader.cancel();
+				return null;
+			}
+			chunks.push(Buffer.from(next.value));
+		}
+	} finally {
+		signal.removeEventListener("abort", cancelForAbort);
+		reader.releaseLock();
+	}
+}
+function isSupportedFaviconUrl(url) {
+	if (url.length > MAX_FAVICON_INLINE_URL_LENGTH) return false;
+	if (/^data:/i.test(url)) return /^data:image\/[a-z0-9.+-]+(?:;[^,]*)?,/i.test(url);
+	try {
+		const protocol = new URL(url).protocol;
+		return (protocol === "http:" || protocol === "https:") && url.length <= 2048;
+	} catch {
+		return false;
+	}
+}
+function decodeInlineFaviconPayload(payload) {
+	const decoded = Buffer.allocUnsafe(Buffer.byteLength(payload));
+	let inputOffset = 0;
+	let outputOffset = 0;
+	while (inputOffset < payload.length) {
+		const escapeOffset = payload.indexOf("%", inputOffset);
+		const literalEnd = escapeOffset === -1 ? payload.length : escapeOffset;
+		outputOffset += decoded.write(payload.slice(inputOffset, literalEnd), outputOffset, "utf8");
+		if (escapeOffset === -1) break;
+		const hex = payload.slice(escapeOffset + 1, escapeOffset + 3);
+		if (!/^[0-9a-f]{2}$/i.test(hex)) return null;
+		decoded[outputOffset] = Number.parseInt(hex, 16);
+		outputOffset += 1;
+		inputOffset = escapeOffset + 3;
+	}
+	return decoded.subarray(0, outputOffset);
+}
+function parseInlineFavicon(url) {
+	if (url.length > MAX_FAVICON_INLINE_URL_LENGTH) return null;
+	const match = /^data:(image\/[a-z0-9.+-]+)((?:;[^,]*)?),(.*)$/is.exec(url);
+	if (!match) return null;
+	const mime = match[1]?.toLowerCase();
+	const parameters = match[2]?.split(";").filter(Boolean).map((parameter) => parameter.toLowerCase());
+	const payload = match[3];
+	if (!mime || !parameters || !payload) return null;
+	const base64 = parameters.at(-1) === "base64";
+	if (parameters.includes("base64") && !base64) return null;
+	let buffer;
+	try {
+		if (base64) {
+			if (!/^[a-z0-9+/]*={0,2}$/i.test(payload) || payload.length % 4 === 1) return null;
+			buffer = Buffer.from(payload, "base64");
+			if (buffer.toString("base64").replace(/=+$/, "") !== payload.replace(/=+$/, "")) return null;
+		} else {
+			const decoded = decodeInlineFaviconPayload(payload);
+			if (!decoded) return null;
+			buffer = decoded;
+		}
+	} catch {
+		return null;
+	}
+	return buffer.byteLength > 0 && buffer.byteLength <= 1e5 ? {
+		buffer,
+		mime
+	} : null;
+}
+function safeDimensions(dimensions) {
+	return dimensions !== null && Number.isSafeInteger(dimensions.width) && Number.isSafeInteger(dimensions.height) && dimensions.width > 0 && dimensions.height > 0 && dimensions.width * dimensions.height <= MAX_FAVICON_SOURCE_PIXELS;
+}
+function pngDimensions(buffer) {
+	if (!buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE) || buffer.byteLength < 24) return null;
+	return {
+		width: buffer.readUInt32BE(16),
+		height: buffer.readUInt32BE(20)
+	};
+}
+function skipGifSubBlocks(buffer, startOffset) {
+	let offset = startOffset;
+	while (offset < buffer.byteLength) {
+		const blockLength = buffer[offset];
+		offset += 1;
+		if (blockLength === 0) return offset;
+		if (offset + blockLength > buffer.byteLength) return null;
+		offset += blockLength;
+	}
+	return null;
+}
+function gifDimensions(buffer) {
+	if (buffer.byteLength < 13 || !/^GIF8[79]a$/u.test(buffer.subarray(0, 6).toString("ascii"))) return null;
+	const logicalWidth = buffer.readUInt16LE(6);
+	const logicalHeight = buffer.readUInt16LE(8);
+	if (!safeDimensions({
+		width: logicalWidth,
+		height: logicalHeight
+	})) return null;
+	const packed = buffer[10];
+	let offset = 13 + ((packed & 128) === 0 ? 0 : 3 * 2 ** ((packed & 7) + 1));
+	if (offset > buffer.byteLength) return null;
+	let width = logicalWidth;
+	let height = logicalHeight;
+	let frameCount = 0;
+	let framePixels = 0;
+	while (offset < buffer.byteLength) {
+		const marker = buffer[offset];
+		if (marker === 59) return frameCount > 0 ? {
+			width,
+			height
+		} : null;
+		if (marker === 44) {
+			if (offset + 10 > buffer.byteLength) return null;
+			const left = buffer.readUInt16LE(offset + 1);
+			const top = buffer.readUInt16LE(offset + 3);
+			const frameWidth = buffer.readUInt16LE(offset + 5);
+			const frameHeight = buffer.readUInt16LE(offset + 7);
+			if (frameWidth === 0 || frameHeight === 0) return null;
+			framePixels += frameWidth * frameHeight;
+			if (framePixels > MAX_FAVICON_SOURCE_PIXELS) return null;
+			width = Math.max(width, left + frameWidth);
+			height = Math.max(height, top + frameHeight);
+			if (!safeDimensions({
+				width,
+				height
+			})) return null;
+			const framePacked = buffer[offset + 9];
+			offset += 10;
+			if ((framePacked & 128) !== 0) offset += 3 * 2 ** ((framePacked & 7) + 1);
+			if (offset >= buffer.byteLength) return null;
+			const minimumCodeSize = buffer[offset];
+			if (minimumCodeSize < 2 || minimumCodeSize > 8) return null;
+			offset += 1;
+			const nextOffset = skipGifSubBlocks(buffer, offset);
+			if (nextOffset === null) return null;
+			offset = nextOffset;
+			frameCount += 1;
+			continue;
+		}
+		if (marker !== 33 || offset + 2 > buffer.byteLength) return null;
+		const nextOffset = skipGifSubBlocks(buffer, offset + 2);
+		if (nextOffset === null) return null;
+		offset = nextOffset;
+	}
+	return null;
+}
+function jpegExifMetadata(segment) {
+	if (segment.byteLength <= 6 || segment.subarray(0, 5).toString("binary") !== "Exif\0") return null;
+	const metadataWithoutOrientation = () => ({
+		complete: true,
+		orientation: null
+	});
+	if (segment.byteLength < 14) return metadataWithoutOrientation();
+	const tiffOffset = 6;
+	const littleEndian = segment[tiffOffset] === 73 && segment[7] === 73;
+	const bigEndian = segment[tiffOffset] === 77 && segment[7] === 77;
+	if (!littleEndian && !bigEndian) return metadataWithoutOrientation();
+	const readUInt16 = (offset) => {
+		if (offset < 0 || offset + 2 > segment.byteLength) return null;
+		return littleEndian ? segment.readUInt16LE(offset) : segment.readUInt16BE(offset);
+	};
+	const readUInt32 = (offset) => {
+		if (offset < 0 || offset + 4 > segment.byteLength) return null;
+		return littleEndian ? segment.readUInt32LE(offset) : segment.readUInt32BE(offset);
+	};
+	const relativeIfdOffset = readUInt32(10);
+	if (relativeIfdOffset === null) return metadataWithoutOrientation();
+	let remainingIfdEntryVisits = Math.ceil(segment.byteLength / 12);
+	const budgetExhausted = Symbol("ifd-entry-budget-exhausted");
+	const subIfdOrientationByOffset = /* @__PURE__ */ new Map();
+	const readIfdOrientation = (ifdOffset, isRoot) => {
+		if (!isRoot && subIfdOrientationByOffset.has(ifdOffset)) return subIfdOrientationByOffset.get(ifdOffset) ?? null;
+		const entryCount = readUInt16(ifdOffset);
+		if (entryCount === null) return null;
+		let result = null;
+		for (let index = 0; index < entryCount; index += 1) {
+			if (remainingIfdEntryVisits === 0) return budgetExhausted;
+			remainingIfdEntryVisits -= 1;
+			const entryOffset = ifdOffset + 2 + index * 12;
+			if (entryOffset + 12 > segment.byteLength) break;
+			const tag = readUInt16(entryOffset);
+			const type = readUInt16(entryOffset + 2);
+			const count = readUInt32(entryOffset + 4);
+			if (tag === 274 && type === 3 && count === 1) {
+				const orientation = readUInt16(entryOffset + 8);
+				if (orientation !== null && orientation >= 1 && orientation <= 8) {
+					result = orientation;
+					break;
+				}
+			} else if (isRoot && tag === 34665 && type === 4 && count === 1) {
+				const relativeSubIfdOffset = readUInt32(entryOffset + 8);
+				if (relativeSubIfdOffset !== null) {
+					const orientation = readIfdOrientation(tiffOffset + relativeSubIfdOffset, false);
+					if (orientation === budgetExhausted) return budgetExhausted;
+					if (orientation !== null) {
+						result = orientation;
+						break;
+					}
+				}
+			}
+		}
+		if (!isRoot) subIfdOrientationByOffset.set(ifdOffset, result);
+		return result;
+	};
+	const orientation = readIfdOrientation(tiffOffset + relativeIfdOffset, true);
+	return orientation === budgetExhausted ? {
+		complete: false,
+		orientation: null
+	} : {
+		complete: true,
+		orientation
+	};
+}
+function jpegDimensions(buffer) {
+	if (buffer.byteLength < 4 || buffer[0] !== 255 || buffer[1] !== 216) return null;
+	const startOfFrameMarkers = /* @__PURE__ */ new Set([
+		192,
+		193,
+		194,
+		195,
+		197,
+		198,
+		199,
+		201,
+		202,
+		203,
+		205,
+		206,
+		207
+	]);
+	let offset = 2;
+	let dimensions = null;
+	let exifMetadata = null;
+	while (offset + 3 < buffer.byteLength) {
+		if (buffer[offset] !== 255) {
+			offset += 1;
+			continue;
+		}
+		while (buffer[offset] === 255) offset += 1;
+		const marker = buffer[offset];
+		offset += 1;
+		if (marker === void 0 || marker === 217 || marker === 218) break;
+		if (marker === 1 || marker >= 208 && marker <= 216) continue;
+		if (offset + 1 >= buffer.byteLength) return null;
+		const length = buffer.readUInt16BE(offset);
+		if (length < 2 || offset + length > buffer.byteLength) return null;
+		if (marker === 225 && exifMetadata === null) exifMetadata = jpegExifMetadata(buffer.subarray(offset + 2, offset + length));
+		if (startOfFrameMarkers.has(marker)) {
+			if (length < 7) return null;
+			if (dimensions !== null) return null;
+			dimensions = {
+				height: buffer.readUInt16BE(offset + 3),
+				width: buffer.readUInt16BE(offset + 5)
+			};
+		}
+		offset += length;
+	}
+	if (!dimensions) return null;
+	if (exifMetadata?.complete === false) return null;
+	const orientation = exifMetadata?.orientation;
+	return orientation !== void 0 && orientation !== null && orientation >= 5 && orientation <= 8 ? {
+		width: dimensions.height,
+		height: dimensions.width
+	} : dimensions;
+}
+function webpDimensions(buffer) {
+	if (buffer.byteLength < 30 || buffer.subarray(0, 4).toString("ascii") !== "RIFF" || buffer.subarray(8, 12).toString("ascii") !== "WEBP") return null;
+	const kind = buffer.subarray(12, 16).toString("ascii");
+	if (kind === "VP8X") return {
+		width: 1 + buffer.readUIntLE(24, 3),
+		height: 1 + buffer.readUIntLE(27, 3)
+	};
+	if (kind === "VP8 " && buffer.subarray(23, 26).equals(Buffer.from([
+		157,
+		1,
+		42
+	]))) return {
+		width: buffer.readUInt16LE(26) & 16383,
+		height: buffer.readUInt16LE(28) & 16383
+	};
+	if (kind === "VP8L" && buffer[20] === 47) return {
+		width: 1 + buffer[21] + ((buffer[22] & 63) << 8),
+		height: 1 + (buffer[22] >> 6) + (buffer[23] << 2) + ((buffer[24] & 15) << 10)
+	};
+	return null;
+}
+function dibDimensions(buffer) {
+	if (buffer.byteLength < 12) return null;
+	const headerSize = buffer.readUInt32LE(0);
+	if (headerSize === 12) return {
+		width: buffer.readUInt16LE(4),
+		height: buffer.readUInt16LE(6)
+	};
+	if (headerSize < 40 || buffer.byteLength < 12) return null;
+	return {
+		width: Math.abs(buffer.readInt32LE(4)),
+		height: Math.abs(buffer.readInt32LE(8))
+	};
+}
+function icoDimensions(buffer) {
+	if (buffer.byteLength < 22 || buffer.readUInt16LE(0) !== 0 || buffer.readUInt16LE(2) !== 1 && buffer.readUInt16LE(2) !== 2) return null;
+	const count = buffer.readUInt16LE(4);
+	if (count === 0 || count > 256 || buffer.byteLength < 6 + count * 16) return null;
+	let width = 0;
+	let height = 0;
+	for (let index = 0; index < count; index += 1) {
+		const offset = 6 + index * 16;
+		width = Math.max(width, buffer[offset] === 0 ? 256 : buffer[offset]);
+		height = Math.max(height, buffer[offset + 1] === 0 ? 256 : buffer[offset + 1]);
+		if (!safeDimensions({
+			width,
+			height
+		})) return null;
+		const byteLength = buffer.readUInt32LE(offset + 8);
+		const imageOffset = buffer.readUInt32LE(offset + 12);
+		if (byteLength === 0 || imageOffset < 6 + count * 16 || imageOffset > buffer.byteLength || byteLength > buffer.byteLength - imageOffset) return null;
+		const embedded = buffer.subarray(imageOffset, imageOffset + byteLength);
+		if (!safeDimensions(pngDimensions(embedded) ?? dibDimensions(embedded))) return null;
+	}
+	return {
+		width,
+		height
+	};
+}
+function sourceDimensions(buffer) {
+	return pngDimensions(buffer) ?? gifDimensions(buffer) ?? jpegDimensions(buffer) ?? webpDimensions(buffer) ?? icoDimensions(buffer);
+}
+async function normalizeFaviconBuffer(webContents, mime, buffer, signal) {
+	const declaredMime = mime?.trim().toLowerCase() || null;
+	const normalizedMime = declaredMime === "application/x-icon" ? "image/x-icon" : declaredMime === "application/octet-stream" || declaredMime === "binary/octet-stream" ? null : declaredMime;
+	const dimensions = sourceDimensions(buffer);
+	if (normalizedMime !== null && !/^image\/[a-z0-9.+-]+$/i.test(normalizedMime) || normalizedMime === "image/svg+xml" || buffer.byteLength > 1e5 || !safeDimensions(dimensions)) return { kind: "none" };
+	const rasterized = await rasterizeFavicon(webContents, normalizedMime, buffer, dimensions, signal);
+	if (rasterized.kind === "timed-out") return rasterized;
+	return typeof rasterized.value === "string" && rasterized.value.startsWith("data:image/png;base64,") && rasterized.value.length <= 8192 ? {
+		kind: "captured",
+		dataUrl: rasterized.value
+	} : { kind: "none" };
+}
+async function rasterizeFavicon(webContents, mime, buffer, dimensions, signal) {
+	const gate = rasterizationGates.get(webContents) ?? { generation: 0 };
+	rasterizationGates.set(webContents, gate);
+	const generation = ++gate.generation;
+	const previousLaunchAllowed = gate.launchAllowed;
+	if (previousLaunchAllowed) await waitForRasterLaunch(previousLaunchAllowed, signal);
+	if (signal.aborted || generation !== gate.generation) return {
+		kind: "completed",
+		value: null
+	};
+	const payload = buffer.toString("base64");
+	const blobType = mime ?? "";
+	const scale = Math.min(32 / dimensions.width, 32 / dimensions.height);
+	const decodeWidth = Math.max(1, Math.round(dimensions.width * scale));
+	const decodeHeight = Math.max(1, Math.round(dimensions.height * scale));
+	const drawX = (32 - decodeWidth) / 2;
+	const drawY = (32 - decodeHeight) / 2;
+	const code = `
+    (() => {
+      const rasterize = async () => {
+        try {
+          const source = Uint8Array.from(atob("${payload}"), (char) => char.charCodeAt(0));
+          const bitmap = await createImageBitmap(new Blob([source], { type: "${blobType}" }), {
+            resizeWidth: ${decodeWidth},
+            resizeHeight: ${decodeHeight},
+            resizeQuality: "high",
+          });
+          try {
+            if (bitmap.width <= 0 || bitmap.height <= 0 || bitmap.width * bitmap.height > ${MAX_FAVICON_SOURCE_PIXELS}) {
+              return null;
+            }
+            const canvas = new OffscreenCanvas(32, 32);
+            const context = canvas.getContext("2d");
+            if (!context) return null;
+            context.drawImage(bitmap, ${drawX}, ${drawY}, ${decodeWidth}, ${decodeHeight});
+            const blob = await canvas.convertToBlob({ type: "image/png" });
+            const output = new Uint8Array(await blob.arrayBuffer());
+            let binary = "";
+            for (const byte of output) binary += String.fromCharCode(byte);
+            return "data:image/png;base64," + btoa(binary);
+          } finally {
+            bitmap.close();
+          }
+        } catch {
+          return null;
+        }
+      };
+      return rasterize();
+    })()
+  `;
+	const execution = webContents.executeJavaScriptInIsolatedWorld(FAVICON_RASTER_WORLD_ID, [{ code }]);
+	const result = new Promise((resolve, reject) => {
+		const timeout = AbortSignal.timeout(FAVICON_RASTER_TIMEOUT_MS);
+		let settled = false;
+		const finish = (complete) => {
+			if (settled) return;
+			settled = true;
+			timeout.removeEventListener("abort", onTimeout);
+			signal.removeEventListener("abort", onAbort);
+			complete();
+		};
+		const onTimeout = () => {
+			finish(() => resolve({ kind: "timed-out" }));
+		};
+		const onAbort = () => {
+			finish(() => resolve({
+				kind: "completed",
+				value: null
+			}));
+		};
+		timeout.addEventListener("abort", onTimeout, { once: true });
+		signal.addEventListener("abort", onAbort, { once: true });
+		execution.then((value) => {
+			finish(() => resolve({
+				kind: "completed",
+				value
+			}));
+		}, (cause) => {
+			finish(() => reject(cause));
+		});
+		if (signal.aborted) onAbort();
+	});
+	const launchAllowed = execution.then(() => void 0, () => void 0);
+	gate.launchAllowed = launchAllowed;
+	launchAllowed.then(() => {
+		if (gate.launchAllowed === launchAllowed) delete gate.launchAllowed;
+	});
+	return await result;
+}
+//#endregion
 //#region src/preview/Manager.ts
 /** Discrete zoom levels mirroring Chrome's preset list. */
 const ZOOM_LEVELS = [
@@ -17212,6 +18068,9 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 	const emit = effect_Effect.fn("PreviewManager.emit")(function* (tabId, state) {
 		const listeners = yield* effect_Ref.get(listenersRef);
 		yield* effect_Effect.forEach(listeners, (listener) => deliverEvent("state-change", tabId, () => listener(tabId, state)), { discard: true });
+	});
+	const emitIfCurrent = effect_Effect.fn("PreviewManager.emitIfCurrent")(function* (tabId, state) {
+		if ((yield* effect_SynchronizedRef.get(tabsRef)).get(tabId) === state) yield* emit(tabId, state);
 	});
 	const update = effect_Effect.fn("PreviewManager.update")(function* (tabId, patch) {
 		const updatedAt = yield* currentIso;
@@ -17580,7 +18439,10 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 		const managed = yield* effect_Ref.modify(attachedRef, (attached) => [attached.get(webContentsId), replaceMap(attached, (copy) => {
 			copy.delete(webContentsId);
 		})]);
-		if (managed) yield* effect_Scope.close(managed.scope, effect_Exit.void).pipe(effect_Effect.ignore);
+		if (managed) {
+			managed.cancelFaviconCapture();
+			yield* effect_Scope.close(managed.scope, effect_Exit.void).pipe(effect_Effect.ignore);
+		}
 	});
 	const isAppShortcut = (input) => input.type === "keyDown" && APP_FORWARDED_SHORTCUTS.some((shortcut) => shortcut.key.toLowerCase() === input.key.toLowerCase() && shortcut.meta === input.meta && shortcut.shift === input.shift && shortcut.control === input.control);
 	const computeNavStatus = (wc) => {
@@ -17623,7 +18485,16 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 	});
 	const attachListeners = effect_Effect.fn("PreviewManager.attachListeners")(function* (tabId, wc) {
 		const scope = yield* effect_Scope.fork(parentScope, "sequential");
-		const syncState = effect_Effect.fn("PreviewManager.syncWebContentsState")(function* (preserveLoadFailure) {
+		const attachmentId = Symbol();
+		let documentId = 0;
+		let nextRequestId = 0;
+		let activeCapture = null;
+		const cancelFaviconCapture = () => {
+			documentId += 1;
+			activeCapture?.controller.abort();
+			activeCapture = null;
+		};
+		const syncState = effect_Effect.fn("PreviewManager.syncWebContentsState")(function* (preserveLoadFailure, confirmedNavigation = false) {
 			if (wc.isDestroyed()) return;
 			const zoomFactor = yield* attempt({
 				operation: "syncWebContentsState.getZoomFactor",
@@ -17636,10 +18507,12 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 			const updatedAt = yield* currentIso;
 			const next = yield* effect_SynchronizedRef.modify(tabsRef, (tabs) => {
 				const current = tabs.get(tabId);
-				if (!current) return [effect_Option.none(), tabs];
+				if (!current || current.webContentsId !== wc.id || electron.webContents.fromId(wc.id) !== wc) return [effect_Option.none(), tabs];
 				const navStatus = preserveLoadFailure && current.navStatus.kind === "LoadFailed" && computedNavStatus.kind === "Success" ? current.navStatus : computedNavStatus;
+				const clearFavicon = confirmedNavigation && current.favicon !== void 0 && safeHttpOrigin(current.favicon.pageUrl) !== safeHttpOrigin(navStatus.kind === "Idle" ? wc.getURL() : navStatus.url);
+				const { favicon: _favicon, ...currentWithoutFavicon } = current;
 				const state = {
-					...current,
+					...clearFavicon ? currentWithoutFavicon : current,
 					navStatus,
 					canGoBack,
 					canGoForward,
@@ -17650,10 +18523,81 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 					copy.set(tabId, state);
 				})];
 			});
-			if (effect_Option.isSome(next)) yield* emit(tabId, next.value);
+			if (effect_Option.isSome(next)) yield* emitIfCurrent(tabId, next.value);
 		});
 		const sync = () => runFork(syncState(true));
-		const syncNavigation = () => runFork(syncState(false));
+		const syncNavigation = () => runFork(syncState(false, true));
+		const syncInPageNavigation = () => runFork(syncState(false));
+		const navigationStarted = (event) => {
+			if (event.isMainFrame && !event.isSameDocument) cancelFaviconCapture();
+		};
+		const publishFavicon = effect_Effect.fn("PreviewManager.publishFavicon")(function* (input) {
+			const pageOrigin = safeHttpOrigin(input.pageUrl);
+			const managed = (yield* effect_Ref.get(attachedRef)).get(wc.id);
+			if (!pageOrigin || wc.isDestroyed() || electron.webContents.fromId(wc.id) !== wc || managed?.attachmentId !== attachmentId || activeCapture?.documentId !== input.captureDocumentId || activeCapture.requestId !== input.requestId || safeHttpOrigin(wc.getURL()) !== pageOrigin) return;
+			const capturedAt = yield* currentMillis;
+			const updatedAt = yield* currentIso;
+			const next = yield* effect_SynchronizedRef.modify(tabsRef, (tabs) => {
+				const current = tabs.get(tabId);
+				if (!current || current.webContentsId !== wc.id || electron.webContents.fromId(wc.id) !== wc || activeCapture?.documentId !== input.captureDocumentId || activeCapture.requestId !== input.requestId) return [effect_Option.none(), tabs];
+				const state = {
+					...current,
+					favicon: {
+						dataUrl: input.dataUrl,
+						pageUrl: pageOrigin,
+						capturedAt
+					},
+					updatedAt
+				};
+				return [effect_Option.some(state), replaceMap(tabs, (copy) => {
+					copy.set(tabId, state);
+				})];
+			});
+			if (effect_Option.isSome(next)) yield* emitIfCurrent(tabId, next.value);
+		});
+		const faviconUpdated = (_event, rawCandidates) => {
+			const pageUrl = wc.getURL();
+			if (!safeHttpOrigin(pageUrl)) return;
+			const candidates = selectFaviconCandidates(rawCandidates);
+			if (candidates.length === 0) return;
+			const eventKey = JSON.stringify([pageUrl, ...candidates]);
+			if (activeCapture?.eventKey === eventKey) return;
+			activeCapture?.controller.abort();
+			const captureDocumentId = documentId;
+			const requestId = ++nextRequestId;
+			const controller = new AbortController();
+			activeCapture = {
+				controller,
+				documentId: captureDocumentId,
+				eventKey,
+				requestId
+			};
+			runFork(effect_Effect.tryPromise({
+				try: () => captureFavicon({
+					webContents: wc,
+					pageUrl,
+					candidates,
+					signal: controller.signal
+				}),
+				catch: (cause) => new PreviewOperationError({
+					operation: "captureFavicon",
+					tabId,
+					webContentsId: wc.id,
+					cause
+				})
+			}).pipe(effect_Effect.flatMap((result) => result.kind === "captured" ? publishFavicon({
+				captureDocumentId,
+				dataUrl: result.dataUrl,
+				pageUrl,
+				requestId
+			}) : effect_Effect.void), effect_Effect.catch((error) => controller.signal.aborted ? effect_Effect.void : effect_Effect.logDebug("Favicon capture failed.", {
+				error,
+				tabId,
+				webContentsId: wc.id
+			})), effect_Effect.ensuring(effect_Effect.sync(() => {
+				if (activeCapture?.requestId === requestId) activeCapture = null;
+			}))));
+		};
 		const failed = (_event, code, description, validatedUrl, isMainFrame) => {
 			if (code === -3 || !isMainFrame) return;
 			runFork(update(tabId, { navStatus: {
@@ -17708,9 +18652,12 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 			tabId,
 			webContentsId: wc.id
 		}, () => {
+			cancelFaviconCapture();
+			wc.off("did-start-navigation", navigationStarted);
 			wc.off("did-navigate", syncNavigation);
-			wc.off("did-navigate-in-page", syncNavigation);
+			wc.off("did-navigate-in-page", syncInPageNavigation);
 			wc.off("page-title-updated", sync);
+			wc.off("page-favicon-updated", faviconUpdated);
 			wc.off("did-start-loading", sync);
 			wc.off("did-stop-loading", sync);
 			wc.off("did-fail-load", failed);
@@ -17723,9 +18670,11 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 				tabId,
 				webContentsId: wc.id
 			}, () => {
+				wc.on("did-start-navigation", navigationStarted);
 				wc.on("did-navigate", syncNavigation);
-				wc.on("did-navigate-in-page", syncNavigation);
+				wc.on("did-navigate-in-page", syncInPageNavigation);
 				wc.on("page-title-updated", sync);
+				wc.on("page-favicon-updated", faviconUpdated);
 				wc.on("did-start-loading", sync);
 				wc.on("did-stop-loading", sync);
 				wc.on("did-fail-load", failed);
@@ -17741,7 +18690,12 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 				wc.on("before-input-event", beforeInput);
 			});
 			yield* effect_Ref.update(attachedRef, (attached) => replaceMap(attached, (copy) => {
-				copy.set(wc.id, { scope });
+				copy.set(wc.id, {
+					attachmentId,
+					cancelFaviconCapture,
+					scope,
+					webContents: wc
+				});
 			}));
 		})().pipe(effect_Effect.onError(() => effect_Scope.close(scope, effect_Exit.void).pipe(effect_Effect.ignore)));
 	});
@@ -17840,13 +18794,14 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 		if (!tab || tabLifecycleGenerations.get(tabId) !== expectedGeneration || (yield* effect_Ref.get(closingTabIdsRef)).has(tabId)) return yield* new PreviewTabNotFoundError({ tabId });
 		const wc = electron.webContents.fromId(webContentsId);
 		const mainWindow = yield* effect_Ref.get(mainWindowRef);
-		if (!wc || wc.getType() !== "webview" || effect_Option.isSome(mainWindow) && wc.hostWebContents !== mainWindow.value.webContents) return yield* new PreviewWebContentsNotFoundError({
+		if (!wc || wc.isDestroyed() || wc.getType() !== "webview" || effect_Option.isSome(mainWindow) && wc.hostWebContents !== mainWindow.value.webContents) return yield* new PreviewWebContentsNotFoundError({
 			tabId,
 			webContentsId
 		});
 		const attached = yield* effect_Ref.get(attachedRef);
 		const annotationTheme = yield* effect_Ref.get(annotationThemeRef);
-		if (tab.webContentsId === webContentsId && attached.has(webContentsId)) {
+		const currentAttachment = attached.get(webContentsId);
+		if (tab.webContentsId === webContentsId && currentAttachment?.webContents === wc) {
 			const zoomFactor = yield* attempt({
 				operation: "registerWebview.getZoomFactor",
 				tabId,
@@ -17860,7 +18815,7 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 			}, () => wc.send(ANNOTATION_THEME_CHANNEL, annotationTheme));
 			return;
 		}
-		const replacedWebContentsId = tab.webContentsId != null && tab.webContentsId !== webContentsId ? tab.webContentsId : null;
+		const replacedWebContentsId = tab.webContentsId != null && (tab.webContentsId !== webContentsId || currentAttachment?.webContents !== wc) ? tab.webContentsId : null;
 		if (replacedWebContentsId !== null) yield* effect_Effect.all([
 			detachControlSession(replacedWebContentsId),
 			detachListeners(replacedWebContentsId),
@@ -17889,8 +18844,9 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 			const current = tabs.get(tabId);
 			if (!current || tabLifecycleGenerations.get(tabId) !== expectedGeneration || (yield* effect_Ref.get(closingTabIdsRef)).has(tabId)) return [effect_Option.none(), tabs];
 			const pendingUrl = current.navStatus.kind === "Loading" ? current.navStatus.url : null;
+			const { favicon: _favicon, ...currentWithoutFavicon } = current;
 			const next = {
-				...current,
+				...currentWithoutFavicon,
 				webContentsId,
 				navStatus: pendingUrl === null ? computeNavStatus(wc) : current.navStatus,
 				canGoBack: wc.navigationHistory.canGoBack(),
@@ -17953,6 +18909,7 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 				pictureInPicture: current?.pictureInPicture ?? false,
 				colorScheme: current?.colorScheme ?? "system",
 				controller: current?.controller ?? "none",
+				...current?.favicon ? { favicon: current.favicon } : {},
 				updatedAt
 			};
 			return [next, replaceMap(tabs, (copy) => {
@@ -17961,16 +18918,37 @@ const makeNativeOperations = effect_Effect.fn("PreviewManager.makeOperations")(f
 		});
 		yield* emit(tabId, pending);
 		if (pending.webContentsId == null) return;
-		const wc = electron.webContents.fromId(pending.webContentsId);
-		if (!wc) {
-			const detached = {
-				...pending,
-				webContentsId: null
-			};
-			yield* effect_SynchronizedRef.update(tabsRef, (tabs) => tabs.get(tabId)?.webContentsId !== pending.webContentsId ? tabs : replaceMap(tabs, (copy) => {
-				copy.set(tabId, detached);
+		const webContentsId = pending.webContentsId;
+		const wc = electron.webContents.fromId(webContentsId);
+		if (!wc || wc.isDestroyed()) {
+			const expectedAttachment = (yield* effect_Ref.get(attachedRef)).get(webContentsId);
+			yield* withTabLifecycleLock(tabId, effect_Effect.gen(function* () {
+				const currentTab = (yield* effect_SynchronizedRef.get(tabsRef)).get(tabId);
+				const currentAttachment = (yield* effect_Ref.get(attachedRef)).get(webContentsId);
+				const currentWebContents = electron.webContents.fromId(webContentsId);
+				if (currentTab?.webContentsId !== webContentsId || currentAttachment !== expectedAttachment || currentWebContents && !currentWebContents.isDestroyed()) return;
+				yield* effect_Effect.all([
+					detachControlSession(webContentsId),
+					detachListeners(webContentsId),
+					cancelPickElement(tabId)
+				], {
+					concurrency: 3,
+					discard: true
+				});
+				const detached = yield* effect_SynchronizedRef.modify(tabsRef, (tabs) => {
+					const current = tabs.get(tabId);
+					if (current?.webContentsId !== webContentsId) return [effect_Option.none(), tabs];
+					const { favicon: _favicon, ...currentWithoutFavicon } = current;
+					const next = {
+						...currentWithoutFavicon,
+						webContentsId: null
+					};
+					return [effect_Option.some(next), replaceMap(tabs, (copy) => {
+						copy.set(tabId, next);
+					})];
+				});
+				if (effect_Option.isSome(detached)) yield* emitIfCurrent(tabId, detached.value);
 			}));
-			yield* emit(tabId, detached);
 			return;
 		}
 		if (wc.getURL() === url) {
@@ -23276,15 +24254,18 @@ const NODE_PTY_PROBE_SCRIPT = (linuxServerDir) => `printf 'nodePath:%s\\n' "$(co
 printf 'nodeVersion:%s\\n' "$(node -p 'process.versions.node' 2>/dev/null)"
 printf 'resolvedPath:%s\\n' "$PATH"
 cd ${shellQuote(linuxServerDir)} && node <<'NODE' >/dev/null 2>&1
-// The server bundle externalizes its deps to node_modules, and the WSL Node
-// can't read inside app.asar, so confirm those deps are unpacked on the real
-// filesystem before reporting the backend healthy. "effect" is the framework
-// every server module imports; resolving it validates the whole node_modules
-// tree. Exit 3 marks this distinct from a node-pty problem so the caller can
-// report it accurately instead of letting the server crash on
-// ERR_MODULE_NOT_FOUND at launch (which, in wsl-only mode, would just fail to
-// launch with no fallback).
-try { require.resolve("effect"); } catch (_e) { process.exit(3); }
+// The WSL Node can't read inside app.asar, so confirm what the server needs is
+// unpacked on the real filesystem before reporting the backend healthy. Exit 3
+// marks this distinct from a node-pty prebuild problem so the caller can report
+// it accurately instead of letting the server crash on ERR_MODULE_NOT_FOUND at
+// launch (which, in wsl-only mode, would just fail to launch with no fallback).
+//
+// The sentinel must be a package the CLI bundle leaves external. It used to be
+// "effect", back when the bundle externalized its runtime deps and the whole
+// node_modules tree was unpacked. The bundle now inlines its JS dependencies,
+// so "effect" no longer exists on disk and only the native packages do —
+// resolving node-pty is what actually validates the unpacked tree.
+try { require.resolve("node-pty/package.json"); } catch (_e) { process.exit(3); }
 const fs = require("node:fs");
 const path = require("node:path");
 const pkgDir = path.dirname(require.resolve("node-pty/package.json"));
@@ -23414,7 +24395,7 @@ const ensureNodePtyImpl = (distro, windowsRepoRoot, windowsToWslPath, options = 
 	};
 	if (probe.exitCode === 3) return {
 		ok: false,
-		reason: "WSL server dependencies could not be loaded (for example \"effect\"). The server's bundled node_modules is not readable by the WSL distro's Node — this is a packaging problem with this build. Please report it.",
+		reason: "WSL server dependencies could not be loaded (for example \"node-pty\"). The native packages the server needs are not unpacked where the WSL distro's Node can read them — this is a packaging problem with this build. Please report it.",
 		fatal: true
 	};
 	if (probe.exitCode === 0) {

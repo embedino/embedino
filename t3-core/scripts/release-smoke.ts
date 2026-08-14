@@ -1,5 +1,4 @@
 // @effect-diagnostics nodeBuiltinImport:off
-/* oxlint-disable t3code/no-global-process-runtime */
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
@@ -17,6 +16,13 @@ const workspaceFiles = [
   "apps/server/package.json",
   "apps/desktop/package.json",
   "apps/web/package.json",
+  "apps/mobile/package.json",
+  "apps/mobile/deps/react-native-nitro-markdown-0.5.0.tgz",
+  "apps/mobile/modules/t3-markdown-text/package.json",
+  "apps/mobile/modules/t3-review-diff/package.json",
+  "apps/mobile/modules/t3-terminal/package.json",
+  "apps/marketing/package.json",
+  "infra/relay/package.json",
   "oxlint-plugin-t3code/package.json",
   "packages/client-runtime/package.json",
   "packages/contracts/package.json",
@@ -26,7 +32,6 @@ const workspaceFiles = [
   "packages/effect-acp/package.json",
   "packages/effect-codex-app-server/package.json",
   "scripts/package.json",
-  "scripts/clean-tsgo-backups.mjs",
 ] as const;
 
 function copyWorkspaceManifestFixture(targetRoot: string): void {
@@ -201,16 +206,9 @@ try {
 
   NodeFS.rmSync(NodePath.resolve(tempRoot, "pnpm-lock.yaml"), { force: true });
 
-  const vpCmd = NodeOS.platform() === "win32" ? "pnpm.cmd" : "vp";
-  const vpArgs =
-    NodeOS.platform() === "win32"
-      ? ["exec", "vp", "install", "--lockfile-only", "--ignore-scripts"]
-      : ["install", "--lockfile-only", "--ignore-scripts"];
-
-  NodeChildProcess.execFileSync(vpCmd, vpArgs, {
+  NodeChildProcess.execFileSync("vp", ["install", "--lockfile-only", "--ignore-scripts"], {
     cwd: tempRoot,
     stdio: "inherit",
-    shell: true,
   });
 
   const lockfile = NodeFS.readFileSync(NodePath.resolve(tempRoot, "pnpm-lock.yaml"), "utf8");
