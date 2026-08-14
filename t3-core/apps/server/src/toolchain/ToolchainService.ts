@@ -13,70 +13,118 @@ import * as NodePath from "node:path";
 import * as NodeOS from "node:os";
 
 // ---------------------------------------------------------------------------
-// Detect installed toolchains — instant filesystem checks, zero process spawning
+// Dynamic Toolchain Discovery — filesystem scanning with zero process overhead
 // ---------------------------------------------------------------------------
 
+function resolvePythonCommand(): string {
+  const localAppData = process.env.LOCALAPPDATA || "";
+
+  // Check dynamic Python directory scans
+  for (const base of [NodePath.join(localAppData, "Programs", "Python"), "C:\\"]) {
+    try {
+      if (NodeFS.existsSync(base)) {
+        for (const entry of NodeFS.readdirSync(base)) {
+          if (entry.toLowerCase().startsWith("python")) {
+            const exe = NodePath.join(base, entry, "python.exe");
+            if (NodeFS.existsSync(exe)) return exe;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return "python";
+}
+
 function findPio(): { installed: boolean; version: string | null } {
+  const userProfile = process.env.USERPROFILE || "";
   const appData = process.env.APPDATA || "";
   const localAppData = process.env.LOCALAPPDATA || "";
-  const userProfile = process.env.USERPROFILE || "";
 
-  // Check known pip user-script install locations (Windows)
-  const pipPaths = [
-    NodePath.join(appData, "Python", "Python314", "Scripts", "pio.exe"),
-    NodePath.join(appData, "Python", "Python313", "Scripts", "pio.exe"),
-    NodePath.join(appData, "Python", "Python312", "Scripts", "pio.exe"),
-    NodePath.join(appData, "Python", "Python311", "Scripts", "pio.exe"),
-    NodePath.join(appData, "Python", "Python310", "Scripts", "pio.exe"),
-  ];
+  const candidates: string[] = [];
 
-  // Also check global Python Scripts, venv, and PATH-adjacent locations
-  const globalPaths = [
-    NodePath.join(userProfile, ".platformio", "penv", "Scripts", "pio.exe"),
-    NodePath.join(localAppData, "Programs", "Python", "Python314", "Scripts", "pio.exe"),
-    NodePath.join(localAppData, "Programs", "Python", "Python313", "Scripts", "pio.exe"),
-    NodePath.join(localAppData, "Programs", "Python", "Python312", "Scripts", "pio.exe"),
-  ];
+  // 1. Scan PATH entries
+  const pathDirs = (process.env.PATH || "").split(NodePath.delimiter);
+  for (const dir of pathDirs) {
+    if (dir.trim()) {
+      candidates.push(NodePath.join(dir.trim(), "pio.exe"));
+      candidates.push(NodePath.join(dir.trim(), "pio"));
+    }
+  }
 
-  // Check PATH entries
-  const pathDirs = (process.env.PATH || "").split(";");
-  const pathPioPaths = pathDirs.map((dir) => NodePath.join(dir, "pio.exe"));
+  // 2. Scan PlatformIO Core virtual environment
+  candidates.push(NodePath.join(userProfile, ".platformio", "penv", "Scripts", "pio.exe"));
+  candidates.push(NodePath.join(userProfile, ".platformio", "penv", "bin", "pio"));
 
-  const allCandidates = [...pipPaths, ...globalPaths, ...pathPioPaths];
+  // 3. Dynamically scan APPDATA/Python/Python*/Scripts
+  try {
+    const pyDir = NodePath.join(appData, "Python");
+    if (NodeFS.existsSync(pyDir)) {
+      for (const entry of NodeFS.readdirSync(pyDir)) {
+        candidates.push(NodePath.join(pyDir, entry, "Scripts", "pio.exe"));
+      }
+    }
+  } catch {}
 
-  for (const candidate of allCandidates) {
+  // 4. Dynamically scan LOCALAPPDATA/Programs/Python/Python*/Scripts
+  try {
+    const pyProgDir = NodePath.join(localAppData, "Programs", "Python");
+    if (NodeFS.existsSync(pyProgDir)) {
+      for (const entry of NodeFS.readdirSync(pyProgDir)) {
+        candidates.push(NodePath.join(pyProgDir, entry, "Scripts", "pio.exe"));
+      }
+    }
+  } catch {}
+
+  // 5. Dynamically scan C:\Python*\Scripts
+  try {
+    const rootEntries = NodeFS.readdirSync("C:\\");
+    for (const entry of rootEntries) {
+      if (entry.toLowerCase().startsWith("python")) {
+        candidates.push(NodePath.join("C:\\", entry, "Scripts", "pio.exe"));
+      }
+    }
+  } catch {}
+
+  for (const candidate of candidates) {
     try {
       if (NodeFS.existsSync(candidate)) {
         return { installed: true, version: `PlatformIO (${candidate})` };
       }
-    } catch {
-      // ignore permission errors
-    }
+    } catch {}
   }
 
   return { installed: false, version: null };
 }
 
 function findArduinoCli(): { installed: boolean; version: string | null } {
-  const localAppData = process.env.LOCALAPPDATA || "";
   const userProfile = process.env.USERPROFILE || "";
+  const localAppData = process.env.LOCALAPPDATA || "";
+  const programFiles = process.env.ProgramFiles || "C:\\Program Files";
 
-  const candidates = [
-    NodePath.join(userProfile, "bin", "arduino-cli.exe"),
-    NodePath.join(localAppData, "Arduino15", "arduino-cli.exe"),
-    NodePath.join(userProfile, ".arduino", "arduino-cli.exe"),
-    // Check PATH
-    ...(process.env.PATH || "").split(";").map((dir) => NodePath.join(dir, "arduino-cli.exe")),
-  ];
+  const candidates: string[] = [];
+
+  // 1. Scan PATH entries
+  const pathDirs = (process.env.PATH || "").split(NodePath.delimiter);
+  for (const dir of pathDirs) {
+    if (dir.trim()) {
+      candidates.push(NodePath.join(dir.trim(), "arduino-cli.exe"));
+      candidates.push(NodePath.join(dir.trim(), "arduino-cli"));
+    }
+  }
+
+  // 2. Scan Standard Install Locations
+  candidates.push(NodePath.join(userProfile, "bin", "arduino-cli.exe"));
+  candidates.push(NodePath.join(userProfile, ".arduino", "arduino-cli.exe"));
+  candidates.push(NodePath.join(localAppData, "Arduino15", "arduino-cli.exe"));
+  candidates.push(NodePath.join(programFiles, "Arduino CLI", "arduino-cli.exe"));
 
   for (const candidate of candidates) {
     try {
       if (NodeFS.existsSync(candidate)) {
         return { installed: true, version: `Arduino CLI (${candidate})` };
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   return { installed: false, version: null };
@@ -194,7 +242,6 @@ async function installArduinoCliAsync(
 
   const verified = findArduinoCli();
   if (!verified.installed) {
-    // If not in standard path, check destDir explicitly
     const exePath = NodePath.join(destDir, "arduino-cli.exe");
     if (!NodeFS.existsSync(exePath)) {
       throw new Error(
@@ -216,19 +263,27 @@ async function installPlatformioAsync(
   emit({
     type: "progress",
     progress: 5,
-    stdout: "Starting PlatformIO installation via Python pip...\n",
+    stdout: "Resolving Python interpreter on system...\n",
+  });
+
+  const pythonCmd = resolvePythonCommand();
+
+  emit({
+    type: "progress",
+    progress: 10,
+    stdout: `Using Python interpreter (${pythonCmd}) to install PlatformIO via pip...\n`,
   });
 
   await new Promise<void>((resolve, reject) => {
     const child = NodeChildProcess.spawn(
-      "python",
+      pythonCmd,
       ["-u", "-m", "pip", "install", "--upgrade", "platformio"],
       {
         windowsHide: true,
       },
     );
 
-    let currentProgress = 10;
+    let currentProgress = 15;
 
     const handleOutput = (data: Buffer) => {
       const text = data.toString();
@@ -237,9 +292,9 @@ async function installPlatformioAsync(
       if (lower.includes("requirement already satisfied")) {
         currentProgress = Math.max(currentProgress, 90);
       } else if (lower.includes("collecting")) {
-        currentProgress = Math.max(currentProgress, 25);
+        currentProgress = Math.max(currentProgress, 30);
       } else if (lower.includes("downloading") || lower.includes("using cached")) {
-        currentProgress = Math.max(currentProgress, 50);
+        currentProgress = Math.max(currentProgress, 55);
       } else if (lower.includes("installing collected") || lower.includes("uninstalling")) {
         currentProgress = Math.max(currentProgress, 80);
       } else if (lower.includes("successfully installed")) {
@@ -259,7 +314,7 @@ async function installPlatformioAsync(
     child.on("error", (err) => {
       reject(
         new Error(
-          `Failed to launch Python: ${err.message}. Please ensure Python 3 is installed and on your PATH.`,
+          `Failed to launch Python (${pythonCmd}): ${err.message}. Please ensure Python 3 is installed.`,
         ),
       );
     });
@@ -273,7 +328,7 @@ async function installPlatformioAsync(
         });
         resolve();
       } else {
-        reject(new Error(`pip install exited with error code ${code}`));
+        reject(new Error(`PlatformIO pip installation failed with exit code ${code}`));
       }
     });
   });
