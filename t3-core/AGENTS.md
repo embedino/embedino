@@ -42,25 +42,56 @@ embedino workspace/
 
 ---
 
-## 3. Toolchain & Hardware State Integration
+## 3. The 3 Golden Rules for Scaling to 100+ Features (CRITICAL)
 
-Embedino extends T3 Code with custom hardware management:
+To guarantee that scaling Embedino to 100+ features (Board detection, Serial Monitor, Pinout Canvas, PDF Datasheet reader, AI flash pipeline) **never breaks during upstream T3 Code pulls**, every agent must follow these rules:
 
-* **Schemas & Contracts:**
+### Rule 1: The 95/5 Modular Isolation Principle (Dedicated Directories)
+* **95% of our code MUST live in dedicated Embedino directories:**
+  * Schemas & Contracts: `packages/contracts/src/hardware/...` or `toolchain.ts`
+  * Frontend Components: `apps/web/src/components/hardware/...`, `components/wiring/...`, `components/datasheet/...`
+  * Reactive Atoms: `apps/web/src/state/hardware.ts` or `state/toolchain.ts`
+  * Backend Services: `apps/server/src/hardware/...` or `apps/server/src/toolchain/...`
+* **Why this is indestructible:** Upstream T3 Code **never creates or touches these files**. There is literally **zero chance of a merge conflict** on any of our feature files.
+
+### Rule 2: Thin "Docking Ports" (Minimal Upstream Touches)
+* We only touch upstream T3 Code files in a few clean "docking ports":
+  * Registering RPC schemas: `packages/contracts/src/rpc.ts` and `packages/contracts/src/index.ts`
+  * Registering RPC handlers: `apps/server/src/ws.ts`
+  * UI Navigation: `<ToolchainSetupPill />` in `SidebarChrome.tsx` or Settings rows in `SettingsPanels.tsx`
+* Because docking ports are only 1 or 2 lines of code, Regraft's 3-way merge effortlessly merges upstream layout changes around our one-line hooks.
+
+### Rule 3: Strict Regraft Exclusions
+* `regraft.json` MUST explicitly exclude folders we don't use:
+  ```json
+  "excluded": [
+    "mobile/**",
+    "marketing/**"
+  ]
+  ```
+* This prevents deleted upstream files from causing merge stalls during `regraft pull`.
+
+---
+
+## 4. Toolchain & Hardware State Integration
+
+Embedino extends T3 Code with custom hardware management following the 95/5 rule:
+
+* **Dedicated Files (95%):**
   * `packages/contracts/src/toolchain.ts`: Defines `ToolchainStatus`, `ToolchainType`, `ToolchainInstallProgressEvent`, and errors.
-  * `packages/contracts/src/rpc.ts`: Exposes `toolchain.installPlatformio`, `toolchain.installArduino`, and `toolchain.getStatus`.
-* **Backend Service:**
   * `apps/server/src/toolchain/ToolchainService.ts`: Detects installed toolchain binaries via filesystem checks without process spawning.
-  * `apps/server/src/ws.ts`: Registers toolchain RPC handlers.
-* **Frontend State & UI:**
   * `apps/web/src/state/toolchain.ts`: Reactive Effect atoms for toolchain installation state.
   * `apps/web/src/components/wiring/ToolchainSetup.tsx`: Getting-started pill & installation dialog.
+* **Thin Docking Ports (5%):**
+  * `packages/contracts/src/index.ts`: Re-exports toolchain schemas.
+  * `packages/contracts/src/rpc.ts`: Exposes `toolchain.installPlatformio`, `toolchain.installArduino`, and `toolchain.getStatus`.
+  * `apps/server/src/ws.ts`: Registers toolchain RPC handlers.
   * `apps/web/src/components/sidebar/SidebarChrome.tsx`: Renders `<ToolchainSetupPill />`.
   * `apps/web/src/components/settings/SettingsPanels.tsx`: Renders the Active Build Toolchain settings row.
 
 ---
 
-## 4. The Regraft Sync Protocol (CRITICAL)
+## 5. The Regraft Sync Protocol
 
 To prevent upstream T3 Code updates from breaking Embedino hardware customizations, we use **[Regraft](https://github.com/treadiehq/regraft)** instead of traditional Git forks or subtrees.
 
@@ -71,13 +102,13 @@ To prevent upstream T3 Code updates from breaking Embedino hardware customizatio
 
 ### Rules for Agents Modifying Code
 
-#### Rule 1: Always Record Intent After Customizations
+#### Step 1: Always Record Intent After Customizations
 Whenever you add or modify files in tracked grafts, record your intent so Regraft knows they are intentional:
 ```bash
 regraft note "Add hardware toolchain UI and RPC handlers"
 ```
 
-#### Rule 2: Safe Upstream Pull Procedure
+#### Step 2: Safe Upstream Pull Procedure
 When syncing upstream changes from `pingdotgg/t3code`:
 1. **Create a safety backup branch:**
    ```bash
@@ -92,19 +123,19 @@ When syncing upstream changes from `pingdotgg/t3code`:
    ```bash
    regraft pull
    ```
-4. **Reconcile custom files:**
+4. **Reconcile custom docking ports:**
    Ensure our custom toolchain routes and components survived in:
    - `packages/contracts/src/index.ts` (`export * from "./toolchain.ts";`)
    - `packages/contracts/src/rpc.ts` (`toolchainInstall*` RPC endpoints)
    - `packages/client-runtime/src/rpc/client.ts` (`EnvironmentStreamCommandRpcTag`)
    - `apps/web/src/components/sidebar/SidebarChrome.tsx` (`<ToolchainSetupPill />`)
    - `apps/web/src/components/settings/SettingsPanels.tsx` (Active Build Toolchain row)
-5. **Run the full verification suite (Rule 3).**
+5. **Run the full verification suite (Section 6).**
 6. **Update upstream tracking in `package.json` and `PROJECT_CONTEXT.md`.**
 
 ---
 
-## 5. Verification & Build Commands
+## 6. Verification & Build Commands
 
 Before committing or completing any task, you **MUST** run and pass all verification checks:
 
@@ -121,7 +152,7 @@ pnpm run build:desktop
 
 ---
 
-## 6. Code Quality & Standards
+## 7. Code Quality & Standards
 
 * **No "AI Smells":** Avoid placeholders, arbitrary timeouts (`setTimeout`), mock data in production paths, or bypass flags (`--no-verify`).
 * **Effect TS Best Practices:** Use standard Effect schemas, `Schema.TaggedErrorClass`, and atomic state.

@@ -10,7 +10,9 @@
       "dest": "t3-core/apps",
       "pinnedSha": "5a84614809b6e853b872f9e57ff4b97e9df5df02",
       "ownership": "complete",
-      "excluded": [],
+      "excluded": [
+        "mobile/**"
+      ],
       "files": {
         "desktop/package.json": {
           "upstreamHash": "adc0f7795b7a85255f4dfd8910ade1f044deed664d4adc313ca84aecfe6de648",
@@ -18684,7 +18686,9 @@
       "dest": "t3-core/scripts",
       "pinnedSha": "5a84614809b6e853b872f9e57ff4b97e9df5df02",
       "ownership": "complete",
-      "excluded": [],
+      "excluded": [
+        "mobile-*"
+      ],
       "files": {
         "announce-connect-ga.ts": {
           "upstreamHash": "d4d8ddfc04838ffb44390cd664696a1fdd00711d3553e4e8f821c17a19507ed2",
