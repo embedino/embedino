@@ -107,10 +107,10 @@ export function ToolchainSetupPill() {
     setActiveToolchain,
   ]);
 
-  // Error banner auto-dismiss after 6s
+  // Error banner auto-dismiss after 8s
   useEffect(() => {
     if (snap.error) {
-      const timer = setTimeout(() => updateToolchainState({ error: null }), 6000);
+      const timer = setTimeout(() => updateToolchainState({ error: null }), 8000);
       return () => clearTimeout(timer);
     }
   }, [snap.error]);
@@ -152,7 +152,7 @@ export function ToolchainSetupPill() {
       <div className="flex w-full flex-col gap-2 rounded-2xl border border-destructive/50 bg-destructive/10 p-3">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-[13px] font-semibold text-destructive">
-            <AlertTriangle className="size-4" />
+            <AlertTriangle className="size-4 shrink-0" />
             Installation Error
           </span>
           <button
@@ -164,7 +164,7 @@ export function ToolchainSetupPill() {
             <X className="size-4" />
           </button>
         </div>
-        <p className="text-sm text-destructive/90">{snap.error}</p>
+        <p className="text-xs leading-relaxed text-destructive/90">{snap.error}</p>
       </div>
     );
   }
@@ -215,25 +215,26 @@ export function ToolchainSetupDialog() {
     async (type: "platformio" | "arduino") => {
       if (!environmentId) {
         updateToolchainState({
-          error: "No environment connected. Please wait for the connection.",
+          error: "No environment connected. Please wait for the connection to establish.",
         });
         return;
       }
       if (snap.installing) return;
 
-      updateToolchainState({ installing: type, progress: 0, error: null });
+      updateToolchainState({ installing: type, progress: 5, error: null });
 
       const result = await install({
         environmentId,
         type,
         onProgress: (p: number) => {
-          updateToolchainState({ progress: p });
+          updateToolchainState({ progress: Math.max(5, p) });
         },
       });
 
       if (result._tag === "Success") {
         updateToolchainState({
           installing: null,
+          progress: 100,
           platformioInstalled: type === "platformio" ? true : snap.platformioInstalled,
           arduinoInstalled: type === "arduino" ? true : snap.arduinoInstalled,
         });
@@ -246,7 +247,7 @@ export function ToolchainSetupDialog() {
             ? cause.message
             : typeof cause === "string"
               ? cause
-              : "Installation failed. Check the console for details.";
+              : "Installation failed. Check terminal/logs for details.";
         updateToolchainState({ installing: null, progress: 0, error: errMsg });
       }
     },
@@ -266,9 +267,27 @@ export function ToolchainSetupDialog() {
       </DialogHeader>
 
       <DialogPanel className="flex flex-col gap-4 p-6 pt-2">
+        {/* Error Alert in Modal */}
+        {snap.error && (
+          <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-4 shrink-0" />
+              <span>{snap.error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => updateToolchainState({ error: null })}
+              className="text-destructive/80 transition-colors hover:text-destructive"
+              aria-label="Dismiss error"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
+
         {/* PlatformIO Card */}
         <div
-          className={`flex flex-col gap-4 rounded-xl border p-5 transition-all ${
+          className={`flex flex-col gap-3 rounded-xl border p-5 transition-all ${
             activeToolchain === "platformio"
               ? "border-emerald-600/50 bg-emerald-950/20"
               : "border-border bg-card hover:border-border/80"
@@ -289,6 +308,7 @@ export function ToolchainSetupDialog() {
               )}
             </div>
             <Button
+              disabled={!!snap.installing}
               variant={
                 snap.platformioInstalled
                   ? activeToolchain === "platformio"
@@ -311,7 +331,12 @@ export function ToolchainSetupDialog() {
                 }
               }}
             >
-              {snap.platformioInstalled ? (
+              {snap.installing === "platformio" ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Installing ({snap.progress}%)...
+                </>
+              ) : snap.platformioInstalled ? (
                 activeToolchain === "platformio" ? (
                   <>Selected</>
                 ) : (
@@ -329,11 +354,20 @@ export function ToolchainSetupDialog() {
             Professional multi-platform build engine, supports 1,000+ boards, ESP-IDF, FreeRTOS, and
             library management.
           </p>
+          {snap.installing === "platformio" && (
+            <div className="relative flex w-full items-center justify-center overflow-hidden rounded-lg bg-muted py-1.5 text-xs font-medium">
+              <div
+                className="absolute left-0 top-0 h-full bg-primary/30 transition-all duration-300 ease-out"
+                style={{ width: `${snap.progress}%` }}
+              />
+              <span className="relative z-10 text-foreground">{snap.progress}% Completed</span>
+            </div>
+          )}
         </div>
 
         {/* Arduino CLI Card */}
         <div
-          className={`flex flex-col gap-4 rounded-xl border p-5 transition-all ${
+          className={`flex flex-col gap-3 rounded-xl border p-5 transition-all ${
             activeToolchain === "arduino"
               ? "border-emerald-600/50 bg-emerald-950/20"
               : "border-border bg-card hover:border-border/80"
@@ -350,6 +384,7 @@ export function ToolchainSetupDialog() {
               )}
             </div>
             <Button
+              disabled={!!snap.installing}
               variant={
                 snap.arduinoInstalled
                   ? activeToolchain === "arduino"
@@ -372,7 +407,12 @@ export function ToolchainSetupDialog() {
                 }
               }}
             >
-              {snap.arduinoInstalled ? (
+              {snap.installing === "arduino" ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Installing ({snap.progress}%)...
+                </>
+              ) : snap.arduinoInstalled ? (
                 activeToolchain === "arduino" ? (
                   <>Selected</>
                 ) : (
@@ -390,6 +430,15 @@ export function ToolchainSetupDialog() {
             Official lightweight Arduino command line toolchain for quick sketching and AVR and SAMD
             boards.
           </p>
+          {snap.installing === "arduino" && (
+            <div className="relative flex w-full items-center justify-center overflow-hidden rounded-lg bg-muted py-1.5 text-xs font-medium">
+              <div
+                className="absolute left-0 top-0 h-full bg-primary/30 transition-all duration-300 ease-out"
+                style={{ width: `${snap.progress}%` }}
+              />
+              <span className="relative z-10 text-foreground">{snap.progress}% Completed</span>
+            </div>
+          )}
         </div>
       </DialogPanel>
 

@@ -1,4 +1,4 @@
-// @effect-diagnostics nodeBuiltinImport:off globalTimersInEffect:off
+// @effect-diagnostics nodeBuiltinImport:off globalTimersInEffect:off globalDate:off globalFetch:off
 import {
   ToolchainInstallProgressEvent,
   ToolchainInstallError,
@@ -10,6 +10,7 @@ import * as Queue from "effect/Queue";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
+import * as NodeOS from "node:os";
 
 // ---------------------------------------------------------------------------
 // Detect installed toolchains — instant filesystem checks, zero process spawning
@@ -61,8 +62,8 @@ function findArduinoCli(): { installed: boolean; version: string | null } {
   const userProfile = process.env.USERPROFILE || "";
 
   const candidates = [
-    NodePath.join(localAppData, "Arduino15", "arduino-cli.exe"),
     NodePath.join(userProfile, "bin", "arduino-cli.exe"),
+    NodePath.join(localAppData, "Arduino15", "arduino-cli.exe"),
     NodePath.join(userProfile, ".arduino", "arduino-cli.exe"),
     // Check PATH
     ...(process.env.PATH || "").split(";").map((dir) => NodePath.join(dir, "arduino-cli.exe")),
@@ -99,131 +100,228 @@ export const getToolchainStatus = (): Effect.Effect<ToolchainStatus, ToolchainIn
 };
 
 // ---------------------------------------------------------------------------
-// Install toolchain — streams real progress events from pip / powershell
+// Async Installers with Real Streaming Feedback
+// ---------------------------------------------------------------------------
+
+async function installArduinoCliAsync(
+  emit: (event: ToolchainInstallProgressEvent) => void,
+): Promise<void> {
+  emit({
+    type: "progress",
+    progress: 5,
+    stdout: "Connecting to Arduino release repository...\n",
+  });
+
+  const url = "https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.zip";
+  const tempZip = NodePath.join(NodeOS.tmpdir(), `arduino-cli-${Date.now()}.zip`);
+  const destDir = NodePath.join(process.env.USERPROFILE || "", "bin");
+
+  if (!NodeFS.existsSync(destDir)) {
+    NodeFS.mkdirSync(destDir, { recursive: true });
+  }
+
+  emit({
+    type: "progress",
+    progress: 10,
+    stdout: `Downloading Arduino CLI package from ${url}...\n`,
+  });
+
+  const response = await fetch(url);
+  if (!response.ok || !response.body) {
+    throw new Error(`Download failed: HTTP ${response.status} ${response.statusText}`);
+  }
+
+  const contentLength = Number(response.headers.get("content-length")) || 18000000;
+  let receivedBytes = 0;
+  let lastProgress = 10;
+
+  const fileStream = NodeFS.createWriteStream(tempZip);
+  const reader = response.body.getReader();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    fileStream.write(Buffer.from(value));
+    receivedBytes += value.length;
+    const progress = Math.min(65, Math.max(10, Math.floor((receivedBytes / contentLength) * 65)));
+    if (progress > lastProgress) {
+      lastProgress = progress;
+      const mb = Math.round((receivedBytes / 1024 / 1024) * 10) / 10;
+      const totalMb = Math.round((contentLength / 1024 / 1024) * 10) / 10;
+      emit({
+        type: "progress",
+        progress,
+        stdout: `Downloading Arduino CLI: ${mb}MB / ${totalMb}MB (${progress}%)\n`,
+      });
+    }
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    fileStream.end((err?: Error | null) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+  emit({
+    type: "progress",
+    progress: 70,
+    stdout: "Extracting Arduino CLI executable to user bin...\n",
+  });
+
+  // Extract using Windows native tar
+  await new Promise<void>((resolve, reject) => {
+    const child = NodeChildProcess.spawn("tar", ["-xf", tempZip, "-C", destDir], {
+      windowsHide: true,
+    });
+    child.on("error", (err) => reject(new Error(`Failed to extract archive: ${err.message}`)));
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Extraction failed with exit code ${code}`));
+    });
+  });
+
+  // Clean up temp archive
+  try {
+    if (NodeFS.existsSync(tempZip)) NodeFS.unlinkSync(tempZip);
+  } catch {}
+
+  emit({
+    type: "progress",
+    progress: 90,
+    stdout: "Verifying Arduino CLI installation...\n",
+  });
+
+  const verified = findArduinoCli();
+  if (!verified.installed) {
+    // If not in standard path, check destDir explicitly
+    const exePath = NodePath.join(destDir, "arduino-cli.exe");
+    if (!NodeFS.existsSync(exePath)) {
+      throw new Error(
+        "Installation finished but arduino-cli.exe was not found in destination directory.",
+      );
+    }
+  }
+
+  emit({
+    type: "progress",
+    progress: 100,
+    stdout: "Arduino CLI installed successfully!\n",
+  });
+}
+
+async function installPlatformioAsync(
+  emit: (event: ToolchainInstallProgressEvent) => void,
+): Promise<void> {
+  emit({
+    type: "progress",
+    progress: 5,
+    stdout: "Starting PlatformIO installation via Python pip...\n",
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const child = NodeChildProcess.spawn(
+      "python",
+      ["-u", "-m", "pip", "install", "--upgrade", "platformio"],
+      {
+        windowsHide: true,
+      },
+    );
+
+    let currentProgress = 10;
+
+    const handleOutput = (data: Buffer) => {
+      const text = data.toString();
+      const lower = text.toLowerCase();
+
+      if (lower.includes("requirement already satisfied")) {
+        currentProgress = Math.max(currentProgress, 90);
+      } else if (lower.includes("collecting")) {
+        currentProgress = Math.max(currentProgress, 25);
+      } else if (lower.includes("downloading") || lower.includes("using cached")) {
+        currentProgress = Math.max(currentProgress, 50);
+      } else if (lower.includes("installing collected") || lower.includes("uninstalling")) {
+        currentProgress = Math.max(currentProgress, 80);
+      } else if (lower.includes("successfully installed")) {
+        currentProgress = 95;
+      }
+
+      emit({
+        type: "progress",
+        progress: currentProgress,
+        stdout: text,
+      });
+    };
+
+    child.stdout?.on("data", handleOutput);
+    child.stderr?.on("data", handleOutput);
+
+    child.on("error", (err) => {
+      reject(
+        new Error(
+          `Failed to launch Python: ${err.message}. Please ensure Python 3 is installed and on your PATH.`,
+        ),
+      );
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        emit({
+          type: "progress",
+          progress: 100,
+          stdout: "PlatformIO installed successfully!\n",
+        });
+        resolve();
+      } else {
+        reject(new Error(`pip install exited with error code ${code}`));
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Install toolchain — streams progress events to client
 // ---------------------------------------------------------------------------
 
 const installToolchainInternal = (
   toolchain: "platformio" | "arduino",
 ): Stream.Stream<ToolchainInstallProgressEvent, ToolchainInstallError> => {
   return Stream.callback<ToolchainInstallProgressEvent, ToolchainInstallError>((queue) => {
-    let command: string;
-    let args: string[];
+    let cancelled = false;
 
-    if (toolchain === "platformio") {
-      command = "python";
-      args = ["-u", "-m", "pip", "install", "platformio"];
-    } else if (toolchain === "arduino") {
-      command = "powershell";
-      args = [
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $url = 'https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.zip'; $out = Join-Path $env:TEMP 'arduino-cli.zip'; $dest = Join-Path $env:USERPROFILE 'bin'; Write-Host 'Downloading Arduino CLI...'; New-Item -ItemType Directory -Force -Path $dest | Out-Null; Invoke-WebRequest -Uri $url -OutFile $out; Write-Host 'Extracting Arduino CLI...'; Expand-Archive -Path $out -DestinationPath $dest -Force; Write-Host 'Installation completed successfully.'",
-      ];
-    } else {
-      return Queue.fail(
-        queue,
-        new ToolchainInstallError({ message: "Unknown toolchain type" }),
-      ).pipe(Effect.asVoid);
-    }
-
-    const parseProgress = (text: string, current: number): number => {
-      const lower = text.toLowerCase();
-      if (toolchain === "platformio") {
-        if (lower.includes("requirement already satisfied")) return Math.max(current, 90);
-        if (lower.includes("collecting")) return Math.max(current, 15);
-        if (lower.includes("downloading") || lower.includes("using cached"))
-          return Math.max(current, 40);
-        if (lower.includes("installing collected") || lower.includes("uninstalling"))
-          return Math.max(current, 70);
-        if (lower.includes("successfully installed")) return 95;
-      } else {
-        if (lower.includes("downloading")) return Math.max(current, 25);
-        if (lower.includes("unpacking") || lower.includes("extracting"))
-          return Math.max(current, 60);
-        if (lower.includes("installing") || lower.includes("copying")) return Math.max(current, 85);
-      }
-      return current;
+    const emit = (event: ToolchainInstallProgressEvent) => {
+      if (cancelled) return;
+      Effect.runPromise(Queue.offer(queue, event)).catch(() => {});
     };
 
-    return Effect.callback<void, ToolchainInstallError>((resume) => {
-      let currentProgress = 0;
+    const done = () => {
+      if (cancelled) return;
+      Effect.runPromise(Queue.end(queue)).catch(() => {});
+    };
 
+    const fail = (err: ToolchainInstallError) => {
+      if (cancelled) return;
+      Effect.runPromise(Queue.fail(queue, err)).catch(() => {});
+    };
+
+    void (async () => {
       try {
-        const child = NodeChildProcess.spawn(command, args, { shell: true, windowsHide: true });
-
-        Effect.runFork(
-          Queue.offer(queue, {
-            type: "progress" as const,
-            progress: 0,
-            stdout: `Starting ${toolchain} installation...\n`,
-          }),
-        );
-
-        // Smooth progress ticker
-        const ticker = setInterval(() => {
-          if (currentProgress < 95) {
-            currentProgress += 1;
-            Effect.runFork(
-              Queue.offer(queue, { type: "progress" as const, progress: currentProgress }),
-            );
-          }
-        }, 300);
-
-        child.stdout?.on("data", (data: Buffer) => {
-          const text = data.toString();
-          currentProgress = parseProgress(text, currentProgress);
-          Effect.runFork(
-            Queue.offer(queue, {
-              type: "progress" as const,
-              progress: currentProgress,
-              stdout: text,
-            }),
-          );
-        });
-
-        child.stderr?.on("data", (data: Buffer) => {
-          const text = data.toString();
-          currentProgress = parseProgress(text, currentProgress);
-          Effect.runFork(
-            Queue.offer(queue, {
-              type: "progress" as const,
-              progress: currentProgress,
-              stdout: text,
-            }),
-          );
-        });
-
-        child.on("error", (error) => {
-          clearInterval(ticker);
-          resume(
-            Effect.fail(new ToolchainInstallError({ message: `Process error: ${error.message}` })),
-          );
-        });
-
-        child.on("close", (code) => {
-          clearInterval(ticker);
-          if (code === 0) {
-            Effect.runFork(
-              Queue.offer(queue, {
-                type: "progress" as const,
-                progress: 100,
-                stdout: "Installation completed successfully.",
-              }).pipe(Effect.andThen(Queue.end(queue))),
-            );
-            resume(Effect.void);
-          } else {
-            resume(
-              Effect.fail(
-                new ToolchainInstallError({ message: `Process exited with code ${code}` }),
-              ),
-            );
-          }
-        });
-      } catch (e: any) {
-        resume(Effect.fail(new ToolchainInstallError({ message: `Spawn failed: ${e.message}` })));
+        if (toolchain === "arduino") {
+          await installArduinoCliAsync(emit);
+        } else {
+          await installPlatformioAsync(emit);
+        }
+        done();
+      } catch (err: any) {
+        fail(new ToolchainInstallError({ message: err?.message ?? String(err) }));
       }
-    }).pipe(Effect.forkScoped, Effect.asVoid);
+    })();
+
+    return Effect.acquireRelease(Effect.void, () =>
+      Effect.sync(() => {
+        cancelled = true;
+      }),
+    );
   });
 };
 
