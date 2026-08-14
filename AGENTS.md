@@ -9,6 +9,7 @@ Welcome to the **Embedino** codebase. This document is the single source of trut
 **Embedino** is an open-source, local-first, AI-powered IDE and workspace designed specifically for embedded systems, microcontrollers, and hardware engineering. It is derived from **[pingdotgg/t3code](https://github.com/pingdotgg/t3code)**.
 
 ### The 5 MVP Killer Features
+
 1. **Bring-Your-Own-Provider AI:** Context-aware embedded assistant for debugging pinouts, explaining compiler logs, and analyzing code.
 2. **Automatic Board & Device Detection:** Instant polling of connected USB/COM devices and microcontrollers.
 3. **One-Click Flash & Build:** Seamless integration with PlatformIO, Arduino CLI, and native toolchains.
@@ -47,29 +48,32 @@ embedino workspace/
 To guarantee that scaling Embedino to 100+ features (Board detection, Serial Monitor, Pinout Canvas, PDF Datasheet reader, AI flash pipeline) **never breaks during upstream T3 Code pulls**, every agent must follow these rules:
 
 ### Rule 1: The 95/5 Modular Isolation Principle (Dedicated Directories)
-* **95% of our code MUST live in dedicated Embedino directories:**
-  * Schemas & Contracts: `packages/contracts/src/hardware/...` or `toolchain.ts`
-  * Frontend Components: `apps/web/src/components/hardware/...`, `components/wiring/...`, `components/datasheet/...`
-  * Reactive Atoms: `apps/web/src/state/hardware.ts` or `state/toolchain.ts`
-  * Backend Services: `apps/server/src/hardware/...` or `apps/server/src/toolchain/...`
-* **Why this is indestructible:** Upstream T3 Code **never creates or touches these files**. There is literally **zero chance of a merge conflict** on any of our feature files.
+
+- **95% of our code MUST live in dedicated Embedino directories:**
+  - Schemas & Contracts: `packages/contracts/src/hardware/...` or `toolchain.ts`
+  - Frontend Components: `apps/web/src/components/hardware/...`, `components/wiring/...`, `components/datasheet/...`
+  - Reactive Atoms: `apps/web/src/state/hardware.ts` or `state/toolchain.ts`
+  - Backend Services: `apps/server/src/hardware/...` or `apps/server/src/toolchain/...`
+- **Why this is indestructible:** Upstream T3 Code **never creates or touches these files**. There is literally **zero chance of a merge conflict** on any of our feature files.
 
 ### Rule 2: Thin "Docking Ports" (Minimal Upstream Touches)
-* We only touch upstream T3 Code files in a few clean "docking ports":
-  * Registering RPC schemas: `packages/contracts/src/rpc.ts` and `packages/contracts/src/index.ts`
-  * Registering RPC handlers: `apps/server/src/ws.ts`
-  * UI Navigation: `<ToolchainSetupPill />` in `SidebarChrome.tsx` or Settings rows in `SettingsPanels.tsx`
-* Because docking ports are only 1 or 2 lines of code, Regraft's 3-way merge effortlessly merges upstream layout changes around our one-line hooks.
+
+- We only touch upstream T3 Code files in a few clean "docking ports":
+  - Registering RPC schemas: `packages/contracts/src/rpc.ts` and `packages/contracts/src/index.ts`
+  - Registering RPC handlers: `apps/server/src/ws.ts`
+  - UI Navigation: `<ToolchainSetupPill />` in `SidebarChrome.tsx` or Settings rows in `SettingsPanels.tsx`
+- Because docking ports are only 1 or 2 lines of code, Regraft's 3-way merge effortlessly merges upstream layout changes around our one-line hooks.
 
 ### Rule 3: Strict Regraft Exclusions
-* `regraft.json` MUST explicitly exclude folders we don't use:
+
+- `regraft.json` MUST explicitly exclude folders we don't use:
   ```json
   "excluded": [
     "mobile/**",
     "marketing/**"
   ]
   ```
-* This prevents deleted upstream files from causing merge stalls during `regraft pull`.
+- This prevents deleted upstream files from causing merge stalls during `regraft pull`.
 
 ---
 
@@ -77,17 +81,17 @@ To guarantee that scaling Embedino to 100+ features (Board detection, Serial Mon
 
 Embedino extends T3 Code with custom hardware management following the 95/5 rule:
 
-* **Dedicated Files (95%):**
-  * `packages/contracts/src/toolchain.ts`: Defines `ToolchainStatus`, `ToolchainType`, `ToolchainInstallProgressEvent`, and errors.
-  * `apps/server/src/toolchain/ToolchainService.ts`: Detects installed toolchain binaries via filesystem checks without process spawning.
-  * `apps/web/src/state/toolchain.ts`: Reactive Effect atoms for toolchain installation state.
-  * `apps/web/src/components/wiring/ToolchainSetup.tsx`: Getting-started pill & installation dialog.
-* **Thin Docking Ports (5%):**
-  * `packages/contracts/src/index.ts`: Re-exports toolchain schemas.
-  * `packages/contracts/src/rpc.ts`: Exposes `toolchain.installPlatformio`, `toolchain.installArduino`, and `toolchain.getStatus`.
-  * `apps/server/src/ws.ts`: Registers toolchain RPC handlers.
-  * `apps/web/src/components/sidebar/SidebarChrome.tsx`: Renders `<ToolchainSetupPill />`.
-  * `apps/web/src/components/settings/SettingsPanels.tsx`: Renders the Active Build Toolchain settings row.
+- **Dedicated Files (95%):**
+  - `packages/contracts/src/toolchain.ts`: Defines `ToolchainStatus`, `ToolchainType`, `ToolchainInstallProgressEvent`, and errors.
+  - `apps/server/src/toolchain/ToolchainService.ts`: Detects installed toolchain binaries via filesystem checks without process spawning.
+  - `apps/web/src/state/toolchain.ts`: Reactive Effect atoms for toolchain installation state.
+  - `apps/web/src/components/wiring/ToolchainSetup.tsx`: Getting-started pill & installation dialog.
+- **Thin Docking Ports (5%):**
+  - `packages/contracts/src/index.ts`: Re-exports toolchain schemas.
+  - `packages/contracts/src/rpc.ts`: Exposes `toolchain.installPlatformio`, `toolchain.installArduino`, and `toolchain.getStatus`.
+  - `apps/server/src/ws.ts`: Registers toolchain RPC handlers.
+  - `apps/web/src/components/sidebar/SidebarChrome.tsx`: Renders `<ToolchainSetupPill />`.
+  - `apps/web/src/components/settings/SettingsPanels.tsx`: Renders the Active Build Toolchain settings row.
 
 ---
 
@@ -96,20 +100,25 @@ Embedino extends T3 Code with custom hardware management following the 95/5 rule
 To prevent upstream T3 Code updates from breaking Embedino hardware customizations, we use **[Regraft](https://github.com/treadiehq/regraft)** instead of traditional Git forks or subtrees.
 
 ### Key Regraft Concepts
-* **Grafts:** Tracked directories copied from upstream (`t3-apps`, `t3-packages`, `t3-scripts`, etc.).
-* **Intent (`PATCH.md`):** Recorded descriptions of *why* local files differ from upstream.
-* **Three-Way Merge:** When pulling, Regraft compares the original base SHA, our modified local files, and the new upstream SHA.
+
+- **Grafts:** Tracked directories copied from upstream (`t3-apps`, `t3-packages`, `t3-scripts`, etc.).
+- **Intent (`PATCH.md`):** Recorded descriptions of _why_ local files differ from upstream.
+- **Three-Way Merge:** When pulling, Regraft compares the original base SHA, our modified local files, and the new upstream SHA.
 
 ### Rules for Agents Modifying Code
 
 #### Step 1: Always Record Intent After Customizations
+
 Whenever you add or modify files in tracked grafts, record your intent so Regraft knows they are intentional:
+
 ```bash
 regraft note "Add hardware toolchain UI and RPC handlers"
 ```
 
 #### Step 2: Safe Upstream Pull Procedure
+
 When syncing upstream changes from `pingdotgg/t3code`:
+
 1. **Create a safety backup branch:**
    ```bash
    git branch backup/pre-t3-sync-<date>
@@ -154,6 +163,6 @@ pnpm run build:desktop
 
 ## 7. Code Quality & Standards
 
-* **No "AI Smells":** Avoid placeholders, arbitrary timeouts (`setTimeout`), mock data in production paths, or bypass flags (`--no-verify`).
-* **Effect TS Best Practices:** Use standard Effect schemas, `Schema.TaggedErrorClass`, and atomic state.
-* **Pruned Folders:** `apps/mobile` and marketing pages are intentionally pruned for Embedino desktop/web focus. Do not restore them during upstream pulls.
+- **No "AI Smells":** Avoid placeholders, arbitrary timeouts (`setTimeout`), mock data in production paths, or bypass flags (`--no-verify`).
+- **Effect TS Best Practices:** Use standard Effect schemas, `Schema.TaggedErrorClass`, and atomic state.
+- **Pruned Folders:** `apps/mobile` and marketing pages are intentionally pruned for Embedino desktop/web focus. Do not restore them during upstream pulls.
