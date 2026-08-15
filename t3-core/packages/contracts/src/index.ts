@@ -31,4 +31,5 @@ export * from "./previewAutomation.ts";
 export * from "./resourceTelemetry.ts";
 export * from "./usage.ts";
 export * from "./toolchain.ts";
+export * from "./hardware/devices.ts";
 export * from "./rpc.ts";

@@ -1,4 +1,4 @@
-import { ArrowDownCircle, Check, Download, Info, X, AlertTriangle, Loader2 } from "lucide-react";
+import { ArrowDownCircle, Check, Info, X, AlertTriangle, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import * as Cause from "effect/Cause";
@@ -287,30 +287,30 @@ export function ToolchainSetupDialog() {
 
         {/* PlatformIO Card */}
         <div
-          className={`flex flex-col gap-3 rounded-xl border p-5 transition-all ${
+          className={`flex flex-col gap-3 rounded-lg border p-4 transition-colors ${
             activeToolchain === "platformio"
-              ? "border-emerald-600/50 bg-emerald-950/20"
-              : "border-border bg-card hover:border-border/80"
+              ? "border-primary/50 bg-primary/5"
+              : "border-border bg-card hover:bg-accent/40"
           }`}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <span className="font-semibold text-foreground">PlatformIO</span>
               {snap.platformioInstalled ? (
-                <span className="flex items-center gap-1 rounded-full border border-emerald-800/50 bg-emerald-950/40 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
-                  <Check className="size-3" />
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Check className="size-3 text-emerald-500" />
                   {snap.platformioVersion
                     ? snap.platformioVersion.replace(/^PlatformIO\s*/i, "")
-                    : "INSTALLED"}
+                    : "Installed"}
                 </span>
               ) : (
-                <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-xs font-bold tracking-wide text-primary">
-                  RECOMMENDED
+                <span className="rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+                  Recommended
                 </span>
               )}
             </div>
             <Button
-              disabled={!!snap.installing}
+              disabled={!!snap.installing || activeToolchain === "platformio"}
               variant={
                 snap.platformioInstalled
                   ? activeToolchain === "platformio"
@@ -318,13 +318,7 @@ export function ToolchainSetupDialog() {
                     : "secondary"
                   : "default"
               }
-              className={
-                snap.platformioInstalled
-                  ? activeToolchain === "platformio"
-                    ? "cursor-default border-emerald-800/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-950/40"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90"
-              }
+              size="sm"
               onClick={() => {
                 if (snap.platformioInstalled) {
                   if (activeToolchain !== "platformio") setActiveToolchain("platformio");
@@ -336,19 +330,14 @@ export function ToolchainSetupDialog() {
               {snap.installing === "platformio" ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Installing ({snap.progress}%)...
+                  Installing...
                 </>
+              ) : activeToolchain === "platformio" ? (
+                "Selected"
               ) : snap.platformioInstalled ? (
-                activeToolchain === "platformio" ? (
-                  <>Selected</>
-                ) : (
-                  <>Select</>
-                )
+                "Select"
               ) : (
-                <>
-                  <Download className="mr-2 size-4" />
-                  Install
-                </>
+                "Install"
               )}
             </Button>
           </div>
@@ -357,7 +346,7 @@ export function ToolchainSetupDialog() {
             library management.
           </p>
           {snap.installing === "platformio" && (
-            <div className="relative flex w-full items-center justify-center overflow-hidden rounded-lg bg-muted py-1.5 text-xs font-medium">
+            <div className="relative flex w-full items-center justify-center overflow-hidden rounded-md bg-muted py-1.5 text-xs font-medium">
               <div
                 className="absolute left-0 top-0 h-full bg-primary/30 transition-all duration-300 ease-out"
                 style={{ width: `${snap.progress}%` }}
@@ -369,26 +358,26 @@ export function ToolchainSetupDialog() {
 
         {/* Arduino CLI Card */}
         <div
-          className={`flex flex-col gap-3 rounded-xl border p-5 transition-all ${
+          className={`flex flex-col gap-3 rounded-lg border p-4 transition-colors ${
             activeToolchain === "arduino"
-              ? "border-emerald-600/50 bg-emerald-950/20"
-              : "border-border bg-card hover:border-border/80"
+              ? "border-primary/50 bg-primary/5"
+              : "border-border bg-card hover:bg-accent/40"
           }`}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <span className="font-semibold text-foreground">Arduino CLI</span>
               {snap.arduinoInstalled && (
-                <span className="flex items-center gap-1 rounded-full border border-emerald-800/50 bg-emerald-950/40 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
-                  <Check className="size-3" />
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Check className="size-3 text-emerald-500" />
                   {snap.arduinoVersion
                     ? snap.arduinoVersion.replace(/^Arduino CLI\s*/i, "")
-                    : "INSTALLED"}
+                    : "Installed"}
                 </span>
               )}
             </div>
             <Button
-              disabled={!!snap.installing}
+              disabled={!!snap.installing || activeToolchain === "arduino"}
               variant={
                 snap.arduinoInstalled
                   ? activeToolchain === "arduino"
@@ -396,13 +385,7 @@ export function ToolchainSetupDialog() {
                     : "secondary"
                   : "outline"
               }
-              className={
-                snap.arduinoInstalled
-                  ? activeToolchain === "arduino"
-                    ? "cursor-default border-emerald-800/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-950/40"
-                    : "bg-secondary border-border text-secondary-foreground hover:bg-secondary/80"
-                  : "border-border bg-transparent text-foreground hover:bg-accent"
-              }
+              size="sm"
               onClick={() => {
                 if (snap.arduinoInstalled) {
                   if (activeToolchain !== "arduino") setActiveToolchain("arduino");
@@ -414,19 +397,14 @@ export function ToolchainSetupDialog() {
               {snap.installing === "arduino" ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Installing ({snap.progress}%)...
+                  Installing...
                 </>
+              ) : activeToolchain === "arduino" ? (
+                "Selected"
               ) : snap.arduinoInstalled ? (
-                activeToolchain === "arduino" ? (
-                  <>Selected</>
-                ) : (
-                  <>Select</>
-                )
+                "Select"
               ) : (
-                <>
-                  <Download className="mr-2 size-4" />
-                  Install
-                </>
+                "Install"
               )}
             </Button>
           </div>
@@ -435,7 +413,7 @@ export function ToolchainSetupDialog() {
             boards.
           </p>
           {snap.installing === "arduino" && (
-            <div className="relative flex w-full items-center justify-center overflow-hidden rounded-lg bg-muted py-1.5 text-xs font-medium">
+            <div className="relative flex w-full items-center justify-center overflow-hidden rounded-md bg-muted py-1.5 text-xs font-medium">
               <div
                 className="absolute left-0 top-0 h-full bg-primary/30 transition-all duration-300 ease-out"
                 style={{ width: `${snap.progress}%` }}

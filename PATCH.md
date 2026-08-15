@@ -56,15 +56,23 @@ Files:
 - `t3-core/apps/server/src/provider/CodexDeveloperInstructions.ts` @ `c2f999199a32` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/AzureDevOpsPullRequestCli.test.ts` @ `c8b82c30934e` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/AzureDevOpsPullRequestCli.ts` @ `e6fecf4239e5` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/azureDevOpsPullRequestJson.test.ts` @ `e25e1b26fc27` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/azureDevOpsPullRequestJson.ts` @ `8b113f08aad4` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/AzureDevOpsPullRequestProvider.test.ts` @ `7feb3475db0f` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/AzureDevOpsPullRequestProvider.ts` @ `b7dfd9b603f6` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/BitbucketPullRequestApi.test.ts` @ `735c7cbf1bd3` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/BitbucketPullRequestApi.ts` @ `187cee346493` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/bitbucketPullRequestJson.test.ts` @ `38f3c84ec0d0` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/bitbucketPullRequestJson.ts` @ `c4b4e7311f00` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/BitbucketPullRequestProvider.ts` @ `591af3d01cf3` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/GitHubPullRequestCli.test.ts` @ `6d6aa98a481b` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/GitHubPullRequestCli.ts` @ `59ef836bcc0b` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/gitHubPullRequestJson.test.ts` @ `47b286e05fcc` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/gitHubPullRequestJson.ts` @ `7601364d9ae3` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/GitHubPullRequestProvider.test.ts` @ `6bd5550d2f00` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/GitHubPullRequestProvider.ts` @ `c72f741e5cf5` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/gitLabMergeRequestJson.test.ts` @ `aeaf614d37f8` · Graft `t3-apps`
+- `t3-core/apps/server/src/pullRequest/gitLabMergeRequestJson.ts` @ `9809aac18b9e` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/GitLabPullRequestCli.test.ts` @ `bf61a13c34a2` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/GitLabPullRequestCli.ts` @ `4303bf8a5376` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/GitLabPullRequestProvider.test.ts` @ `258dcd8ca1f8` · Graft `t3-apps`
@@ -72,14 +80,6 @@ Files:
 - `t3-core/apps/server/src/pullRequest/PullRequestProvider.ts` @ `8e8a9da3d8ab` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/PullRequestService.test.ts` @ `491bd7cbbd08` · Graft `t3-apps`
 - `t3-core/apps/server/src/pullRequest/PullRequestService.ts` @ `eb9759fb2dea` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/azureDevOpsPullRequestJson.test.ts` @ `e25e1b26fc27` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/azureDevOpsPullRequestJson.ts` @ `8b113f08aad4` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/bitbucketPullRequestJson.test.ts` @ `38f3c84ec0d0` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/bitbucketPullRequestJson.ts` @ `c4b4e7311f00` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/gitHubPullRequestJson.test.ts` @ `47b286e05fcc` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/gitHubPullRequestJson.ts` @ `7601364d9ae3` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/gitLabMergeRequestJson.test.ts` @ `aeaf614d37f8` · Graft `t3-apps`
-- `t3-core/apps/server/src/pullRequest/gitLabMergeRequestJson.ts` @ `9809aac18b9e` · Graft `t3-apps`
 - `t3-core/apps/server/src/relay/AgentAwarenessRelay.ts` @ `dbd1459305ff` · Graft `t3-apps`
 - `t3-core/apps/server/src/sourceControl/GitHubCli.test.ts` @ `cbdf2894b087` · Graft `t3-apps`
 - `t3-core/apps/server/src/sourceControl/GitHubCli.ts` @ `2a7cef29dbe5` · Graft `t3-apps`
@@ -95,32 +95,27 @@ Files:
 - `t3-core/apps/web/src/cloud/connectCliAuth.ts` @ `08a19f632b66` · Graft `t3-apps`
 - `t3-core/apps/web/src/cloud/managedRelayState.ts` @ `82b996be4e65` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/AppSidebarLayout.tsx` @ `fddc309d03c5` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/ChatMarkdown.tsx` @ `fd97c50f0a0e` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/ChatView.tsx` @ `b37ea92719eb` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/CommandPalette.logic.test.ts` @ `8be7913f9183` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/CommandPalette.logic.ts` @ `9222053c2e4d` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/CommandPalette.tsx` @ `8e9df6417e7e` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/CommandPaletteResults.tsx` @ `eb60a9d258b9` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/LegacySidebar.tsx` @ `96237348c497` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/RightPanelTabs.tsx` @ `9613b3b1edd0` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/Sidebar.logic.test.ts` @ `fc8e84120a6b` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/Sidebar.logic.ts` @ `e30813c4c729` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/Sidebar.tsx` @ `ed3b59c24c2c` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/SidebarStageBackdrop.tsx` @ `271906721b49` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/ChangedFilesTree.test.tsx` @ `411acd3c080b` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/ChangedFilesTree.tsx` @ `5f31e19545c6` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/ChatHeader.tsx` @ `1de1c1790f10` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/DraftHeroHeadline.tsx` @ `7005441bf7ac` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/chat/MessagesTimeline.tsx` @ `c8d29bfed181` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/chat/PanelLayoutControls.tsx` @ `98dcb8829eb0` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/externalLinkContextMenu.test.ts` @ `9478dd189837` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/externalLinkContextMenu.ts` @ `a917075eeaa0` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/chat/MessagesTimeline.tsx` @ `c8d29bfed181` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/chat/PanelLayoutControls.tsx` @ `98dcb8829eb0` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatMarkdown.tsx` @ `fd97c50f0a0e` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `b37ea92719eb` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/clerk/MobileClientsUserProfilePage.tsx` @ `0e21d3e1a5c7` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/clerk/T3ConnectSidebarSignIn.tsx` @ `24783f43c6ed` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/cloud/ConnectCliAuthSurface.tsx` @ `b6e1363c7d73` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/CommandPalette.logic.test.ts` @ `8be7913f9183` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/CommandPalette.logic.ts` @ `9222053c2e4d` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/CommandPalette.tsx` @ `8e9df6417e7e` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/CommandPaletteResults.tsx` @ `eb60a9d258b9` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/desktopUpdate.toast.tsx` @ `5dad8536b378` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/diffs/StyledDiffCodeView.test.tsx` @ `154ce8d43072` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/diffs/StyledDiffCodeView.tsx` @ `f8d0a486db85` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/LegacySidebar.tsx` @ `96237348c497` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/preview/PreviewEmptyState.test.tsx` @ `27bd3ef9698a` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/preview/PreviewEmptyState.tsx` @ `3286b65d7aa0` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/preview/PreviewLocalServerCard.tsx` @ `60b28c082abe` · Graft `t3-apps`
@@ -133,23 +128,28 @@ Files:
 - `t3-core/apps/web/src/components/preview/useDiscoveredLocalServers.ts` @ `918b82339dcc` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/preview/usePreviewBridge.ts` @ `066303217222` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestCodeTab.tsx` @ `eaac6d7e4261` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/pullRequest/pullRequestDetail.logic.test.ts` @ `6d0d5cb6ca9a` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/pullRequest/pullRequestDetail.logic.ts` @ `a408f8e9394d` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestDetailPanel.tsx` @ `2aa2b9d9d126` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/pullRequest/pullRequestList.logic.test.ts` @ `4c6ade4a6688` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/pullRequest/pullRequestList.logic.ts` @ `d997bcc9f7f6` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestListFilters.test.tsx` @ `04e17b5c675b` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestListFilters.tsx` @ `c17893fde46a` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/pullRequest/pullRequestPresentation.tsx` @ `cf8ff2758fa9` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestReviewAnnotation.tsx` @ `26b9369ec8d3` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestRow.tsx` @ `71bd30052875` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestSummaryTab.tsx` @ `76cd41b201f3` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/pullRequest/PullRequestTimelineTab.tsx` @ `3a8096fb1885` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/pullRequest/pullRequestDetail.logic.test.ts` @ `6d0d5cb6ca9a` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/pullRequest/pullRequestDetail.logic.ts` @ `a408f8e9394d` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/pullRequest/pullRequestList.logic.test.ts` @ `4c6ade4a6688` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/pullRequest/pullRequestList.logic.ts` @ `d997bcc9f7f6` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/pullRequest/pullRequestPresentation.tsx` @ `cf8ff2758fa9` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/settings/SettingsPanels.tsx` @ `a062a00ef58c` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/settings/SourceControlSettings.tsx` @ `8d1ec7df6845` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/RightPanelTabs.tsx` @ `9613b3b1edd0` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/settings/settingsLayout.tsx` @ `cbddff5ca711` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/settings/SettingsPanels.tsx` @ `a062a00ef58c` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/settings/settingsSearch.ts` @ `87bf004632ce` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/settings/SourceControlSettings.tsx` @ `8d1ec7df6845` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/Sidebar.logic.test.ts` @ `fc8e84120a6b` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/Sidebar.logic.ts` @ `e30813c4c729` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/Sidebar.tsx` @ `ed3b59c24c2c` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/sidebar/SidebarChrome.tsx` @ `5d90cca84884` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/SidebarStageBackdrop.tsx` @ `271906721b49` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/ui/alert-dialog.tsx` @ `fffcf1613330` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/ui/dialog-styles.ts` @ `9aa351894186` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/ui/tooltip.tsx` @ `0cd5e07a71b6` · Graft `t3-apps`
@@ -201,3 +201,16 @@ Files:
 - `t3-core/scripts/release-smoke.ts` @ `a8c567f59a2e` · Graft `t3-scripts`
 
 Sync upstream T3 Code to commit 038560e while preserving all Embedino toolchain and hardware logic
+
+## 2026-08-15 — 1702dc62
+
+Files:
+- `t3-core/apps/server/src/auth/RpcAuthorization.ts` @ `1bc189ca01a8` · Graft `t3-apps`
+- `t3-core/apps/server/src/ws.ts` @ `e0d953249e89` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/BranchToolbar.tsx` @ `bad3d208afc9` · Graft `t3-apps`
+- `t3-core/apps/web/src/index.css` @ `2bb245d9f84b` · Graft `t3-apps`
+- `t3-core/packages/client-runtime/src/rpc/client.ts` @ `dbfb122e2df0` · Graft `t3-packages`
+- `t3-core/packages/contracts/src/index.ts` @ `31e47f319b17` · Graft `t3-packages`
+- `t3-core/packages/contracts/src/rpc.ts` @ `29a16bd8fc9a` · Graft `t3-packages`
+
+feat: Automatic hardware detection, UI optimizations, and toolchain RPC handlers

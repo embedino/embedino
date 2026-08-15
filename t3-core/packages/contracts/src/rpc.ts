@@ -195,6 +195,13 @@ import {
   ToolchainInstallProgressEvent,
   ToolchainStatus,
 } from "./toolchain.ts";
+import {
+  DeviceAssociationInput,
+  DeviceAssociationResult,
+  HardwareDetectionError,
+  HardwareDevice,
+  HardwareEvent,
+} from "./hardware/devices.ts";
 
 export const WS_METHODS = {
   // Project registry methods
@@ -285,6 +292,11 @@ export const WS_METHODS = {
   toolchainInstallPlatformio: "toolchain.installPlatformio",
   toolchainInstallArduino: "toolchain.installArduino",
   toolchainGetStatus: "toolchain.getStatus",
+
+  // Hardware detection methods
+  hardwareListDevices: "hardware.listDevices",
+  hardwareSubscribeDevices: "hardware.subscribeDevices",
+  hardwareSetDeviceAssociation: "hardware.setDeviceAssociation",
 
   // Pull request methods
   pullRequestsList: "pullRequests.list",
@@ -1003,6 +1015,25 @@ export const WsToolchainGetStatusRpc = Rpc.make(WS_METHODS.toolchainGetStatus, {
   error: Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError]),
 });
 
+export const WsHardwareListDevicesRpc = Rpc.make(WS_METHODS.hardwareListDevices, {
+  payload: Schema.Struct({}),
+  success: Schema.Struct({ devices: Schema.Array(HardwareDevice) }),
+  error: Schema.Union([HardwareDetectionError, EnvironmentAuthorizationError]),
+});
+
+export const WsHardwareSubscribeDevicesRpc = Rpc.make(WS_METHODS.hardwareSubscribeDevices, {
+  payload: Schema.Struct({}),
+  success: HardwareEvent,
+  error: Schema.Union([HardwareDetectionError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+export const WsHardwareSetDeviceAssociationRpc = Rpc.make(WS_METHODS.hardwareSetDeviceAssociation, {
+  payload: DeviceAssociationInput,
+  success: DeviceAssociationResult,
+  error: Schema.Union([HardwareDetectionError, EnvironmentAuthorizationError]),
+});
+
 export const WsRpcGroup = RpcGroup.make(
   WsServerProbeRpc,
   WsServerGetConfigRpc,
@@ -1105,4 +1136,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsToolchainInstallPlatformioRpc,
   WsToolchainInstallArduinoRpc,
   WsToolchainGetStatusRpc,
+  WsHardwareListDevicesRpc,
+  WsHardwareSubscribeDevicesRpc,
+  WsHardwareSetDeviceAssociationRpc,
 );

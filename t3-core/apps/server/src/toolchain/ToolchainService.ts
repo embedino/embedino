@@ -311,6 +311,7 @@ async function installArduinoCliAsync(
   platform: NodeJS.Platform,
   arch: string,
   emit: (event: ToolchainInstallProgressEvent) => void,
+  signal: AbortSignal,
 ): Promise<void> {
   const asset = resolveArduinoReleaseAsset(platform, arch);
   const destDir = getArduinoCliDestDir(platform);
@@ -333,7 +334,7 @@ async function installArduinoCliAsync(
     stdout: `Downloading Arduino CLI package from ${asset.url}...\n`,
   });
 
-  const response = await fetch(asset.url);
+  const response = await fetch(asset.url, { signal });
   if (!response.ok || !response.body) {
     throw new Error(`Download failed: HTTP ${response.status} ${response.statusText}`);
   }
@@ -388,8 +389,12 @@ async function installArduinoCliAsync(
         : ["-xzf", tempArchive, "-C", destDir];
     const child = NodeChildProcess.spawn("tar", tarArgs, {
       windowsHide: true,
+      signal,
     });
-    child.on("error", (err) => reject(new Error(`Failed to extract archive: ${err.message}`)));
+    child.on("error", (err) => {
+      if (err.name === "AbortError") reject(new Error("Installation cancelled."));
+      else reject(new Error(`Failed to extract archive: ${err.message}`));
+    });
     child.on("close", (code) => {
       if (code === 0) resolve();
       else reject(new Error(`Extraction failed with exit code ${code}`));
@@ -432,6 +437,7 @@ async function installPlatformioAsync(
   platform: NodeJS.Platform,
   _arch: string,
   emit: (event: ToolchainInstallProgressEvent) => void,
+  signal: AbortSignal,
 ): Promise<void> {
   const pythonCmd = resolvePythonCommand(platform);
   const penvDir = getPlatformioPenvDir();
@@ -450,14 +456,17 @@ async function installPlatformioAsync(
     await new Promise<void>((resolve, reject) => {
       const venvProcess = NodeChildProcess.spawn(pythonCmd, ["-m", "venv", penvDir], {
         windowsHide: true,
+        signal,
       });
-      venvProcess.on("error", (err) =>
-        reject(
-          new Error(
-            `Failed to create virtual environment with ${pythonCmd}: ${err.message}. Please ensure Python 3 venv module is installed.`,
-          ),
-        ),
-      );
+      venvProcess.on("error", (err) => {
+        if (err.name === "AbortError") reject(new Error("Installation cancelled."));
+        else
+          reject(
+            new Error(
+              `Failed to create virtual environment with ${pythonCmd}: ${err.message}. Please ensure Python 3 venv module is installed.`,
+            ),
+          );
+      });
       venvProcess.on("close", (code) => {
         if (code === 0) resolve();
         else reject(new Error(`Python venv creation failed with exit code ${code}`));
@@ -479,6 +488,7 @@ async function installPlatformioAsync(
   await new Promise<void>((resolve, reject) => {
     const child = NodeChildProcess.spawn(pipExecutable, pipArgs, {
       windowsHide: true,
+      signal,
     });
 
     let currentProgress = 35;
@@ -510,7 +520,8 @@ async function installPlatformioAsync(
     child.stderr?.on("data", handleOutput);
 
     child.on("error", (err) => {
-      reject(new Error(`Failed to execute pip (${pipExecutable}): ${err.message}`));
+      if (err.name === "AbortError") reject(new Error("Installation cancelled."));
+      else reject(new Error(`Failed to execute pip (${pipExecutable}): ${err.message}`));
     });
 
     child.on("close", (code) => {
@@ -557,6 +568,7 @@ const installToolchainInternal = (toolchain: "platformio" | "arduino") =>
     Stream.flatMap(({ platform, arch }) =>
       Stream.callback<ToolchainInstallProgressEvent, ToolchainInstallError>((queue) => {
         let cancelled = false;
+        const abortController = new AbortController();
 
         const emit = (event: ToolchainInstallProgressEvent) => {
           if (cancelled) return;
@@ -576,9 +588,9 @@ const installToolchainInternal = (toolchain: "platformio" | "arduino") =>
         void (async () => {
           try {
             if (toolchain === "arduino") {
-              await installArduinoCliAsync(platform, arch, emit);
+              await installArduinoCliAsync(platform, arch, emit, abortController.signal);
             } else {
-              await installPlatformioAsync(platform, arch, emit);
+              await installPlatformioAsync(platform, arch, emit, abortController.signal);
             }
             done();
           } catch (err: any) {
@@ -589,6 +601,7 @@ const installToolchainInternal = (toolchain: "platformio" | "arduino") =>
         return Effect.acquireRelease(Effect.void, () =>
           Effect.sync(() => {
             cancelled = true;
+            abortController.abort();
           }),
         );
       }),

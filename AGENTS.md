@@ -83,14 +83,21 @@ Embedino extends T3 Code with custom hardware management following the 95/5 rule
 
 - **Dedicated Files (95%):**
   - `packages/contracts/src/toolchain.ts`: Defines `ToolchainStatus`, `ToolchainType`, `ToolchainInstallProgressEvent`, and errors.
+  - `packages/contracts/src/hardware/devices.ts`: Defines `HardwareDevice`, `HardwareEvent`, and `HardwareDetectionError`.
+  - `apps/server/src/hardware/*`: Cross-platform scanning (`DeviceService.ts`, `BoardDatabase.ts`) and persistent associations (`DeviceAssociationStore.ts`).
   - `apps/server/src/toolchain/ToolchainService.ts`: Detects installed toolchain binaries via filesystem checks without process spawning.
+  - `apps/web/src/state/hardware.ts`: Reactive Effect atoms for hardware devices and subscriptions.
   - `apps/web/src/state/toolchain.ts`: Reactive Effect atoms for toolchain installation state.
+  - `apps/web/src/components/hardware/*`: The `BoardSelectorPill` and `BoardSelectorPopover` components.
   - `apps/web/src/components/wiring/ToolchainSetup.tsx`: Getting-started pill & installation dialog.
 - **Thin Docking Ports (5%):**
-  - `packages/contracts/src/index.ts`: Re-exports toolchain schemas.
-  - `packages/contracts/src/rpc.ts`: Exposes `toolchain.installPlatformio`, `toolchain.installArduino`, and `toolchain.getStatus`.
-  - `apps/server/src/ws.ts`: Registers toolchain RPC handlers.
+  - `packages/contracts/src/index.ts`: Re-exports toolchain and hardware schemas.
+  - `packages/contracts/src/rpc.ts`: Exposes toolchain and hardware RPC endpoints.
+  - `packages/client-runtime/src/rpc/client.ts`: Registers hardware subscription tag.
+  - `apps/server/src/ws.ts`: Registers toolchain and hardware RPC handlers.
+  - `apps/server/src/auth/RpcAuthorization.ts`: Hardware RPC auth mapping.
   - `apps/web/src/components/sidebar/SidebarChrome.tsx`: Renders `<ToolchainSetupPill />`.
+  - `apps/web/src/components/BranchToolbar.tsx`: Renders `<BoardSelectorPill />`.
   - `apps/web/src/components/settings/SettingsPanels.tsx`: Renders the Active Build Toolchain settings row.
 
 ---

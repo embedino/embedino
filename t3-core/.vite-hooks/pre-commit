@@ -1,1 +1,2 @@
-vp staged
+cd t3-core
+pnpm exec vp staged

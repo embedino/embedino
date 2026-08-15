@@ -72,6 +72,7 @@ import {
 } from "./orchestration/ActivityPayloadProjection.ts";
 import { normalizeDispatchCommand } from "./orchestration/Normalizer.ts";
 import * as ToolchainService from "./toolchain/ToolchainService.ts";
+import * as DeviceService from "./hardware/DeviceService.ts";
 import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
 import * as ProjectionSnapshotQuery from "./orchestration/Services/ProjectionSnapshotQuery.ts";
 import {
@@ -2076,6 +2077,22 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.toolchainGetStatus, ToolchainService.getToolchainStatus(), {
             "rpc.aggregate": "toolchain",
           }),
+        [WS_METHODS.hardwareListDevices]: (_input) =>
+          observeRpcEffect(
+            WS_METHODS.hardwareListDevices,
+            DeviceService.scanDevices().pipe(Effect.map((devices) => ({ devices }))),
+            { "rpc.aggregate": "hardware" },
+          ),
+        [WS_METHODS.hardwareSubscribeDevices]: (_input) =>
+          observeRpcStream(WS_METHODS.hardwareSubscribeDevices, DeviceService.subscribeDevices(), {
+            "rpc.aggregate": "hardware",
+          }),
+        [WS_METHODS.hardwareSetDeviceAssociation]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.hardwareSetDeviceAssociation,
+            DeviceService.setDeviceAssociation(input),
+            { "rpc.aggregate": "hardware" },
+          ),
         [WS_METHODS.subscribeTerminalEvents]: (_input) =>
           observeRpcStream(
             WS_METHODS.subscribeTerminalEvents,
