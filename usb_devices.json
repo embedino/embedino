@@ -1,0 +1,908 @@
+﻿[
+    {
+        "Name":  "Generic USB Hub",
+        "DeviceID":  "USB\\VID_05E3\u0026PID_0608\\5\u00263A692CE1\u00260\u00269",
+        "Manufacturer":  "(Standard USB HUBs)",
+        "Description":  "Generic USB Hub"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\PNP0C02\\0",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\PNP0C02\\1",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\PNP0C02\\2",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\PNP0C02\\5",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  null,
+        "DeviceID":  "ACPI\\INTC1070\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  null,
+        "Description":  null
+    },
+    {
+        "Name":  "Intel(R) PCI Express Root Port #3 - 7ABA",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7ABA\u0026SUBSYS_50011458\u0026REV_11\\3\u002611583659\u00260\u0026E2",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) PCI Express Root Port #3 - 7ABA"
+    },
+    {
+        "Name":  "ACPI Fan",
+        "DeviceID":  "ACPI\\PNP0C0B\\0",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Fan"
+    },
+    {
+        "Name":  "ACPI Fan",
+        "DeviceID":  "ACPI\\PNP0C0B\\1",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Fan"
+    },
+    {
+        "Name":  "ACPI Fan",
+        "DeviceID":  "ACPI\\PNP0C0B\\2",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Fan"
+    },
+    {
+        "Name":  "ACPI Fan",
+        "DeviceID":  "ACPI\\PNP0C0B\\3",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Fan"
+    },
+    {
+        "Name":  "ACPI Fan",
+        "DeviceID":  "ACPI\\PNP0C0B\\4",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Fan"
+    },
+    {
+        "Name":  "System timer",
+        "DeviceID":  "ACPI\\PNP0100\\4\u0026DF10369\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "System timer"
+    },
+    {
+        "Name":  "Standard SATA AHCI Controller",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AE2\u0026SUBSYS_B0051458\u0026REV_11\\3\u002611583659\u00260\u0026B8",
+        "Manufacturer":  "Standard SATA AHCI Controller",
+        "Description":  "Standard SATA AHCI Controller"
+    },
+    {
+        "Name":  "ACPI Processor Aggregator",
+        "DeviceID":  "ACPI\\ACPI000C\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Processor Aggregator"
+    },
+    {
+        "Name":  "Root Print Queue",
+        "DeviceID":  "SWD\\PRINTENUM\\PRINTQUEUES",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Local Print Queue"
+    },
+    {
+        "Name":  "WDC WDS240G2G0A-00JH30",
+        "DeviceID":  "SCSI\\DISK\u0026VEN_WDC\u0026PROD_WDS240G2G0A-00JH\\4\u002630EC406E\u00260\u0026040000",
+        "Manufacturer":  "(Standard disk drives)",
+        "Description":  "Disk drive"
+    },
+    {
+        "Name":  "Volume Manager",
+        "DeviceID":  "ROOT\\VOLMGR\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Volume Manager"
+    },
+    {
+        "Name":  "USB Serial Device (COM4)",
+        "DeviceID":  "USB\\VID_303A\u0026PID_1001\u0026MI_00\\6\u002637DF8DD6\u00261\u00260000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "USB Serial Device"
+    },
+    {
+        "Name":  "System Firmware",
+        "DeviceID":  "UEFI\\RES_{00000000-0000-0000-0000-000000000000}\\0",
+        "Manufacturer":  "Microsoft",
+        "Description":  "System Firmware"
+    },
+    {
+        "Name":  "WAN Miniport (PPPOE)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_PPPOEMINIPORT",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (PPPOE)"
+    },
+    {
+        "Name":  "Microsoft Hyper-V Virtual Machine Bus Provider",
+        "DeviceID":  "ROOT\\VMBUS\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Hyper-V Virtual Machine Bus Provider"
+    },
+    {
+        "Name":  "HID-compliant vendor-defined device",
+        "DeviceID":  "HID\\VID_30FA\u0026PID_1440\u0026MI_01\u0026COL03\\7\u0026378F6B07\u00260\u00260002",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "HID-compliant vendor-defined device"
+    },
+    {
+        "Name":  "Volume",
+        "DeviceID":  "STORAGE\\VOLUME\\{A4B31D99-50F7-11F1-AC56-806E6F6E6963}#0000000000100000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Volume"
+    },
+    {
+        "Name":  "Microsoft Basic Display Driver",
+        "DeviceID":  "ROOT\\BASICDISPLAY\\0000",
+        "Manufacturer":  "(Standard display types)",
+        "Description":  "Microsoft Basic Display Driver"
+    },
+    {
+        "Name":  "ACPI Sleep Button",
+        "DeviceID":  "ACPI\\PNP0C0E\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Sleep Button"
+    },
+    {
+        "Name":  "Microsoft Windows Management Interface for ACPI",
+        "DeviceID":  "ACPI\\PNP0C14\\GSADEV0",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Windows Management Interface for ACPI"
+    },
+    {
+        "Name":  "Generic PnP Monitor",
+        "DeviceID":  "DISPLAY\\ACR06F8\\5\u0026389DF2C3\u00260\u0026UID4357",
+        "Manufacturer":  "(Standard monitor types)",
+        "Description":  "Generic PnP Monitor"
+    },
+    {
+        "Name":  "Intel(R) Shared SRAM - 7AA7",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AA7\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026A2",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) Shared SRAM - 7AA7"
+    },
+    {
+        "Name":  "Hyper-V Virtual Switch Extension Adapter",
+        "DeviceID":  "ROOT\\VMS_VSMP\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Hyper-V Virtual Switch Extension Adapter"
+    },
+    {
+        "Name":  "Hyper-V Virtual Switch Extension Adapter #2",
+        "DeviceID":  "ROOT\\VMS_VSMP\\0001",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Hyper-V Virtual Switch Extension Adapter"
+    },
+    {
+        "Name":  "ACPI Thermal Zone",
+        "DeviceID":  "ACPI\\THERMALZONE\\TZ00",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Thermal Zone"
+    },
+    {
+        "Name":  "ACPI Thermal Zone",
+        "DeviceID":  "ACPI\\THERMALZONE\\TZ10",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Thermal Zone"
+    },
+    {
+        "Name":  "Microsoft Windows Management Interface for ACPI",
+        "DeviceID":  "ACPI\\PNP0C14\\DSARDEV",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Windows Management Interface for ACPI"
+    },
+    {
+        "Name":  "Device Firmware",
+        "DeviceID":  "UEFI\\RES_{86A885EE-D71E-2ED6-0FC1-9D6CCC9677EB}\\0",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Device Firmware"
+    },
+    {
+        "Name":  "Intel(R) iCLS Client",
+        "DeviceID":  "SWD\\DRIVERENUM\\OEM_ES_COMPONENT\u00264\u002619F77274\u00260",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel(R) iCLS Client"
+    },
+    {
+        "Name":  "Intel(R) LPSS: I2C Controller #1 - 7ACD",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7ACD\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026A9",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) LPSS: I2C Controller #1 - 7ACD"
+    },
+    {
+        "Name":  "Microsoft RRAS Root Enumerator",
+        "DeviceID":  "SWD\\MSRRAS\\{5E259276-BC7E-40E3-B93B-8F89B5F3ABC0}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Generic software device"
+    },
+    {
+        "Name":  "WAN Miniport (PPTP)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_PPTPMINIPORT",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (PPTP)"
+    },
+    {
+        "Name":  "Intel(R) PCI Express Root Port #1 - 7AB8",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AB8\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026E0",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) PCI Express Root Port #1 - 7AB8"
+    },
+    {
+        "Name":  "Microsoft Hyper-V Virtualization Infrastructure Driver",
+        "DeviceID":  "ROOT\\VID\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Hyper-V Virtualization Infrastructure Driver"
+    },
+    {
+        "Name":  "Generic PnP Monitor",
+        "DeviceID":  "DISPLAY\\SAM7436\\5\u0026389DF2C3\u00260\u0026UID4352",
+        "Manufacturer":  "(Standard monitor types)",
+        "Description":  "Generic PnP Monitor"
+    },
+    {
+        "Name":  "High precision event timer",
+        "DeviceID":  "ACPI\\PNP0103\\0",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "High precision event timer"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\PNP0C02\\ISCLK",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "WAN Miniport (IKEv2)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_AGILEVPNMINIPORT",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (IKEv2)"
+    },
+    {
+        "Name":  "Composite Bus Enumerator",
+        "DeviceID":  "ROOT\\COMPOSITEBUS\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Composite Bus Enumerator"
+    },
+    {
+        "Name":  "Microsoft Virtual Drive Enumerator",
+        "DeviceID":  "ROOT\\VDRVROOT\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Virtual Drive Enumerator"
+    },
+    {
+        "Name":  "USB Composite Device",
+        "DeviceID":  "USB\\VID_303A\u0026PID_1001\\1C:DB:D4:5E:99:38",
+        "Manufacturer":  "(Standard USB Host Controller)",
+        "Description":  "USB Composite Device"
+    },
+    {
+        "Name":  "Microsoft Storage Spaces Controller",
+        "DeviceID":  "ROOT\\SPACEPORT\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Storage Spaces Controller"
+    },
+    {
+        "Name":  "Intel(R) SPI (flash) Controller - 7AA4",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AA4\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026FD",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) SPI (flash) Controller - 7AA4"
+    },
+    {
+        "Name":  "USB Input Device",
+        "DeviceID":  "USB\\VID_30FA\u0026PID_1440\u0026MI_00\\6\u002623213C14\u00260\u00260000",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "USB Input Device"
+    },
+    {
+        "Name":  "Communications Port (COM1)",
+        "DeviceID":  "ACPI\\PNP0501\\0",
+        "Manufacturer":  "(Standard port types)",
+        "Description":  "Communications Port"
+    },
+    {
+        "Name":  "Microsoft Kernel Debug Network Adapter",
+        "DeviceID":  "ROOT\\KDNIC\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Kernel Debug Network Adapter"
+    },
+    {
+        "Name":  "Generic volume shadow copy",
+        "DeviceID":  "STORAGE\\VOLUMESNAPSHOT\\HARDDISKVOLUMESNAPSHOT1",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Generic volume shadow copy"
+    },
+    {
+        "Name":  "NVIDIA GeForce RTX 3050",
+        "DeviceID":  "PCI\\VEN_10DE\u0026DEV_2584\u0026SUBSYS_41691458\u0026REV_A1\\4\u00262CBD2ACF\u00260\u00260008",
+        "Manufacturer":  "NVIDIA",
+        "Description":  "NVIDIA GeForce RTX 3050"
+    },
+    {
+        "Name":  "HID-compliant vendor-defined device",
+        "DeviceID":  "HID\\VID_30FA\u0026PID_1440\u0026MI_01\u0026COL04\\7\u0026378F6B07\u00260\u00260003",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "HID-compliant vendor-defined device"
+    },
+    {
+        "Name":  "USB Input Device",
+        "DeviceID":  "USB\\VID_31B2\u0026PID_0011\u0026MI_03\\6\u0026CCEE70E\u00261\u00260003",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "USB Input Device"
+    },
+    {
+        "Name":  "Volume",
+        "DeviceID":  "STORAGE\\VOLUME\\{A4B31D98-50F7-11F1-AC56-806E6F6E6963}#0000000000100000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Volume"
+    },
+    {
+        "Name":  "PCI standard host CPU bridge",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_4650\u0026SUBSYS_50001458\u0026REV_05\\3\u002611583659\u00260\u002600",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "PCI standard host CPU bridge"
+    },
+    {
+        "Name":  "USB Condenser Microphone",
+        "DeviceID":  "USB\\VID_31B2\u0026PID_0011\u0026MI_00\\6\u0026CCEE70E\u00261\u00260000",
+        "Manufacturer":  "(Generic USB Audio)",
+        "Description":  "USB Audio Device"
+    },
+    {
+        "Name":  "NVIDIA High Definition Audio",
+        "DeviceID":  "HDAUDIO\\FUNC_01\u0026VEN_10DE\u0026DEV_00A0\u0026SUBSYS_14584169\u0026REV_1001\\5\u00261526CC4E\u00260\u00260001",
+        "Manufacturer":  "NVIDIA",
+        "Description":  "NVIDIA High Definition Audio"
+    },
+    {
+        "Name":  "Microsoft XPS Document Writer",
+        "DeviceID":  "SWD\\PRINTENUM\\{C4E9B0AB-FECB-4494-9E91-8D24EB61A7CF}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Local Print Queue"
+    },
+    {
+        "Name":  "Intel(R) LPSS: I2C Controller #5 - 7AFD",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AFD\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026C9",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) LPSS: I2C Controller #5 - 7AFD"
+    },
+    {
+        "Name":  "UMBus Root Bus Enumerator",
+        "DeviceID":  "ROOT\\UMBUS\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "UMBus Root Bus Enumerator"
+    },
+    {
+        "Name":  "Device Firmware",
+        "DeviceID":  "UEFI\\RES_{2FE2CBFC-B9AA-4A93-AB5B-40173B581C42}\\0",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Device Firmware"
+    },
+    {
+        "Name":  "Intel(R) LPSS: I2C Controller #3 - 7ACF",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7ACF\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026AB",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) LPSS: I2C Controller #3 - 7ACF"
+    },
+    {
+        "Name":  "HID-compliant consumer control device",
+        "DeviceID":  "HID\\VID_31B2\u0026PID_0011\u0026MI_03\\7\u0026339A4817\u00260\u00260000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "HID-compliant consumer control device"
+    },
+    {
+        "Name":  "Microsoft Radio Device Enumeration Bus",
+        "DeviceID":  "SWD\\RADIO\\{3DB5895D-CC28-44B3-AD3D-6F01A782B8D2}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Generic software device"
+    },
+    {
+        "Name":  "Intel(R) Management Engine WMI Provider",
+        "DeviceID":  "SWD\\DRIVERENUM\\OEM_WMI_COMPONENT\u00264\u002619F77274\u00260",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel(R) Management Engine WMI Provider"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\INTC1099\\4\u0026DF10369\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "Microsoft Device Association Root Enumerator",
+        "DeviceID":  "SWD\\MSDAS\\{CE958E9A-424F-4C88-86F4-11314821E75A}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Generic software device"
+    },
+    {
+        "Name":  "Intel(R) Dynamic Application Loader Host Interface",
+        "DeviceID":  "SWD\\DRIVERENUM\\OEM_DAL_COMPONENT\u00264\u002619F77274\u00260",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel(R) Dynamic Application Loader Host Interface"
+    },
+    {
+        "Name":  "ACPI x64-based PC",
+        "DeviceID":  "ROOT\\ACPI_HAL\\0000",
+        "Manufacturer":  "(Standard computers)",
+        "Description":  "ACPI x64-based PC"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\PNP0C02\\GIGALPCRS",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "WAN Miniport (Network Monitor)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_NDISWANBH",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (Network Monitor)"
+    },
+    {
+        "Name":  "WAN Miniport (IP)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_NDISWANIP",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (IP)"
+    },
+    {
+        "Name":  "USB Input Device",
+        "DeviceID":  "USB\\VID_30FA\u0026PID_1440\u0026MI_01\\6\u002623213C14\u00260\u00260001",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "USB Input Device"
+    },
+    {
+        "Name":  "USB JTAG/serial debug unit",
+        "DeviceID":  "USB\\VID_303A\u0026PID_1001\u0026MI_02\\6\u002637DF8DD6\u00261\u00260002",
+        "Manufacturer":  "WinUsb Device",
+        "Description":  "WinUsb Device"
+    },
+    {
+        "Name":  "Microsoft Windows Management Interface for ACPI",
+        "DeviceID":  "ACPI\\PNP0C14\\TESTDEV",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Windows Management Interface for ACPI"
+    },
+    {
+        "Name":  "PCI Express Root Complex",
+        "DeviceID":  "ACPI\\PNP0A08\\0",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "PCI Express Root Complex"
+    },
+    {
+        "Name":  "Microsoft Hyper-V PCI Server",
+        "DeviceID":  "ROOT\\VPCIVSP\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Hyper-V PCI Server"
+    },
+    {
+        "Name":  "Speakers (High Definition Audio Device)",
+        "DeviceID":  "SWD\\MMDEVAPI\\{0.0.0.00000000}.{6BD476D5-624E-4119-B6D0-3E21A541B2F1}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Audio Endpoint"
+    },
+    {
+        "Name":  "HID-compliant system controller",
+        "DeviceID":  "HID\\VID_30FA\u0026PID_1440\u0026MI_01\u0026COL05\\7\u0026378F6B07\u00260\u00260004",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "HID-compliant system controller"
+    },
+    {
+        "Name":  "High Definition Audio Controller",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AD0\u0026SUBSYS_A1941458\u0026REV_11\\3\u002611583659\u00260\u0026FB",
+        "Manufacturer":  "Microsoft",
+        "Description":  "High Definition Audio Controller"
+    },
+    {
+        "Name":  "ACPI Power Button",
+        "DeviceID":  "ACPI\\PNP0C0C\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Power Button"
+    },
+    {
+        "Name":  "Microsoft ACPI-Compliant System",
+        "DeviceID":  "ACPI_HAL\\PNP0C08\\0",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft ACPI-Compliant System"
+    },
+    {
+        "Name":  null,
+        "DeviceID":  "HTREE\\ROOT\\0",
+        "Manufacturer":  null,
+        "Description":  null
+    },
+    {
+        "Name":  "Realtek PCIe GbE Family Controller",
+        "DeviceID":  "PCI\\VEN_10EC\u0026DEV_8168\u0026SUBSYS_E0001458\u0026REV_15\\01000000684CE00000",
+        "Manufacturer":  "Realtek",
+        "Description":  "Realtek PCIe GbE Family Controller"
+    },
+    {
+        "Name":  "Microsoft Basic Render Driver",
+        "DeviceID":  "ROOT\\BASICRENDER\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Basic Render Driver"
+    },
+    {
+        "Name":  "Volume",
+        "DeviceID":  "STORAGE\\VOLUME\\{A4B31D98-50F7-11F1-AC56-806E6F6E6963}#0000000007500000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Volume"
+    },
+    {
+        "Name":  "Intel(R) LPSS: I2C Controller #0 - 7ACC",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7ACC\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026A8",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) LPSS: I2C Controller #0 - 7ACC"
+    },
+    {
+        "Name":  "WAN Miniport (SSTP)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_SSTPMINIPORT",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (SSTP)"
+    },
+    {
+        "Name":  "Microsoft UEFI-Compliant System",
+        "DeviceID":  "ACPI_HAL\\UEFI\\0",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft UEFI-Compliant System"
+    },
+    {
+        "Name":  "Volume",
+        "DeviceID":  "STORAGE\\VOLUME\\{A4B31D99-50F7-11F1-AC56-806E6F6E6963}#0000006F74500000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Volume"
+    },
+    {
+        "Name":  "Device Firmware",
+        "DeviceID":  "UEFI\\RES_{7AA69739-8F78-41CB-BF44-854E2CB516BD}\\0",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Device Firmware"
+    },
+    {
+        "Name":  "Intel(R) LPC Controller/eSPI Controller (H610) - 7A87",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7A87\u0026SUBSYS_50011458\u0026REV_11\\3\u002611583659\u00260\u0026F8",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) LPC Controller/eSPI Controller (H610) - 7A87"
+    },
+    {
+        "Name":  "Microsoft Print to PDF",
+        "DeviceID":  "SWD\\PRINTENUM\\{87838F50-740A-43CF-9385-0F9B29462B47}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Local Print Queue"
+    },
+    {
+        "Name":  "Trusted Platform Module 2.0",
+        "DeviceID":  "ACPI\\MSFT0101\\1",
+        "Manufacturer":  "(Standard)",
+        "Description":  "Trusted Platform Module 2.0"
+    },
+    {
+        "Name":  "USB Composite Device",
+        "DeviceID":  "USB\\VID_30FA\u0026PID_1440\\5\u00263A692CE1\u00260\u00267",
+        "Manufacturer":  "(Standard USB Host Controller)",
+        "Description":  "USB Composite Device"
+    },
+    {
+        "Name":  "ACPI Fixed Feature Button",
+        "DeviceID":  "ACPI\\FIXEDBUTTON\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Fixed Feature Button"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\0",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\1",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\2",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\3",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\4",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\5",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\6",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\7",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\8",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\9",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\A",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "12th Gen Intel(R) Core(TM) i5-12400F",
+        "DeviceID":  "ACPI\\GENUINEINTEL_-_INTEL64_FAMILY_6_MODEL_151_-_12TH_GEN_INTEL(R)_CORE(TM)_I5-12400F\\B",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel Processor"
+    },
+    {
+        "Name":  "ACPI Wake Alarm",
+        "DeviceID":  "ACPI\\ACPI000E\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "ACPI Wake Alarm"
+    },
+    {
+        "Name":  "OneNote (Desktop)",
+        "DeviceID":  "SWD\\PRINTENUM\\{D3E30A2F-34D2-49A1-B470-8B7AE31CAFFB}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Local Print Queue"
+    },
+    {
+        "Name":  "OneNote for Windows 10",
+        "DeviceID":  "SWD\\PRINTENUM\\{DCD3AFD6-5936-451E-99A6-884ED42FAF32}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Local Print Queue"
+    },
+    {
+        "Name":  "Intel(R) Power Engine Plug-in",
+        "DeviceID":  "ACPI\\INT33A1\\1",
+        "Manufacturer":  "Intel Corporation",
+        "Description":  "Intel(R) Power Engine Plug-in"
+    },
+    {
+        "Name":  "Microsoft Hyper-V Virtual Disk Server",
+        "DeviceID":  "ROOT\\STORVSP\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft Hyper-V Virtual Disk Server"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\PNP0C02\\IOTRAPS",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "NVIDIA Virtual Audio Device (Wave Extensible) (WDM)",
+        "DeviceID":  "ROOT\\UNNAMED_DEVICE\\0000",
+        "Manufacturer":  "NVIDIA",
+        "Description":  "NVIDIA Virtual Audio Device (Wave Extensible) (WDM)"
+    },
+    {
+        "Name":  "HID Keyboard Device",
+        "DeviceID":  "HID\\VID_30FA\u0026PID_1440\u0026MI_01\u0026COL01\\7\u0026378F6B07\u00260\u00260000",
+        "Manufacturer":  "(Standard keyboards)",
+        "Description":  "HID Keyboard Device"
+    },
+    {
+        "Name":  "USB Root Hub (USB 3.0)",
+        "DeviceID":  "USB\\ROOT_HUB30\\4\u00261A408FEE\u00260\u00260",
+        "Manufacturer":  "(Standard USB HUBs)",
+        "Description":  "USB Root Hub (USB 3.0)"
+    },
+    {
+        "Name":  "Programmable interrupt controller",
+        "DeviceID":  "ACPI\\PNP0000\\4\u0026DF10369\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Programmable interrupt controller"
+    },
+    {
+        "Name":  "Xvdd SCSI Miniport",
+        "DeviceID":  "SWD\\XVDDENUM\\XVDDROOTDEVICE_INSTANCE",
+        "Manufacturer":  "Xbox",
+        "Description":  "Xvdd SCSI Miniport"
+    },
+    {
+        "Name":  "Microsoft GS Wavetable Synth",
+        "DeviceID":  "SWD\\MMDEVAPI\\MICROSOFTGSWAVETABLESYNTH",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Generic software device"
+    },
+    {
+        "Name":  "Microsoft RemoteFX Synth3D VSP Driver",
+        "DeviceID":  "ROOT\\SYNTH3DVSP\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft RemoteFX Synth3D VSP Driver"
+    },
+    {
+        "Name":  "Hyper-V Virtual Ethernet Adapter",
+        "DeviceID":  "ROOT\\VMS_MP\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Hyper-V Virtual Ethernet Adapter"
+    },
+    {
+        "Name":  "Hyper-V Virtual Ethernet Adapter #2",
+        "DeviceID":  "ROOT\\VMS_MP\\0001",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Hyper-V Virtual Ethernet Adapter"
+    },
+    {
+        "Name":  "Intel(R) SMBus - 7AA3",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AA3\u0026SUBSYS_50011458\u0026REV_11\\3\u002611583659\u00260\u0026FC",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) SMBus - 7AA3"
+    },
+    {
+        "Name":  "NDIS Virtual Network Adapter Enumerator",
+        "DeviceID":  "ROOT\\NDISVIRTUALBUS\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "NDIS Virtual Network Adapter Enumerator"
+    },
+    {
+        "Name":  "Intel(R) LPSS: I2C Controller #4 - 7AFC",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AFC\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026C8",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) LPSS: I2C Controller #4 - 7AFC"
+    },
+    {
+        "Name":  "High Definition Audio Device",
+        "DeviceID":  "HDAUDIO\\FUNC_01\u0026VEN_10EC\u0026DEV_0897\u0026SUBSYS_1458A194\u0026REV_1004\\4\u00263A44A74C\u00260\u00260001",
+        "Manufacturer":  "Microsoft",
+        "Description":  "High Definition Audio Device"
+    },
+    {
+        "Name":  "Intel(R) USB 3.20 eXtensible Host Controller - 1.20 (Microsoft)",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AE0\u0026SUBSYS_50071458\u0026REV_11\\3\u002611583659\u00260\u0026A0",
+        "Manufacturer":  "Generic USB xHCI Host Controller",
+        "Description":  "USB xHCI Compliant Host Controller"
+    },
+    {
+        "Name":  "Intel(R) LPSS: I2C Controller #2 - 7ACE",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7ACE\u0026SUBSYS_00000000\u0026REV_11\\3\u002611583659\u00260\u0026AA",
+        "Manufacturer":  "INTEL",
+        "Description":  "Intel(R) LPSS: I2C Controller #2 - 7ACE"
+    },
+    {
+        "Name":  "Intel(R) Management Engine Interface #1",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_7AE8\u0026SUBSYS_1C3A1458\u0026REV_11\\3\u002611583659\u00260\u0026B0",
+        "Manufacturer":  "Intel",
+        "Description":  "Intel(R) Management Engine Interface #1"
+    },
+    {
+        "Name":  "Microsoft VHD Loopback Controller",
+        "DeviceID":  "{8E7BD593-6E6C-4C52-86A6-77175494DD8E}\\MSVHDHBA\\1\u00263030E83\u00260\u002601",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Microsoft VHD Loopback Controller"
+    },
+    {
+        "Name":  "High Definition Audio Controller",
+        "DeviceID":  "PCI\\VEN_10DE\u0026DEV_2291\u0026SUBSYS_41691458\u0026REV_A1\\4\u00262CBD2ACF\u00260\u00260108",
+        "Manufacturer":  "Microsoft",
+        "Description":  "High Definition Audio Controller"
+    },
+    {
+        "Name":  "WD Green 2.5 480GB",
+        "DeviceID":  "SCSI\\DISK\u0026VEN_WD\u0026PROD_GREEN_2.5_480GB\\4\u002630EC406E\u00260\u0026050000",
+        "Manufacturer":  "(Standard disk drives)",
+        "Description":  "Disk drive"
+    },
+    {
+        "Name":  "Microphone (USB Condenser Microphone)",
+        "DeviceID":  "SWD\\MMDEVAPI\\{0.0.1.00000000}.{91E6E951-989B-4D8C-9F3F-B83E85272459}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Audio Endpoint"
+    },
+    {
+        "Name":  "Microsoft System Management BIOS Driver",
+        "DeviceID":  "ROOT\\MSSMBIOS\\0000",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Microsoft System Management BIOS Driver"
+    },
+    {
+        "Name":  "Motherboard resources",
+        "DeviceID":  "ACPI\\INT340E\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Motherboard resources"
+    },
+    {
+        "Name":  "PCI Express Root Port",
+        "DeviceID":  "PCI\\VEN_8086\u0026DEV_460D\u0026SUBSYS_50001458\u0026REV_05\\3\u002611583659\u00260\u002608",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "PCI Express Root Port"
+    },
+    {
+        "Name":  null,
+        "DeviceID":  "ACPI\\INTC1056\\2\u0026DABA3FF\u00260",
+        "Manufacturer":  null,
+        "Description":  null
+    },
+    {
+        "Name":  "Volume",
+        "DeviceID":  "STORAGE\\VOLUME\\{A4B31D99-50F7-11F1-AC56-806E6F6E6963}#0000000013D00000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Volume"
+    },
+    {
+        "Name":  "HID-compliant consumer control device",
+        "DeviceID":  "HID\\VID_30FA\u0026PID_1440\u0026MI_01\u0026COL02\\7\u0026378F6B07\u00260\u00260001",
+        "Manufacturer":  "Microsoft",
+        "Description":  "HID-compliant consumer control device"
+    },
+    {
+        "Name":  "Plug and Play Software Device Enumerator",
+        "DeviceID":  "ROOT\\SYSTEM\\0000",
+        "Manufacturer":  "(Standard system devices)",
+        "Description":  "Plug and Play Software Device Enumerator"
+    },
+    {
+        "Name":  "Remote Desktop Device Redirector Bus",
+        "DeviceID":  "ROOT\\RDPBUS\\0000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Remote Desktop Device Redirector Bus"
+    },
+    {
+        "Name":  "Fax",
+        "DeviceID":  "SWD\\PRINTENUM\\{EBFD3293-A538-4C1A-8A79-9C421D146BD3}",
+        "Manufacturer":  "Microsoft",
+        "Description":  "Local Print Queue"
+    },
+    {
+        "Name":  "WAN Miniport (IPv6)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_NDISWANIPV6",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (IPv6)"
+    },
+    {
+        "Name":  "USB Composite Device",
+        "DeviceID":  "USB\\VID_31B2\u0026PID_0011\\214B206000000178",
+        "Manufacturer":  "(Standard USB Host Controller)",
+        "Description":  "USB Composite Device"
+    },
+    {
+        "Name":  "HID-compliant mouse",
+        "DeviceID":  "HID\\VID_30FA\u0026PID_1440\u0026MI_00\\7\u00261FCBDEC2\u00260\u00260000",
+        "Manufacturer":  "Microsoft",
+        "Description":  "HID-compliant mouse"
+    },
+    {
+        "Name":  "WAN Miniport (L2TP)",
+        "DeviceID":  "SWD\\MSRRAS\\MS_L2TPMINIPORT",
+        "Manufacturer":  "Microsoft",
+        "Description":  "WAN Miniport (L2TP)"
+    }
+]

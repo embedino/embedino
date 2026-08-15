@@ -214,3 +214,11 @@ Files:
 - `t3-core/packages/contracts/src/rpc.ts` @ `29a16bd8fc9a` · Graft `t3-packages`
 
 feat: Automatic hardware detection, UI optimizations, and toolchain RPC handlers
+
+## 2026-08-15 — 86385d25
+
+Files:
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `7b41828e26c2` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/chat/ChatHeader.tsx` @ `4cc4e2997166` · Graft `t3-apps`
+
+Implement robust hardware action pipeline with toolchain validation

@@ -219,6 +219,7 @@ import {
 } from "../lib/elementContext";
 import { appendPreviewAnnotationPrompt } from "../lib/previewAnnotation";
 import { appendReviewCommentsToPrompt, type ReviewCommentContext } from "../reviewCommentContext";
+import { useProjectEntriesQuery } from "./files/projectFilesQueryState";
 import { environmentCatalog } from "../connection/catalog";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { useKnownTerminalSessions, useThreadRunningTerminalIds } from "../state/terminalSessions";
@@ -2665,6 +2666,7 @@ function ChatViewContent(props: ChatViewProps) {
     : null;
   const hasTimelineTopBanner = Boolean(visibleThreadError) || visibleProviderStatus !== null;
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
+  const projectEntries = useProjectEntriesQuery(environmentId, activeProjectCwd ?? "");
   const activeThreadWorktreePath = activeThread?.worktreePath ?? null;
   const activeWorkspaceRoot = activeThreadWorktreePath ?? activeProjectCwd ?? undefined;
   const activeTerminalLaunchContext =
@@ -3079,6 +3081,110 @@ function ChatViewContent(props: ChatViewProps) {
       allocatableActiveTerminalIds,
       runningTerminalIds,
       terminalUiState.activeTerminalId,
+      writeTerminal,
+    ],
+  );
+
+  const runHardwareAction = useCallback(
+    async (action: "flash" | "monitor", device: any, toolchain: "platformio" | "arduino") => {
+      if (!activeThreadId || !activeProject || !activeThreadRef || !activeThread) return;
+
+      const hasPlatformIoIni =
+        projectEntries.data?.entries.some((e: any) => e.path === "platformio.ini") ?? false;
+      const hasInoFile =
+        projectEntries.data?.entries.some((e: any) => e.path.endsWith(".ino")) ?? false;
+
+      const isPlatformIoProject = hasPlatformIoIni;
+      const isArduinoProject = hasInoFile && !hasPlatformIoIni;
+
+      if (toolchain === "platformio" && isArduinoProject) {
+        toastManager.add({
+          title: "Toolchain Mismatch",
+          description:
+            "Your code appears to be an Arduino project, but you have PlatformIO selected. Please ask the AI to convert it, or change your toolchain in Settings.",
+        });
+        return;
+      }
+
+      if (toolchain === "arduino" && isPlatformIoProject) {
+        toastManager.add({
+          title: "Toolchain Mismatch",
+          description:
+            "Your code appears to be a PlatformIO project, but you have Arduino CLI selected. Please ask the AI to convert it, or change your toolchain in Settings.",
+        });
+        return;
+      }
+
+      const targetCwd = gitCwd ?? activeProject.workspaceRoot;
+      const targetTerminalId = nextTerminalId(allocatableActiveTerminalIds);
+
+      setTerminalUiLaunchContext({
+        threadId: activeThreadId,
+        cwd: targetCwd,
+        worktreePath: activeThread.worktreePath ?? null,
+      });
+      setTerminalOpen(true);
+      setTerminalFocusRequestId((value) => value + 1);
+
+      const runtimeEnv = projectScriptRuntimeEnv({
+        project: { cwd: activeProject.workspaceRoot },
+        worktreePath: activeThread.worktreePath ?? null,
+      });
+
+      const openTerminalInput = {
+        threadId: activeThreadId,
+        terminalId: targetTerminalId,
+        cwd: targetCwd,
+        ...(activeThread.worktreePath !== null ? { worktreePath: activeThread.worktreePath } : {}),
+        env: runtimeEnv,
+        cols: SCRIPT_TERMINAL_COLS,
+        rows: SCRIPT_TERMINAL_ROWS,
+      };
+
+      storeNewTerminal(activeThreadRef, targetTerminalId);
+
+      const openResult = await openTerminal({ environmentId, input: openTerminalInput });
+      if (openResult._tag === "Failure") {
+        return;
+      }
+
+      const portArg = `"${device.port}"`;
+      let command = "";
+
+      if (toolchain === "platformio") {
+        command =
+          action === "flash"
+            ? `pio run --target upload --upload-port ${portArg}`
+            : `pio device monitor --port ${portArg}`;
+      } else {
+        const fqbnArg = device.fqbn ? `-b "${device.fqbn}" ` : "";
+        command =
+          action === "flash"
+            ? `arduino-cli compile --upload ${fqbnArg}-p ${portArg}`
+            : `arduino-cli monitor -p ${portArg}`;
+      }
+
+      await writeTerminal({
+        environmentId,
+        input: {
+          threadId: activeThreadId,
+          terminalId: targetTerminalId,
+          data: `${command}\r`,
+        },
+      });
+    },
+    [
+      activeProject,
+      activeThread,
+      activeThreadId,
+      activeThreadRef,
+      gitCwd,
+      projectEntries,
+      setTerminalOpen,
+      storeNewTerminal,
+      environmentId,
+      openTerminal,
+      allocatableActiveTerminalIds,
       writeTerminal,
     ],
   );
@@ -6202,6 +6308,7 @@ function ChatViewContent(props: ChatViewProps) {
             onAddProjectScript={saveProjectScript}
             onUpdateProjectScript={updateProjectScript}
             onDeleteProjectScript={deleteProjectScript}
+            onRunHardwareAction={runHardwareAction}
           />
         </header>
 

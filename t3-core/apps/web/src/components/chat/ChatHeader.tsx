@@ -4,7 +4,10 @@ import {
   type ProjectScript,
   type ResolvedKeybindingsConfig,
   type ThreadId,
+  type HardwareDevice,
 } from "@t3tools/contracts";
+import type { HardwareAction } from "./HardwareActionsControl";
+import type { ActiveToolchain } from "../../state/toolchain";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
@@ -29,6 +32,7 @@ import ProjectScriptsControl, {
   type NewProjectScriptInput,
   type ProjectScriptActionResult,
 } from "../ProjectScriptsControl";
+import { HardwareActionsControl } from "./HardwareActionsControl";
 import { OpenInPicker } from "./OpenInPicker";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
@@ -58,6 +62,11 @@ interface ChatHeaderProps {
   openInCwd: string | null;
   activeProjectScripts: ReadonlyArray<ProjectScript> | undefined;
   preferredScriptId: string | null;
+  onRunHardwareAction: (
+    action: HardwareAction,
+    device: HardwareDevice,
+    toolchain: NonNullable<ActiveToolchain>,
+  ) => void;
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
   rightPanelOpen: boolean;
@@ -112,6 +121,7 @@ export const ChatHeader = memo(function ChatHeader({
   openInCwd,
   activeProjectScripts,
   preferredScriptId,
+  onRunHardwareAction,
   keybindings,
   availableEditors,
   rightPanelOpen,
@@ -320,6 +330,7 @@ export const ChatHeader = memo(function ChatHeader({
             onDeleteScript={onDeleteProjectScript}
           />
         )}
+        <HardwareActionsControl onRunHardwareAction={onRunHardwareAction} />
         {showOpenInPicker && (
           <OpenInPicker
             environmentId={activeThreadEnvironmentId}

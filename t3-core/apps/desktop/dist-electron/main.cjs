@@ -10461,6 +10461,91 @@ const ToolchainStatus = effect_Schema.Struct({
 	arduinoVersion: effect_Schema.NullOr(effect_Schema.String)
 });
 //#endregion
+//#region ../../packages/contracts/src/hardware/devices.ts
+const HardwareDeviceStatus = effect_Schema.Literals([
+	"identified",
+	"generic",
+	"enriching"
+]);
+const HardwareDevice = effect_Schema.Struct({
+	/** Unique identifier for this device instance (port path or synthetic id). */
+	id: effect_Schema.String,
+	/** Raw OS port path (e.g. COM3, /dev/ttyUSB0, /dev/cu.usbserial-1420). */
+	port: effect_Schema.String,
+	/** Normalized short display name for compact UI (e.g. COM3, ttyUSB0, usbserial-1420). */
+	portDisplayName: effect_Schema.String,
+	/** USB Vendor ID if available (e.g. "0x2341"). */
+	vid: effect_Schema.NullOr(effect_Schema.String),
+	/** USB Product ID if available (e.g. "0x0043"). */
+	pid: effect_Schema.NullOr(effect_Schema.String),
+	/** USB manufacturer string reported by OS. */
+	manufacturer: effect_Schema.NullOr(effect_Schema.String),
+	/** Resolved board name (null if unrecognized generic bridge). */
+	boardName: effect_Schema.NullOr(effect_Schema.String),
+	/** Arduino Fully Qualified Board Name from toolchain enrichment. */
+	fqbn: effect_Schema.NullOr(effect_Schema.String),
+	/** PlatformIO board identifier from toolchain enrichment. */
+	pioBoard: effect_Schema.NullOr(effect_Schema.String),
+	/** Bridge chip name if detected (CH340, CP2102, FT232R, etc.). */
+	driverChip: effect_Schema.NullOr(effect_Schema.String),
+	/** Current identification status. */
+	status: HardwareDeviceStatus
+});
+const HardwareSnapshotEvent = effect_Schema.Struct({
+	type: effect_Schema.Literal("snapshot"),
+	devices: effect_Schema.Array(HardwareDevice)
+});
+const HardwareConnectedEvent = effect_Schema.Struct({
+	type: effect_Schema.Literal("connected"),
+	device: HardwareDevice
+});
+const HardwareDisconnectedEvent = effect_Schema.Struct({
+	type: effect_Schema.Literal("disconnected"),
+	deviceId: effect_Schema.String
+});
+const HardwareEnrichedEvent = effect_Schema.Struct({
+	type: effect_Schema.Literal("enriched"),
+	deviceId: effect_Schema.String,
+	boardName: effect_Schema.NullOr(effect_Schema.String),
+	fqbn: effect_Schema.NullOr(effect_Schema.String),
+	pioBoard: effect_Schema.NullOr(effect_Schema.String)
+});
+const HardwareEvent = effect_Schema.Union([
+	HardwareSnapshotEvent,
+	HardwareConnectedEvent,
+	HardwareDisconnectedEvent,
+	HardwareEnrichedEvent
+]);
+const DeviceAssociationInput = effect_Schema.Struct({
+	/** Device id to associate. */
+	deviceId: effect_Schema.String,
+	/** User-selected board name. */
+	boardName: effect_Schema.String,
+	/** Arduino FQBN if known. */
+	fqbn: effect_Schema.optional(effect_Schema.String),
+	/** PlatformIO board ID if known. */
+	pioBoard: effect_Schema.optional(effect_Schema.String)
+});
+const DeviceAssociationResult = effect_Schema.Struct({ success: effect_Schema.Boolean });
+effect_Schema.Struct({
+	/** Human-readable board name (e.g. "ESP32-WROOM-32"). */
+	name: effect_Schema.String,
+	/** MCU/chip family (e.g. "ESP32", "ATmega328P", "RP2040"). */
+	mcu: effect_Schema.optional(effect_Schema.String),
+	/** Arduino FQBN. */
+	fqbn: effect_Schema.optional(effect_Schema.String),
+	/** PlatformIO board ID. */
+	pioBoard: effect_Schema.optional(effect_Schema.String),
+	/** Default baud rate for serial communication. */
+	defaultBaudRate: effect_Schema.optional(effect_Schema.Number),
+	/** Board vendor (e.g. "Espressif", "Arduino", "Raspberry Pi Foundation"). */
+	vendor: effect_Schema.optional(effect_Schema.String)
+});
+var HardwareDetectionError = class extends effect_Schema.TaggedErrorClass()("HardwareDetectionError", {
+	message: effect_Schema.String,
+	details: effect_Schema.optional(effect_Schema.String)
+}) {};
+//#endregion
 //#region ../../packages/contracts/src/rpc.ts
 const WS_METHODS = {
 	projectsList: "projects.list",
@@ -10530,6 +10615,9 @@ const WS_METHODS = {
 	toolchainInstallPlatformio: "toolchain.installPlatformio",
 	toolchainInstallArduino: "toolchain.installArduino",
 	toolchainGetStatus: "toolchain.getStatus",
+	hardwareListDevices: "hardware.listDevices",
+	hardwareSubscribeDevices: "hardware.subscribeDevices",
+	hardwareSetDeviceAssociation: "hardware.setDeviceAssociation",
 	pullRequestsList: "pullRequests.list",
 	pullRequestsListStats: "pullRequests.listStats",
 	pullRequestsDetail: "pullRequests.detail",
@@ -11105,7 +11193,23 @@ const WsToolchainGetStatusRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.toolchai
 	success: ToolchainStatus,
 	error: effect_Schema.Union([ToolchainInstallError, EnvironmentAuthorizationError])
 });
-const WsRpcGroup = effect_unstable_rpc_RpcGroup.make(WsServerProbeRpc, WsServerGetConfigRpc, WsServerRefreshProvidersRpc, WsServerUpdateProviderRpc, WsServerUpdateServerRpc, WsServerUpdateServerWithProgressRpc, WsServerUpsertKeybindingRpc, WsServerRemoveKeybindingRpc, WsServerGetSettingsRpc, WsServerUpdateSettingsRpc, WsServerDiscoverSourceControlRpc, WsServerGetTraceDiagnosticsRpc, WsServerGetProcessDiagnosticsRpc, WsServerGetProcessResourceHistoryRpc, WsServerGetResourceTelemetryHistoryRpc, WsServerRetryResourceTelemetryRpc, WsServerGetUsageSummaryRpc, WsServerSignalProcessRpc, WsServerReportClientActivityRpc, WsServerReportHostPowerStateRpc, WsServerGetBackgroundPolicyRpc, WsCloudGetRelayClientStatusRpc, WsCloudInstallRelayClientRpc, WsPullRequestsListRpc, WsPullRequestsListStatsRpc, WsPullRequestsDetailRpc, WsPullRequestsActivityRpc, WsPullRequestsDiffFileContentsRpc, WsPullRequestsRunActionRpc, WsPullRequestsUpdateRpc, WsPullRequestsCommentRpc, WsPullRequestsUpdateCommentRpc, WsPullRequestsSubmitReviewRpc, WsPullRequestsReplyToThreadRpc, WsPullRequestsSetThreadResolutionRpc, WsPullRequestsSetReactionRpc, WsPullRequestsInvalidateRpc, WsPullRequestsReviewerCandidatesRpc, WsPullRequestsRequestReviewersRpc, WsSourceControlLookupRepositoryRpc, WsSourceControlCloneRepositoryRpc, WsSourceControlPublishRepositoryRpc, WsProjectsListEntriesRpc, WsProjectsReadFileRpc, WsProjectsSearchContentsRpc, WsProjectsSearchEntriesRpc, WsProjectsWriteFileRpc, WsShellOpenInEditorRpc, WsFilesystemBrowseRpc, WsAssetsCreateUrlRpc, WsSubscribeVcsStatusRpc, WsVcsPullRpc, WsVcsRefreshStatusRpc, WsGitRunStackedActionRpc, WsGitResolvePullRequestRpc, WsGitPreparePullRequestThreadRpc, WsVcsListRefsRpc, WsVcsCreateWorktreeRpc, WsVcsRemoveWorktreeRpc, WsVcsCreateRefRpc, WsVcsSwitchRefRpc, WsVcsInitRpc, WsReviewGetDiffPreviewRpc, WsReviewGetDiffFileContentsRpc, WsTerminalOpenRpc, WsTerminalAttachRpc, WsTerminalWriteRpc, WsTerminalResizeRpc, WsTerminalClearRpc, WsTerminalRestartRpc, WsTerminalCloseRpc, WsSubscribeTerminalEventsRpc, WsSubscribeTerminalMetadataRpc, WsPreviewOpenRpc, WsPreviewNavigateRpc, WsPreviewResizeRpc, WsPreviewRefreshRpc, WsPreviewCloseRpc, WsPreviewListRpc, WsPreviewReportStatusRpc, WsPreviewAutomationConnectRpc, WsPreviewAutomationRespondRpc, WsPreviewAutomationFocusHostRpc, WsSubscribePreviewEventsRpc, WsSubscribeDiscoveredLocalServersRpc, WsSubscribeServerConfigRpc, WsSubscribeServerLifecycleRpc, WsSubscribeAuthAccessRpc, WsSubscribeBackgroundPolicyRpc, WsSubscribeResourceTelemetryRpc, WsOrchestrationDispatchCommandRpc, WsOrchestrationGetWorkflowScriptRpc, WsOrchestrationGetTurnDiffRpc, WsOrchestrationGetFullThreadDiffRpc, WsOrchestrationSearchThreadsRpc, WsOrchestrationGetArchivedShellSnapshotRpc, WsOrchestrationSubscribeShellRpc, WsOrchestrationSubscribeThreadRpc, WsToolchainInstallPlatformioRpc, WsToolchainInstallArduinoRpc, WsToolchainGetStatusRpc);
+const WsHardwareListDevicesRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.hardwareListDevices, {
+	payload: effect_Schema.Struct({}),
+	success: effect_Schema.Struct({ devices: effect_Schema.Array(HardwareDevice) }),
+	error: effect_Schema.Union([HardwareDetectionError, EnvironmentAuthorizationError])
+});
+const WsHardwareSubscribeDevicesRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.hardwareSubscribeDevices, {
+	payload: effect_Schema.Struct({}),
+	success: HardwareEvent,
+	error: effect_Schema.Union([HardwareDetectionError, EnvironmentAuthorizationError]),
+	stream: true
+});
+const WsHardwareSetDeviceAssociationRpc = effect_unstable_rpc_Rpc.make(WS_METHODS.hardwareSetDeviceAssociation, {
+	payload: DeviceAssociationInput,
+	success: DeviceAssociationResult,
+	error: effect_Schema.Union([HardwareDetectionError, EnvironmentAuthorizationError])
+});
+const WsRpcGroup = effect_unstable_rpc_RpcGroup.make(WsServerProbeRpc, WsServerGetConfigRpc, WsServerRefreshProvidersRpc, WsServerUpdateProviderRpc, WsServerUpdateServerRpc, WsServerUpdateServerWithProgressRpc, WsServerUpsertKeybindingRpc, WsServerRemoveKeybindingRpc, WsServerGetSettingsRpc, WsServerUpdateSettingsRpc, WsServerDiscoverSourceControlRpc, WsServerGetTraceDiagnosticsRpc, WsServerGetProcessDiagnosticsRpc, WsServerGetProcessResourceHistoryRpc, WsServerGetResourceTelemetryHistoryRpc, WsServerRetryResourceTelemetryRpc, WsServerGetUsageSummaryRpc, WsServerSignalProcessRpc, WsServerReportClientActivityRpc, WsServerReportHostPowerStateRpc, WsServerGetBackgroundPolicyRpc, WsCloudGetRelayClientStatusRpc, WsCloudInstallRelayClientRpc, WsPullRequestsListRpc, WsPullRequestsListStatsRpc, WsPullRequestsDetailRpc, WsPullRequestsActivityRpc, WsPullRequestsDiffFileContentsRpc, WsPullRequestsRunActionRpc, WsPullRequestsUpdateRpc, WsPullRequestsCommentRpc, WsPullRequestsUpdateCommentRpc, WsPullRequestsSubmitReviewRpc, WsPullRequestsReplyToThreadRpc, WsPullRequestsSetThreadResolutionRpc, WsPullRequestsSetReactionRpc, WsPullRequestsInvalidateRpc, WsPullRequestsReviewerCandidatesRpc, WsPullRequestsRequestReviewersRpc, WsSourceControlLookupRepositoryRpc, WsSourceControlCloneRepositoryRpc, WsSourceControlPublishRepositoryRpc, WsProjectsListEntriesRpc, WsProjectsReadFileRpc, WsProjectsSearchContentsRpc, WsProjectsSearchEntriesRpc, WsProjectsWriteFileRpc, WsShellOpenInEditorRpc, WsFilesystemBrowseRpc, WsAssetsCreateUrlRpc, WsSubscribeVcsStatusRpc, WsVcsPullRpc, WsVcsRefreshStatusRpc, WsGitRunStackedActionRpc, WsGitResolvePullRequestRpc, WsGitPreparePullRequestThreadRpc, WsVcsListRefsRpc, WsVcsCreateWorktreeRpc, WsVcsRemoveWorktreeRpc, WsVcsCreateRefRpc, WsVcsSwitchRefRpc, WsVcsInitRpc, WsReviewGetDiffPreviewRpc, WsReviewGetDiffFileContentsRpc, WsTerminalOpenRpc, WsTerminalAttachRpc, WsTerminalWriteRpc, WsTerminalResizeRpc, WsTerminalClearRpc, WsTerminalRestartRpc, WsTerminalCloseRpc, WsSubscribeTerminalEventsRpc, WsSubscribeTerminalMetadataRpc, WsPreviewOpenRpc, WsPreviewNavigateRpc, WsPreviewResizeRpc, WsPreviewRefreshRpc, WsPreviewCloseRpc, WsPreviewListRpc, WsPreviewReportStatusRpc, WsPreviewAutomationConnectRpc, WsPreviewAutomationRespondRpc, WsPreviewAutomationFocusHostRpc, WsSubscribePreviewEventsRpc, WsSubscribeDiscoveredLocalServersRpc, WsSubscribeServerConfigRpc, WsSubscribeServerLifecycleRpc, WsSubscribeAuthAccessRpc, WsSubscribeBackgroundPolicyRpc, WsSubscribeResourceTelemetryRpc, WsOrchestrationDispatchCommandRpc, WsOrchestrationGetWorkflowScriptRpc, WsOrchestrationGetTurnDiffRpc, WsOrchestrationGetFullThreadDiffRpc, WsOrchestrationSearchThreadsRpc, WsOrchestrationGetArchivedShellSnapshotRpc, WsOrchestrationSubscribeShellRpc, WsOrchestrationSubscribeThreadRpc, WsToolchainInstallPlatformioRpc, WsToolchainInstallArduinoRpc, WsToolchainGetStatusRpc, WsHardwareListDevicesRpc, WsHardwareSubscribeDevicesRpc, WsHardwareSetDeviceAssociationRpc);
 //#endregion
 //#region src/electron/ElectronTheme.ts
 var ElectronThemeSetSourceError = class extends effect_Schema.TaggedErrorClass()("ElectronThemeSetSourceError", {

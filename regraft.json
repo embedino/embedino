@@ -6340,8 +6340,9 @@
         },
         "server/src/auth/RpcAuthorization.ts": {
           "upstreamHash": "c76aba2bafe193232ee9441fc1d7eb034a251936c06722f7b1c4457bfb13edc4",
-          "localHash": "0b77257f4d4d684eff1678cebb2b1e8b4d65567ed0e100168dde3f07ef4a8c91",
+          "localHash": "1bc189ca01a8f801eaa8a2fab6bbecf2339f273c80779012051194aad532a0a7",
           "intentIds": [
+            "1702dc62",
             "226c33dc",
             "b848f9e5"
           ],
@@ -10370,8 +10371,9 @@
         },
         "server/src/ws.ts": {
           "upstreamHash": "3482a74fbf94f99dd53890c447f8a59f784880c423a87244b18c65dcd62dc330",
-          "localHash": "971150a35135a484a1a93ac28c0fd7411c30d35cc78ccce0c1b9cec80f266e0a",
+          "localHash": "e0d953249e8937e4be1f84136266b638241edaa570af8db39e5e187933b290d9",
           "intentIds": [
+            "1702dc62",
             "226c33dc",
             "b848f9e5"
           ],
@@ -11012,8 +11014,10 @@
         },
         "web/src/components/BranchToolbar.tsx": {
           "upstreamHash": "cf67fcd2b24776729eaee065848a876a87800890214de4e27b8b4e10c06532bf",
-          "localHash": "cf67fcd2b24776729eaee065848a876a87800890214de4e27b8b4e10c06532bf",
-          "intentIds": [],
+          "localHash": "bad3d208afc9cd531c04af42e26df69452818466ec8e5fb4eba3ecd50cab4594",
+          "intentIds": [
+            "1702dc62"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -11086,8 +11090,9 @@
         },
         "web/src/components/chat/ChatHeader.tsx": {
           "upstreamHash": "d63e5e231cd545361eb994bd27deea893c53d197ef45632d8029c47b0046a8d3",
-          "localHash": "1de1c1790f104428e532d9832a53dfb99f80224df83da6d1f25226a695b6b2fb",
+          "localHash": "4cc4e29971665fbbb88a09df25c99c1946028f6c5e4397c90a48ff5a9fdbcde7",
           "intentIds": [
+            "86385d25",
             "b848f9e5"
           ],
           "needsIntent": false,
@@ -11632,8 +11637,9 @@
         },
         "web/src/components/ChatView.tsx": {
           "upstreamHash": "ec93b3e2f19a2b8da749a905514cc49ad234cd4e5ec17da2c41b8120ba4d557d",
-          "localHash": "b37ea92719eb065e796f416fd0c30efd007a82032bd15f2764597364a0bc8f58",
+          "localHash": "7b41828e26c25915d1b817cafd3d98940249922430ad17b9cf900c32571cc905",
           "intentIds": [
+            "86385d25",
             "b848f9e5"
           ],
           "needsIntent": false,
@@ -14431,8 +14437,9 @@
         },
         "web/src/index.css": {
           "upstreamHash": "1c99dcac7e48507c91549a20852c86ec6fd53393b87de1f86d240f99c27160ad",
-          "localHash": "98c628e5048c277562fdd0cde04175d18902193a0ab349cc572ec95097be8e6e",
+          "localHash": "2bb245d9f84ba3f61c0b618af179a512243eaede0cd19c5e364a437551c99d98",
           "intentIds": [
+            "1702dc62",
             "226c33dc",
             "b848f9e5"
           ],
@@ -16566,8 +16573,9 @@
         },
         "client-runtime/src/rpc/client.ts": {
           "upstreamHash": "fda3d2d5302a16088df05b82bd43a81ff3ae759ce6d9dabb9cb21aff19287aa6",
-          "localHash": "3097ea0800677b9db29ccce52a47c00161b4279cd31cf73c93bd278b5c1e9d41",
+          "localHash": "dbfb122e2df0c27fab6f93133c2747c39d2270754ff8c5c7c0627c3de580d6d5",
           "intentIds": [
+            "1702dc62",
             "226c33dc"
           ],
           "needsIntent": false,
@@ -17294,8 +17302,9 @@
         },
         "contracts/src/index.ts": {
           "upstreamHash": "b8eb6f7450400e7059d15b45d0f019cc6cad4c85d6d15480581becb5a910e5e1",
-          "localHash": "342ff93f9c5008673ad4971b0c44b0610fd8675cec9750cdc28bdcd555e246c3",
+          "localHash": "31e47f319b173c35f86a1815a2b28cfb21ed3d47d854896f9c7dd533d7554799",
           "intentIds": [
+            "1702dc62",
             "226c33dc"
           ],
           "needsIntent": false,
@@ -17495,8 +17504,9 @@
         },
         "contracts/src/rpc.ts": {
           "upstreamHash": "791bc47668aab3c8d2b8d4d732726ba4747fa43255e897bed3eb324d74202c15",
-          "localHash": "c7e507d2eabd0d77e1bf64ae5d4cf4a3b9644c6c6ac22484f691c68bb0f12b8f",
+          "localHash": "29a16bd8fc9a7bcba56b878b5844df11512178a392e06d5d977e6f1760fb74bf",
           "intentIds": [
+            "1702dc62",
             "226c33dc",
             "b848f9e5"
           ],
@@ -20582,6 +20592,83 @@
           "rel": "release-smoke.ts",
           "path": "t3-core/scripts/release-smoke.ts",
           "hash": "a8c567f59a2e37be2f14ec412f7d52dafd34b484dca8e0e1f4fcf14ccd0c28b4"
+        }
+      ]
+    },
+    {
+      "id": "1702dc62",
+      "date": "2026-08-15T15:31:54.605Z",
+      "description": "feat: Automatic hardware detection, UI optimizations, and toolchain RPC handlers",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/auth/RpcAuthorization.ts",
+          "path": "t3-core/apps/server/src/auth/RpcAuthorization.ts",
+          "hash": "1bc189ca01a8f801eaa8a2fab6bbecf2339f273c80779012051194aad532a0a7"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/ws.ts",
+          "path": "t3-core/apps/server/src/ws.ts",
+          "hash": "e0d953249e8937e4be1f84136266b638241edaa570af8db39e5e187933b290d9"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/BranchToolbar.tsx",
+          "path": "t3-core/apps/web/src/components/BranchToolbar.tsx",
+          "hash": "bad3d208afc9cd531c04af42e26df69452818466ec8e5fb4eba3ecd50cab4594"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/index.css",
+          "path": "t3-core/apps/web/src/index.css",
+          "hash": "2bb245d9f84ba3f61c0b618af179a512243eaede0cd19c5e364a437551c99d98"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_084618bc6e81d207",
+          "rel": "client-runtime/src/rpc/client.ts",
+          "path": "t3-core/packages/client-runtime/src/rpc/client.ts",
+          "hash": "dbfb122e2df0c27fab6f93133c2747c39d2270754ff8c5c7c0627c3de580d6d5"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_084618bc6e81d207",
+          "rel": "contracts/src/index.ts",
+          "path": "t3-core/packages/contracts/src/index.ts",
+          "hash": "31e47f319b173c35f86a1815a2b28cfb21ed3d47d854896f9c7dd533d7554799"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_084618bc6e81d207",
+          "rel": "contracts/src/rpc.ts",
+          "path": "t3-core/packages/contracts/src/rpc.ts",
+          "hash": "29a16bd8fc9a7bcba56b878b5844df11512178a392e06d5d977e6f1760fb74bf"
+        }
+      ]
+    },
+    {
+      "id": "86385d25",
+      "date": "2026-08-15T18:11:46.338Z",
+      "description": "Implement robust hardware action pipeline with toolchain validation",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/chat/ChatHeader.tsx",
+          "path": "t3-core/apps/web/src/components/chat/ChatHeader.tsx",
+          "hash": "4cc4e29971665fbbb88a09df25c99c1946028f6c5e4397c90a48ff5a9fdbcde7"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/ChatView.tsx",
+          "path": "t3-core/apps/web/src/components/ChatView.tsx",
+          "hash": "7b41828e26c25915d1b817cafd3d98940249922430ad17b9cf900c32571cc905"
         }
       ]
     }
