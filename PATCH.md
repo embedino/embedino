@@ -218,7 +218,50 @@ feat: Automatic hardware detection, UI optimizations, and toolchain RPC handlers
 ## 2026-08-15 — 86385d25
 
 Files:
-- `t3-core/apps/web/src/components/ChatView.tsx` @ `7b41828e26c2` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/ChatHeader.tsx` @ `4cc4e2997166` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `7b41828e26c2` · Graft `t3-apps`
 
 Implement robust hardware action pipeline with toolchain validation
+
+## 2026-08-17 — c6ac8d02
+
+Files:
+- `t3-core/apps/server/src/orchestration/Layers/ProviderCommandReactor.ts` @ `5f1c6ffdec84` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/ClaudeAdapter.ts` @ `7fb49087a14d` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/CodexAdapter.ts` @ `17f579ba8245` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/CursorAdapter.ts` @ `bf2b334a8864` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/GrokAdapter.ts` @ `4edb2c5c63f4` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/OpenCodeAdapter.ts` @ `99c3eec78c37` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `f1e265e1923d` · Graft `t3-apps`
+- `t3-core/packages/contracts/src/orchestration.ts` @ `9ae0bb353e31` · Graft `t3-packages`
+- `t3-core/packages/contracts/src/provider.ts` @ `13ddf7bed50a` · Graft `t3-packages`
+
+Propagate activeToolchain and activeDeviceId through orchestration to ProviderLayer for UI-Aware AI Generation
+
+## 2026-08-17 — 61cf438d
+
+Files:
+- `t3-core/apps/server/src/orchestration/decider.ts` @ `28144df1fd8a` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `2d1ab8f10e30` · Graft `t3-apps`
+
+Fix root cause: decider.ts was dropping activeToolchain/activeDeviceId when creating thread.turn-start-requested event payload. Also fix 2 missing ChatView.tsx call sites.
+
+## 2026-08-17 — 1321fb50
+
+Files:
+- `t3-core/apps/server/src/orchestration/decider.ts` @ `28144df1fd8a` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `2d1ab8f10e30` · Graft `t3-apps`
+
+Rewrite HardwareAgentPrompt for production quality and fix decider.ts root cause dropping activeToolchain
+
+## 2026-08-18 — 218ccffe
+
+Files:
+- `t3-core/apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts` @ `139919f17454` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/CodexAdapter.ts` @ `3c574147eae3` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/BranchToolbar.tsx` @ `41a0ea23a28b` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `80b389f510c5` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/chat/ChatHeader.tsx` @ `def691a140f6` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/chat/MessagesTimeline.tsx` @ `22d53ff2bcc1` · Graft `t3-apps`
+
+Fix BoardSelectorPill initial load bug, redesign hardware popover, and fix PowerShell WMI query

@@ -179,7 +179,7 @@ export const scanDevices = () =>
             [
               "-NoProfile",
               "-Command",
-              `Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match 'COM\\d+' } | Select-Object Name, DeviceID, Manufacturer | ConvertTo-Json`,
+              `Get-CimInstance Win32_PnPEntity | Where-Object -Property Name -Match 'COM\\d+' | Where-Object -Property Present -eq $true | Select-Object Name, DeviceID, Manufacturer | ConvertTo-Json`,
             ],
             { encoding: "utf-8", timeout: 5000 },
           ),

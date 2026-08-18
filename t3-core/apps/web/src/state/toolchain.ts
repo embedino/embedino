@@ -20,8 +20,10 @@ export interface ToolchainState {
   readonly error: string | null;
   readonly platformioInstalled: boolean;
   readonly platformioVersion: string | null;
+  readonly platformioPath: string | null;
   readonly arduinoInstalled: boolean;
   readonly arduinoVersion: string | null;
+  readonly arduinoCliPath: string | null;
   readonly statusLoaded: boolean;
 }
 
@@ -31,8 +33,10 @@ export const initialToolchainState: ToolchainState = {
   error: null,
   platformioInstalled: false,
   platformioVersion: null,
+  platformioPath: null,
   arduinoInstalled: false,
   arduinoVersion: null,
+  arduinoCliPath: null,
   statusLoaded: false,
 };
 
@@ -52,8 +56,7 @@ export function updateToolchainState(patch: Partial<ToolchainState>): void {
 // Toolchain Schemas & Types
 // ---------------------------------------------------------------------------
 
-export const ToolchainTypeSchema = Schema.Literals(["platformio", "arduino"]);
-export type ToolchainType = Schema.Schema.Type<typeof ToolchainTypeSchema>;
+import { ToolchainTypeSchema, type ToolchainType } from "@t3tools/contracts";
 
 export const ActiveToolchainSchema = Schema.NullOr(ToolchainTypeSchema);
 export type ActiveToolchain = Schema.Schema.Type<typeof ActiveToolchainSchema>;

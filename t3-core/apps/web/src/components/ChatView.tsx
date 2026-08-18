@@ -248,6 +248,8 @@ import {
 } from "../state/entities";
 import { environmentShell } from "../state/shell";
 import { ChatComposer, type ChatComposerHandle } from "./chat/ChatComposer";
+import { useActiveToolchain, toolchainStateAtom } from "../state/toolchain";
+import { hardwareStateAtom } from "../state/hardware";
 import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
@@ -1200,6 +1202,9 @@ function ChatViewContent(props: ChatViewProps) {
   const draftId = routeKind === "draft" ? props.draftId : null;
   const threadSyncPhase = routeKind === "server" ? (props.threadSyncPhase ?? null) : null;
   const threadDetailLoading = threadSyncPhase === "loading";
+  const [activeToolchain] = useActiveToolchain();
+  const hardwareState = useAtomValue(hardwareStateAtom);
+  const toolchainState = useAtomValue(toolchainStateAtom);
   const handleNewThread = useNewThreadHandler();
   const routeThreadRef = useMemo(
     () => scopeThreadRef(environmentId, threadId),
@@ -3151,17 +3156,35 @@ function ChatViewContent(props: ChatViewProps) {
       const portArg = `"${device.port}"`;
       let command = "";
 
+      // Use binary paths resolved by the server's ToolchainService.
+      // This ensures Flash/Monitor works without the binaries being in system PATH.
       if (toolchain === "platformio") {
+        const pioBin = toolchainState.platformioPath ? `"${toolchainState.platformioPath}"` : "pio";
         command =
           action === "flash"
-            ? `pio run --target upload --upload-port ${portArg}`
-            : `pio device monitor --port ${portArg}`;
+            ? `${pioBin} run --target upload --upload-port ${portArg}`
+            : `${pioBin} device monitor --port ${portArg}`;
       } else {
+        const arduinoBin = toolchainState.arduinoCliPath
+          ? `& "${toolchainState.arduinoCliPath}"`
+          : "arduino-cli";
         const fqbnArg = device.fqbn ? `-b "${device.fqbn}" ` : "";
+
+        // Find the specific directory containing the .ino file
+        const inoFileEntry = projectEntries.data?.entries.find((e: any) => e.path.endsWith(".ino"));
+        let sketchDir = `"."`;
+        if (inoFileEntry) {
+          const lastSlashIndex = inoFileEntry.path.lastIndexOf("/");
+          sketchDir =
+            lastSlashIndex === -1
+              ? `"."`
+              : `".\\${inoFileEntry.path.substring(0, lastSlashIndex).replace(/\//g, "\\")}"`;
+        }
+
         command =
           action === "flash"
-            ? `arduino-cli compile --upload ${fqbnArg}-p ${portArg}`
-            : `arduino-cli monitor -p ${portArg}`;
+            ? `${arduinoBin} compile --upload ${fqbnArg}-p ${portArg} ${sketchDir}`
+            : `${arduinoBin} monitor -p ${portArg}`;
       }
 
       await writeTerminal({
@@ -3186,6 +3209,7 @@ function ChatViewContent(props: ChatViewProps) {
       openTerminal,
       allocatableActiveTerminalIds,
       writeTerminal,
+      toolchainState,
     ],
   );
 
@@ -5372,6 +5396,8 @@ function ChatViewContent(props: ChatViewProps) {
           runtimeMode,
           interactionMode,
           ...(bootstrap ? { bootstrap } : {}),
+          activeToolchain: activeToolchain ?? undefined,
+          activeDeviceId: hardwareState.activeDeviceId ?? undefined,
           createdAt: messageCreatedAt,
         },
       });
@@ -5733,6 +5759,8 @@ function ChatViewContent(props: ChatViewProps) {
                   },
                 }
               : {}),
+            activeToolchain: activeToolchain ?? undefined,
+            activeDeviceId: hardwareState.activeDeviceId ?? undefined,
             createdAt: messageCreatedAt,
           },
         });
@@ -5861,6 +5889,8 @@ function ChatViewContent(props: ChatViewProps) {
             threadId: activeThread.id,
             planId: activeProposedPlan.id,
           },
+          activeToolchain: activeToolchain ?? undefined,
+          activeDeviceId: hardwareState.activeDeviceId ?? undefined,
           createdAt,
         },
       });

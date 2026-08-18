@@ -1,12 +1,53 @@
 import * as React from "react";
 import { Popover } from "@base-ui/react/popover";
 import { useAtomValue } from "@effect/atom-react";
-import { CheckIcon, CircleIcon, ZapIcon, Loader2 } from "lucide-react";
+import { CheckIcon, CircleIcon, ZapIcon, Loader2, DownloadIcon, MonitorIcon } from "lucide-react";
 import { hardwareStateAtom, updateHardwareState } from "~/state/hardware";
 import { DialogTrigger } from "~/components/ui/dialog";
+import { toastManager } from "~/components/ui/toast";
+import { useActiveToolchain, type ActiveToolchain } from "~/state/toolchain";
+import type { HardwareDevice } from "@t3tools/contracts";
+import type { HardwareAction } from "./BoardSelectorPill";
 
-export function BoardSelectorPopover({ onClose }: { onClose: () => void }) {
+export function BoardSelectorPopover({
+  onClose,
+  onRunHardwareAction,
+}: {
+  onClose: () => void;
+  onRunHardwareAction: (
+    action: HardwareAction,
+    device: HardwareDevice,
+    toolchain: NonNullable<ActiveToolchain>,
+  ) => void;
+}) {
   const state = useAtomValue(hardwareStateAtom);
+  const [activeToolchain] = useActiveToolchain();
+
+  const handleAction = (action: HardwareAction) => {
+    if (!state.activeDeviceId) {
+      toastManager.add({
+        title: "No board selected",
+        description: "Please select a board before running hardware actions.",
+      });
+      return;
+    }
+
+    const activeDevice = state.connectedDevices.find(
+      (d: HardwareDevice) => d.id === state.activeDeviceId,
+    );
+    if (!activeDevice) return;
+
+    if (!activeToolchain) {
+      toastManager.add({
+        title: "No toolchain selected",
+        description: "Please configure your active build toolchain in settings.",
+      });
+      return;
+    }
+
+    onRunHardwareAction(action, activeDevice, activeToolchain);
+    onClose();
+  };
 
   return (
     <Popover.Portal>
@@ -16,18 +57,18 @@ export function BoardSelectorPopover({ onClose }: { onClose: () => void }) {
         sideOffset={4}
         className="z-[130] outline-none select-none"
       >
-        <Popover.Popup className="dropdown-glass w-80 max-h-[28rem] rounded-lg text-foreground outline-none overflow-hidden origin-(--transform-origin) shadow-lg">
+        <Popover.Popup className="dropdown-glass w-64 max-h-[28rem] rounded-lg text-foreground outline-none overflow-hidden origin-(--transform-origin) shadow-lg">
           <div className="bg-transparent h-full flex flex-col">
             {/* ── Connected Hardware Section ── */}
             <div className="px-3 pt-3 pb-1">
-              <span className="text-xs font-medium text-muted-foreground tracking-wide">
-                CONNECTED HARDWARE
+              <span className="text-[10px] font-semibold text-muted-foreground tracking-wider">
+                CONNECTED BOARDS
               </span>
             </div>
 
             <div className="flex flex-col px-1 pb-1">
               {state.connectedDevices.length > 0 ? (
-                state.connectedDevices.map((device) => {
+                state.connectedDevices.map((device: HardwareDevice) => {
                   const isActive = device.id === state.activeDeviceId;
                   const label = device.boardName
                     ? `${device.boardName} · ${device.portDisplayName}`
@@ -45,7 +86,7 @@ export function BoardSelectorPopover({ onClose }: { onClose: () => void }) {
                           targetPortDisplay: device.portDisplayName,
                           isOnline: true,
                         });
-                        onClose();
+                        // Don't close immediately here so the user can click "Flash" next without reopening
                       }}
                     >
                       {isActive ? (
@@ -73,6 +114,36 @@ export function BoardSelectorPopover({ onClose }: { onClose: () => void }) {
                 <div className="px-3 py-2 text-sm text-muted-foreground">No connected devices</div>
               )}
             </div>
+
+            {/* ── Hardware Actions Section ── */}
+            {state.activeDeviceId && state.isOnline && (
+              <>
+                <div className="mx-2 border-t border-border/50" />
+                <div className="px-3 pt-2 pb-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground tracking-wider">
+                    ACTIONS
+                  </span>
+                </div>
+                <div className="flex flex-col px-1 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => handleAction("flash")}
+                    className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm text-left cursor-pointer transition-colors hover:bg-foreground/[0.08] active:bg-foreground/[0.12]"
+                  >
+                    <DownloadIcon className="size-4 shrink-0 text-foreground" />
+                    <span className="flex-1 truncate">Flash to Board</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAction("monitor")}
+                    className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm text-left cursor-pointer transition-colors hover:bg-foreground/[0.08] active:bg-foreground/[0.12]"
+                  >
+                    <MonitorIcon className="size-4 shrink-0 text-foreground" />
+                    <span className="flex-1 truncate">Serial Monitor</span>
+                  </button>
+                </div>
+              </>
+            )}
 
             {/* ── Separator ── */}
             <div className="mx-2 border-t border-border/50" />

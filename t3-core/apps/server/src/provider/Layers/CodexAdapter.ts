@@ -35,6 +35,7 @@ import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
+import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import * as CodexErrors from "effect-codex-app-server/errors";
 import * as EffectCodexSchema from "effect-codex-app-server/schema";
@@ -278,7 +279,7 @@ function itemDetail(itemType: CanonicalItemType, item: CodexLifecycleItem): stri
     ...(itemType === "web_search"
       ? [itemRecord.query, action?.query, ...actionQueries, action?.pattern, action?.url]
       : []),
-    "command" in item ? item.command : undefined,
+    itemType !== "command_execution" && "command" in item ? item.command : undefined,
     "title" in item ? item.title : undefined,
     "summary" in item ? item.summary : undefined,
     "text" in item ? item.text : undefined,
@@ -1812,9 +1813,15 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       input.modelSelection?.instanceId === boundInstanceId
         ? getCodexServiceTierOptionValue(input.modelSelection)
         : undefined;
+    const hardwarePrompt = yield* buildHardwareSystemPrompt(
+      input.activeToolchain,
+      input.activeDeviceId,
+    );
+    const finalInput = input.input ? hardwarePrompt + "\n\n" + input.input : hardwarePrompt;
+
     return yield* session.runtime
       .sendTurn({
-        ...(input.input !== undefined ? { input: input.input } : {}),
+        input: finalInput,
         ...(input.modelSelection?.instanceId === boundInstanceId
           ? { model: input.modelSelection.model }
           : {}),

@@ -133,11 +133,29 @@ export function useHardwareSubscription(environmentId: EnvironmentId | null) {
   useEffect(() => {
     if (!environmentId) return;
     const abortController = new AbortController();
-    subscribe({ environmentId, signal: abortController.signal }).catch((err) => {
-      if (err?.message !== "Aborted") console.error(err);
-    });
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const start = () => {
+      if (abortController.signal.aborted) return;
+      subscribe({ environmentId, signal: abortController.signal })
+        .then(() => {
+          if (abortController.signal.aborted) return;
+          // Stream ended unexpectedly (e.g. WS disconnect), reconnect
+          retryTimeout = setTimeout(start, 2000);
+        })
+        .catch((err) => {
+          if (abortController.signal.aborted) return;
+          if (err?.message === "Aborted") return;
+          // Subscription failed (e.g. server not ready), retry
+          retryTimeout = setTimeout(start, 2000);
+        });
+    };
+
+    start();
+
     return () => {
       abortController.abort();
+      if (retryTimeout !== null) clearTimeout(retryTimeout);
     };
   }, [environmentId, subscribe]);
 }

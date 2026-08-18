@@ -1,5 +1,8 @@
 import * as Schema from "effect/Schema";
 
+export const ToolchainTypeSchema = Schema.Literals(["platformio", "arduino"]);
+export type ToolchainType = Schema.Schema.Type<typeof ToolchainTypeSchema>;
+
 export const ToolchainInstallProgressEvent = Schema.Struct({
   type: Schema.Literal("progress"),
   progress: Schema.Number,
@@ -21,7 +24,9 @@ export class ToolchainInstallError extends Schema.TaggedErrorClass<ToolchainInst
 export const ToolchainStatus = Schema.Struct({
   platformioInstalled: Schema.Boolean,
   platformioVersion: Schema.NullOr(Schema.String),
+  platformioPath: Schema.NullOr(Schema.String),
   arduinoInstalled: Schema.Boolean,
   arduinoVersion: Schema.NullOr(Schema.String),
+  arduinoCliPath: Schema.NullOr(Schema.String),
 });
 export type ToolchainStatus = Schema.Schema.Type<typeof ToolchainStatus>;

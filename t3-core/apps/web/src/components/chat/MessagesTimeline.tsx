@@ -54,6 +54,7 @@ import {
   EyeIcon,
   GlobeIcon,
   HammerIcon,
+  LoaderIcon,
   MessageCircleIcon,
   MousePointerClickIcon,
   PaintbrushIcon,
@@ -2223,21 +2224,61 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
 }) {
   const { workEntry, workspaceRoot } = props;
   const activity = use(TimelineRowActivityCtx);
-  const [expanded, setExpanded] = useState(false);
+  const [userExpanded, setUserExpanded] = useState(false);
   const iconConfig = workToneIcon(workEntry.tone);
   const showWarningIndicator = workEntry.sourceActivityKind === "runtime.warning";
   const entryIconName = showWarningIndicator ? "x" : workEntryIconName(workEntry);
   const heading = toolWorkEntryHeading(workEntry);
+
+  // ---------- Live output for in-progress tool calls ----------
+  const isToolRunning = workEntry.toolLifecycleStatus === "inProgress";
+  const isCommandExec =
+    workEntry.itemType === "command_execution" || workEntry.requestKind === "command";
+  const liveDetail = isToolRunning ? (workEntry.detail ?? null) : null;
+
+  // Parse the last non-empty line of stdout for a compact live status label
+  const liveStatusLine = useMemo(() => {
+    if (!liveDetail) return null;
+    const lines = liveDetail.trim().split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i]!.trim();
+      if (line.length > 0) {
+        return line.length > 100 ? line.slice(0, 97) + "…" : line;
+      }
+    }
+    return null;
+  }, [liveDetail]);
+
+  // Build the tail of the live output for the expanded body (last 20 lines)
+  const liveExpandedBody = useMemo(() => {
+    if (!liveDetail) return null;
+    const lines = liveDetail.trim().split("\n");
+    return lines.slice(-20).join("\n");
+  }, [liveDetail]);
+
+  // Auto-expand for running command executions; user toggle takes precedence once settled
+  const autoExpand = isToolRunning && isCommandExec && liveExpandedBody !== null;
+  const expanded = userExpanded || autoExpand;
+
   const rawPreview = workEntryPreview(workEntry, workspaceRoot);
-  const preview =
-    rawPreview &&
-    normalizeCompactToolLabel(rawPreview).toLowerCase() ===
-      normalizeCompactToolLabel(heading).toLowerCase()
-      ? null
-      : rawPreview;
+  // During live execution, show the live status line as the preview instead
+  const preview = (() => {
+    if (liveStatusLine && isToolRunning) return liveStatusLine;
+    if (
+      rawPreview &&
+      normalizeCompactToolLabel(rawPreview).toLowerCase() ===
+        normalizeCompactToolLabel(heading).toLowerCase()
+    )
+      return null;
+    return rawPreview;
+  })();
   const displayText = preview ? `${heading} - ${preview}` : heading;
-  const expandedBody = buildToolCallExpandedBody(workEntry, workspaceRoot);
+
+  // Choose expanded body: live streaming output takes priority during execution
+  const staticExpandedBody = buildToolCallExpandedBody(workEntry, workspaceRoot);
+  const expandedBody = isToolRunning && liveExpandedBody ? liveExpandedBody : staticExpandedBody;
   const canExpand = expandedBody !== null;
+
   const showFailedIndicator = workEntryIndicatesToolFailure(workEntry);
   const showDestructiveRowStyle =
     showFailedIndicator &&
@@ -2267,15 +2308,23 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
         role: "button" as const,
         tabIndex: 0 as const,
         "aria-label": displayText,
-        onClick: () => setExpanded((v) => !v),
+        onClick: () => setUserExpanded((v) => !v),
         onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setExpanded((v) => !v);
+            setUserExpanded((v) => !v);
           }
         },
       }
     : {};
+
+  // Auto-scroll the expanded body to the bottom during live output
+  const liveBodyRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (isToolRunning && liveBodyRef.current) {
+      liveBodyRef.current.scrollTop = liveBodyRef.current.scrollHeight;
+    }
+  }, [isToolRunning, liveExpandedBody]);
 
   return (
     <div
@@ -2298,7 +2347,16 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
             <p className="flex min-w-0 w-full items-baseline gap-1.5 text-[12px] leading-5">
               <span className={cn("min-w-0 shrink truncate", headingClass)}>{heading}</span>
               {preview && (
-                <span className="min-w-0 flex-1 truncate text-secondary-label">{preview}</span>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate",
+                    isToolRunning && liveStatusLine
+                      ? "text-foreground/70 font-mono text-[11px]"
+                      : "text-secondary-label",
+                  )}
+                >
+                  {preview}
+                </span>
               )}
             </p>
           </div>
@@ -2318,7 +2376,19 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
               ) : null}
             </span>
             <span className="flex size-4 shrink-0 items-center justify-center">
-              {showFailedIndicator ? (
+              {isToolRunning ? (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<span className="flex size-4 items-center justify-center" />}
+                  >
+                    <LoaderIcon
+                      className="block size-3 shrink-0 animate-spin text-blue-500"
+                      aria-hidden
+                    />
+                  </TooltipTrigger>
+                  <TooltipPopup>Running</TooltipPopup>
+                </Tooltip>
+              ) : showFailedIndicator ? (
                 <Tooltip>
                   <TooltipTrigger
                     render={
@@ -2367,7 +2437,13 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
           onClick={stopRowToggle}
           onPointerDown={stopRowToggle}
         >
-          <pre className="max-h-64 cursor-text overflow-auto whitespace-pre-wrap break-words font-mono text-secondary-label text-[11px] leading-relaxed select-text">
+          <pre
+            ref={isToolRunning ? liveBodyRef : undefined}
+            className={cn(
+              "max-h-64 cursor-text overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed select-text",
+              isToolRunning ? "text-foreground/80" : "text-secondary-label",
+            )}
+          >
             {expandedBody}
           </pre>
         </div>

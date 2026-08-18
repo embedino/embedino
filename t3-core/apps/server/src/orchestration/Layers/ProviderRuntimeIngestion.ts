@@ -96,6 +96,9 @@ const BUFFERED_PROPOSED_PLAN_BY_ID_CACHE_CAPACITY = 10_000;
 const BUFFERED_PROPOSED_PLAN_BY_ID_TTL = Duration.minutes(120);
 const TASK_DESCRIPTION_BY_TASK_CACHE_CAPACITY = 10_000;
 const TASK_DESCRIPTION_BY_TASK_TTL = Duration.minutes(120);
+const BUFFERED_COMMAND_OUTPUT_BY_ITEM_ID_CACHE_CAPACITY = 10_000;
+const BUFFERED_COMMAND_OUTPUT_BY_ITEM_ID_TTL = Duration.minutes(120);
+const MAX_BUFFERED_COMMAND_OUTPUT_CHARS = 48_000;
 const MAX_BUFFERED_ASSISTANT_CHARS = 24_000;
 const STRICT_PROVIDER_LIFECYCLE_GUARD = process.env.T3CODE_STRICT_PROVIDER_LIFECYCLE_GUARD !== "0";
 
@@ -907,6 +910,12 @@ const make = Effect.gen(function* () {
     lookup: () => Effect.succeed({ text: "", createdAt: "" }),
   });
 
+  const bufferedCommandOutputByItemId = yield* Cache.make<string, string>({
+    capacity: BUFFERED_COMMAND_OUTPUT_BY_ITEM_ID_CACHE_CAPACITY,
+    timeToLive: BUFFERED_COMMAND_OUTPUT_BY_ITEM_ID_TTL,
+    lookup: () => Effect.succeed(""),
+  });
+
   // Task names arrive on task.started/task.progress but not on task.completed,
   // so remember them per task to title the completion activity.
   const taskDescriptionByTaskKey = yield* Cache.make<string, string>({
@@ -1103,6 +1112,24 @@ const make = Effect.gen(function* () {
             existing?.createdAt && existing.createdAt.length > 0 ? existing.createdAt : createdAt,
         });
       }),
+    );
+
+  const appendBufferedCommandOutput = (itemId: string, delta: string) =>
+    Cache.getOption(bufferedCommandOutputByItemId, itemId).pipe(
+      Effect.flatMap((existingText) =>
+        Effect.gen(function* () {
+          const nextText = Option.match(existingText, {
+            onNone: () => delta,
+            onSome: (text) => `${text}${delta}`,
+          });
+          const limitedText =
+            nextText.length <= MAX_BUFFERED_COMMAND_OUTPUT_CHARS
+              ? nextText
+              : nextText.slice(nextText.length - MAX_BUFFERED_COMMAND_OUTPUT_CHARS);
+          yield* Cache.set(bufferedCommandOutputByItemId, itemId, limitedText);
+          return limitedText;
+        }),
+      ),
     );
 
   const takeBufferedProposedPlan = (planId: string) =>
@@ -1647,6 +1674,10 @@ const make = Effect.gen(function* () {
           : undefined;
       const proposedPlanDelta =
         event.type === "turn.proposed.delta" ? event.payload.delta : undefined;
+      const commandOutputDelta =
+        event.type === "content.delta" && event.payload.streamKind === "command_output"
+          ? event.payload.delta
+          : undefined;
 
       if (assistantDelta && assistantDelta.length > 0) {
         const turnId = toTurnId(event.turnId);
@@ -1737,6 +1768,31 @@ const make = Effect.gen(function* () {
       if (proposedPlanDelta && proposedPlanDelta.length > 0) {
         const planId = proposedPlanIdFromEvent(event, thread.id);
         yield* appendBufferedProposedPlan(planId, proposedPlanDelta, now);
+      }
+
+      if (commandOutputDelta && commandOutputDelta.length > 0 && event.itemId) {
+        const fullOutput = yield* appendBufferedCommandOutput(
+          String(event.itemId),
+          commandOutputDelta,
+        );
+        yield* orchestrationEngine.dispatch({
+          type: "thread.activity.append",
+          commandId: yield* providerCommandId(event, "command-output-delta"),
+          threadId: thread.id,
+          activity: {
+            id: EventId.make(`tool-updated:${thread.id}:${event.itemId}`),
+            createdAt: now,
+            tone: "tool",
+            kind: "tool.updated",
+            summary: "Command output updated",
+            payload: {
+              itemType: "command_execution",
+              detail: truncateDetail(fullOutput, MAX_BUFFERED_COMMAND_OUTPUT_CHARS),
+            },
+            turnId: (event.turnId ? toTurnId(event.turnId) : null) ?? null,
+          },
+          createdAt: now,
+        });
       }
 
       const assistantCompletion =

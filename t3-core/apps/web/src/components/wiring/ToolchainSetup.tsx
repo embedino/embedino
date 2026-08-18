@@ -43,14 +43,18 @@ export function useFetchToolchainStatus() {
         const s = result.value as {
           platformioInstalled: boolean;
           platformioVersion: string | null;
+          platformioPath: string | null;
           arduinoInstalled: boolean;
           arduinoVersion: string | null;
+          arduinoCliPath: string | null;
         };
         updateToolchainState({
           platformioInstalled: s.platformioInstalled,
           platformioVersion: s.platformioVersion,
+          platformioPath: s.platformioPath,
           arduinoInstalled: s.arduinoInstalled,
           arduinoVersion: s.arduinoVersion,
+          arduinoCliPath: s.arduinoCliPath,
           statusLoaded: true,
         });
       } else if (retries > 0) {

@@ -2067,6 +2067,27 @@ ProviderDriverKind.make("grok");
 ProviderDriverKind.make("opencode");
 const DEFAULT_TEXT_GENERATION_MODEL = "gpt-5.6-luna";
 //#endregion
+//#region ../../packages/contracts/src/toolchain.ts
+const ToolchainTypeSchema = effect_Schema.Literals(["platformio", "arduino"]);
+const ToolchainInstallProgressEvent = effect_Schema.Struct({
+	type: effect_Schema.Literal("progress"),
+	progress: effect_Schema.Number,
+	stdout: effect_Schema.optional(effect_Schema.String),
+	stderr: effect_Schema.optional(effect_Schema.String)
+});
+var ToolchainInstallError = class extends effect_Schema.TaggedErrorClass()("ToolchainInstallError", {
+	message: effect_Schema.String,
+	details: effect_Schema.optional(effect_Schema.String)
+}) {};
+const ToolchainStatus = effect_Schema.Struct({
+	platformioInstalled: effect_Schema.Boolean,
+	platformioVersion: effect_Schema.NullOr(effect_Schema.String),
+	platformioPath: effect_Schema.NullOr(effect_Schema.String),
+	arduinoInstalled: effect_Schema.Boolean,
+	arduinoVersion: effect_Schema.NullOr(effect_Schema.String),
+	arduinoCliPath: effect_Schema.NullOr(effect_Schema.String)
+});
+//#endregion
 //#region ../../packages/contracts/src/orchestration.ts
 const ORCHESTRATION_WS_METHODS = {
 	dispatchCommand: "orchestration.dispatchCommand",
@@ -2668,6 +2689,8 @@ const ThreadTurnStartCommand = effect_Schema.Struct({
 	interactionMode: ProviderInteractionMode.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(DEFAULT_PROVIDER_INTERACTION_MODE))),
 	bootstrap: effect_Schema.optional(ThreadTurnStartBootstrap),
 	sourceProposedPlan: effect_Schema.optional(SourceProposedPlanReference),
+	activeToolchain: effect_Schema.optional(ToolchainTypeSchema),
+	activeDeviceId: effect_Schema.optional(effect_Schema.String),
 	createdAt: IsoDateTime
 });
 const ClientThreadTurnStartCommand = effect_Schema.Struct({
@@ -2686,6 +2709,8 @@ const ClientThreadTurnStartCommand = effect_Schema.Struct({
 	interactionMode: ProviderInteractionMode,
 	bootstrap: effect_Schema.optional(ThreadTurnStartBootstrap),
 	sourceProposedPlan: effect_Schema.optional(SourceProposedPlanReference),
+	activeToolchain: effect_Schema.optional(ToolchainTypeSchema),
+	activeDeviceId: effect_Schema.optional(effect_Schema.String),
 	createdAt: IsoDateTime
 });
 const ThreadTurnInterruptCommand = effect_Schema.Struct({
@@ -3019,6 +3044,8 @@ const ThreadTurnStartRequestedPayload = effect_Schema.Struct({
 	runtimeMode: RuntimeMode.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(DEFAULT_RUNTIME_MODE))),
 	interactionMode: ProviderInteractionMode.pipe(effect_Schema.withDecodingDefault(effect_Effect.succeed(DEFAULT_PROVIDER_INTERACTION_MODE))),
 	sourceProposedPlan: effect_Schema.optional(SourceProposedPlanReference),
+	activeToolchain: effect_Schema.optional(ToolchainTypeSchema),
+	activeDeviceId: effect_Schema.optional(effect_Schema.String),
 	createdAt: IsoDateTime
 });
 const ThreadTurnInterruptRequestedPayload = effect_Schema.Struct({
@@ -7065,7 +7092,9 @@ effect_Schema.Struct({
 	input: effect_Schema.optional(TrimmedNonEmptyString.check(effect_Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_INPUT_CHARS))),
 	attachments: effect_Schema.optional(effect_Schema.Array(ChatAttachment).check(effect_Schema.isMaxLength(8))),
 	modelSelection: effect_Schema.optional(ModelSelection),
-	interactionMode: effect_Schema.optional(ProviderInteractionMode)
+	interactionMode: effect_Schema.optional(ProviderInteractionMode),
+	activeToolchain: effect_Schema.optional(ToolchainTypeSchema),
+	activeDeviceId: effect_Schema.optional(effect_Schema.String)
 });
 effect_Schema.Struct({
 	threadId: ThreadId,
@@ -10442,24 +10471,6 @@ var UsageReadError = class extends effect_Schema.TaggedErrorClass()("UsageReadEr
 		return `Usage read failed (${this.reason}): ${this.detail}`;
 	}
 };
-//#endregion
-//#region ../../packages/contracts/src/toolchain.ts
-const ToolchainInstallProgressEvent = effect_Schema.Struct({
-	type: effect_Schema.Literal("progress"),
-	progress: effect_Schema.Number,
-	stdout: effect_Schema.optional(effect_Schema.String),
-	stderr: effect_Schema.optional(effect_Schema.String)
-});
-var ToolchainInstallError = class extends effect_Schema.TaggedErrorClass()("ToolchainInstallError", {
-	message: effect_Schema.String,
-	details: effect_Schema.optional(effect_Schema.String)
-}) {};
-const ToolchainStatus = effect_Schema.Struct({
-	platformioInstalled: effect_Schema.Boolean,
-	platformioVersion: effect_Schema.NullOr(effect_Schema.String),
-	arduinoInstalled: effect_Schema.Boolean,
-	arduinoVersion: effect_Schema.NullOr(effect_Schema.String)
-});
 //#endregion
 //#region ../../packages/contracts/src/hardware/devices.ts
 const HardwareDeviceStatus = effect_Schema.Literals([

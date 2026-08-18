@@ -1,16 +1,42 @@
 import { Popover } from "@base-ui/react/popover";
 import { useAtomValue } from "@effect/atom-react";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, CpuIcon } from "lucide-react";
 import { memo, useState } from "react";
 
-import { selectTriggerVariants } from "~/components/ui/select";
+import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
-import { hardwareStateAtom, getConnectedDeviceCount } from "~/state/hardware";
+import {
+  hardwareStateAtom,
+  getConnectedDeviceCount,
+  useHardwareSubscription,
+} from "~/state/hardware";
+import { usePrimaryEnvironmentId } from "~/state/environments";
 import { Dialog } from "~/components/ui/dialog";
 import { ToolchainSetupDialog } from "~/components/wiring/ToolchainSetup";
 import { BoardSelectorPopover } from "./BoardSelectorPopover";
 
-export const BoardSelectorPill = memo(function BoardSelectorPill() {
+import type { HardwareDevice, EnvironmentId } from "@t3tools/contracts";
+import type { ActiveToolchain } from "~/state/toolchain";
+
+export type HardwareAction = "flash" | "monitor";
+
+export const BoardSelectorPill = memo(function BoardSelectorPill({
+  environmentId,
+  onRunHardwareAction,
+}: {
+  environmentId: EnvironmentId | null;
+  onRunHardwareAction: (
+    action: HardwareAction,
+    device: HardwareDevice,
+    toolchain: NonNullable<ActiveToolchain>,
+  ) => void;
+}) {
+  // Use the primary environment as a fallback so hardware polling starts
+  // immediately on app load, even before a project or thread is selected.
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const effectiveEnvironmentId = environmentId ?? primaryEnvironmentId;
+
+  useHardwareSubscription(effectiveEnvironmentId);
   const state = useAtomValue(hardwareStateAtom);
   const [open, setOpen] = useState(false);
   const deviceCount = getConnectedDeviceCount(state);
@@ -40,27 +66,21 @@ export const BoardSelectorPill = memo(function BoardSelectorPill() {
   return (
     <Dialog>
       <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger
-          render={<button type="button" data-composer-context-control />}
-          className={cn(
-            selectTriggerVariants({ variant: "ghost", size: "xs" }),
-            "min-w-0 max-w-full font-medium",
-          )}
-        >
-          <span
-            data-composer-label
-            className="min-w-0 max-w-[240px] group-data-[compact]/composer-context:max-w-0"
-          >
-            <span
-              data-composer-label-motion
-              className="block w-full min-w-0 max-w-[240px] origin-left truncate transition-[opacity,transform] duration-180 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[compact]/composer-context:[transform:translateX(-0.25rem)_scaleX(0.95)] group-data-[compact]/composer-context:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity"
-            >
-              {displayText}
-            </span>
+        <Popover.Trigger render={<Button size="xs" variant="outline" className="ps-[8.5px]" />}>
+          <CpuIcon aria-hidden="true" className="size-3.5 text-foreground opacity-100" />
+          <span className="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5 truncate max-w-[150px]">
+            {displayText}
           </span>
-          {deviceCount >= 2 && <ChevronDownIcon className="-me-1 size-3 opacity-50" />}
+          <ChevronDownIcon
+            className={cn("size-3 opacity-50", deviceCount >= 2 ? "ml-1" : "hidden")}
+          />
         </Popover.Trigger>
-        {open && <BoardSelectorPopover onClose={() => setOpen(false)} />}
+        {open && (
+          <BoardSelectorPopover
+            onClose={() => setOpen(false)}
+            onRunHardwareAction={onRunHardwareAction}
+          />
+        )}
       </Popover.Root>
       <ToolchainSetupDialog />
     </Dialog>

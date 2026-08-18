@@ -23,6 +23,7 @@ import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
+import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
 import type { OpencodeClient, Part, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 
@@ -1437,7 +1438,12 @@ export function makeOpenCodeAdapter(
         });
       }
 
-      const text = input.input?.trim();
+      const hardwarePrompt = yield* buildHardwareSystemPrompt(
+        input.activeToolchain,
+        input.activeDeviceId,
+      );
+      const rawText = input.input?.trim();
+      const text = rawText ? hardwarePrompt + "\n\n" + rawText : hardwarePrompt;
       const fileParts = toOpenCodeFileParts({
         attachments: input.attachments,
         resolveAttachmentPath: (attachment) =>

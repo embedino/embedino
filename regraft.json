@@ -7251,8 +7251,11 @@
         },
         "server/src/orchestration/decider.ts": {
           "upstreamHash": "962360e902ecc30eb3b5df17a8efce2cba8a8172b1ed7986fb60c5c00874d7cb",
-          "localHash": "962360e902ecc30eb3b5df17a8efce2cba8a8172b1ed7986fb60c5c00874d7cb",
-          "intentIds": [],
+          "localHash": "28144df1fd8ac55865bfd13ed913a9835c5dd7dd981bc63490543fe947a9156d",
+          "intentIds": [
+            "1321fb50",
+            "61cf438d"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -7349,8 +7352,10 @@
         },
         "server/src/orchestration/Layers/ProviderCommandReactor.ts": {
           "upstreamHash": "c76c8ac1af4beecebedce4b3f0af4da345ee8dcd9b043d69db671de8d91502aa",
-          "localHash": "c76c8ac1af4beecebedce4b3f0af4da345ee8dcd9b043d69db671de8d91502aa",
-          "intentIds": [],
+          "localHash": "5f1c6ffdec84f19bb2a7a4939be3be9884c276ac6ac17d4ae1ce1eb7e1b605e0",
+          "intentIds": [
+            "c6ac8d02"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -7377,8 +7382,10 @@
         },
         "server/src/orchestration/Layers/ProviderRuntimeIngestion.ts": {
           "upstreamHash": "37439bead5ecd06d4a16947c09994d7f48ef7cc215ff8e6871986e760793a4b6",
-          "localHash": "37439bead5ecd06d4a16947c09994d7f48ef7cc215ff8e6871986e760793a4b6",
-          "intentIds": [],
+          "localHash": "139919f174547539b6187a77fe7f1f6840bbcb5367e0910f7f4c75e285422932",
+          "intentIds": [
+            "218ccffe"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -8610,9 +8617,10 @@
         },
         "server/src/provider/Layers/ClaudeAdapter.ts": {
           "upstreamHash": "b8ff1f6541f3e07e8d3ff723ddc84a0fe7d9c3a5311d32148472e03f41c0bbab",
-          "localHash": "550e9236e68069904866a4e728d12fe481ec48f07da90f86133250b010103814",
+          "localHash": "7fb49087a14d70ca488a139d3624066f95ec3c770edf76d3e1d4abe976608444",
           "intentIds": [
-            "226c33dc"
+            "226c33dc",
+            "c6ac8d02"
           ],
           "needsIntent": false,
           "pending": null
@@ -8640,8 +8648,11 @@
         },
         "server/src/provider/Layers/CodexAdapter.ts": {
           "upstreamHash": "967d78dc9e58021d7d95d3db1ccf4d67ff50c7c14655a2a1835be63a2b70bf38",
-          "localHash": "967d78dc9e58021d7d95d3db1ccf4d67ff50c7c14655a2a1835be63a2b70bf38",
-          "intentIds": [],
+          "localHash": "3c574147eae3aeb62875307d55d38cafc11e1bc8ea075364b0bc27b10ef2174e",
+          "intentIds": [
+            "218ccffe",
+            "c6ac8d02"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -8710,8 +8721,10 @@
         },
         "server/src/provider/Layers/CursorAdapter.ts": {
           "upstreamHash": "5e9518bb0479b3c0705f0f5b91221f68b82c8441b9c919297bba8c08c8bcc7d0",
-          "localHash": "5e9518bb0479b3c0705f0f5b91221f68b82c8441b9c919297bba8c08c8bcc7d0",
-          "intentIds": [],
+          "localHash": "bf2b334a8864c4dd9af6ccf9fab969fc35d5252a67eab53c73fe8482e709c445",
+          "intentIds": [
+            "c6ac8d02"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -8752,8 +8765,10 @@
         },
         "server/src/provider/Layers/GrokAdapter.ts": {
           "upstreamHash": "c1f60640fd757ddd63ca00bb2a11a489d6417280404391dc38c21885f8b36411",
-          "localHash": "c1f60640fd757ddd63ca00bb2a11a489d6417280404391dc38c21885f8b36411",
-          "intentIds": [],
+          "localHash": "4edb2c5c63f45bec71ce2390b29e3f1adb7af4eee9efe606e0ba53f6fe342bd6",
+          "intentIds": [
+            "c6ac8d02"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -8780,8 +8795,10 @@
         },
         "server/src/provider/Layers/OpenCodeAdapter.ts": {
           "upstreamHash": "c9ff471676c7c5f31192a45e9beebb689de447a3d800edcbb411f0a4aea64bf0",
-          "localHash": "c9ff471676c7c5f31192a45e9beebb689de447a3d800edcbb411f0a4aea64bf0",
-          "intentIds": [],
+          "localHash": "99c3eec78c37ddf19c876cbaff3898a8128af9abc8ea24b370f42d2de3cd8a74",
+          "intentIds": [
+            "c6ac8d02"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -11014,9 +11031,10 @@
         },
         "web/src/components/BranchToolbar.tsx": {
           "upstreamHash": "cf67fcd2b24776729eaee065848a876a87800890214de4e27b8b4e10c06532bf",
-          "localHash": "bad3d208afc9cd531c04af42e26df69452818466ec8e5fb4eba3ecd50cab4594",
+          "localHash": "41a0ea23a28bebd54c9c6a510d17325da232366aa1927278897b0dc8c7e1292e",
           "intentIds": [
-            "1702dc62"
+            "1702dc62",
+            "218ccffe"
           ],
           "needsIntent": false,
           "pending": null
@@ -11090,8 +11108,9 @@
         },
         "web/src/components/chat/ChatHeader.tsx": {
           "upstreamHash": "d63e5e231cd545361eb994bd27deea893c53d197ef45632d8029c47b0046a8d3",
-          "localHash": "4cc4e29971665fbbb88a09df25c99c1946028f6c5e4397c90a48ff5a9fdbcde7",
+          "localHash": "def691a140f6ae5605ab225efc0c995f651a2e0080d433b689edabc31a25ac17",
           "intentIds": [
+            "218ccffe",
             "86385d25",
             "b848f9e5"
           ],
@@ -11400,8 +11419,9 @@
         },
         "web/src/components/chat/MessagesTimeline.tsx": {
           "upstreamHash": "3b5c1b2f3f11d40585341f7e81d6167fd704fe2cf740bf7d671f94f30e7bab79",
-          "localHash": "c8d29bfed181be5d7eb9cc0ea8a8f39403d610ed5a39c72d36040b51c4eb48ef",
+          "localHash": "22d53ff2bcc120ec39c739433f61e4cc32183c7a6defdb45d441f1008e226698",
           "intentIds": [
+            "218ccffe",
             "b848f9e5"
           ],
           "needsIntent": false,
@@ -11637,10 +11657,14 @@
         },
         "web/src/components/ChatView.tsx": {
           "upstreamHash": "ec93b3e2f19a2b8da749a905514cc49ad234cd4e5ec17da2c41b8120ba4d557d",
-          "localHash": "7b41828e26c25915d1b817cafd3d98940249922430ad17b9cf900c32571cc905",
+          "localHash": "80b389f510c51d4bfac10fc11ef6aff14f1d4fc73a0a2c91e518400196f485a7",
           "intentIds": [
+            "1321fb50",
+            "218ccffe",
+            "61cf438d",
             "86385d25",
-            "b848f9e5"
+            "b848f9e5",
+            "c6ac8d02"
           ],
           "needsIntent": false,
           "pending": null
@@ -17356,8 +17380,10 @@
         },
         "contracts/src/orchestration.ts": {
           "upstreamHash": "e4cf5781824fbcf2d6cc3f49c0d8a5871c843444663c8a723b16790136b28958",
-          "localHash": "e4cf5781824fbcf2d6cc3f49c0d8a5871c843444663c8a723b16790136b28958",
-          "intentIds": [],
+          "localHash": "9ae0bb353e31102db5b87556cd3981c21f57b57d49e03d127b36b867dcfed768",
+          "intentIds": [
+            "c6ac8d02"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -17409,8 +17435,10 @@
         },
         "contracts/src/provider.ts": {
           "upstreamHash": "45501bda98271090f3c624806697144069d26ee75746d168e32e61d3a42fc0bb",
-          "localHash": "45501bda98271090f3c624806697144069d26ee75746d168e32e61d3a42fc0bb",
-          "intentIds": [],
+          "localHash": "13ddf7bed50ac0abb13616fa9965e692c37f8497b4ea7c3230d638526cb5ac50",
+          "intentIds": [
+            "c6ac8d02"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -20669,6 +20697,167 @@
           "rel": "web/src/components/ChatView.tsx",
           "path": "t3-core/apps/web/src/components/ChatView.tsx",
           "hash": "7b41828e26c25915d1b817cafd3d98940249922430ad17b9cf900c32571cc905"
+        }
+      ]
+    },
+    {
+      "id": "c6ac8d02",
+      "date": "2026-08-17T15:32:58.574Z",
+      "description": "Propagate activeToolchain and activeDeviceId through orchestration to ProviderLayer for UI-Aware AI Generation",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/orchestration/Layers/ProviderCommandReactor.ts",
+          "path": "t3-core/apps/server/src/orchestration/Layers/ProviderCommandReactor.ts",
+          "hash": "5f1c6ffdec84f19bb2a7a4939be3be9884c276ac6ac17d4ae1ce1eb7e1b605e0"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/ClaudeAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/ClaudeAdapter.ts",
+          "hash": "7fb49087a14d70ca488a139d3624066f95ec3c770edf76d3e1d4abe976608444"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/CodexAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/CodexAdapter.ts",
+          "hash": "17f579ba8245a5ed6d645078aeaa5a0cb2d8d07206d7cc26922df271f1a4467e"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/CursorAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/CursorAdapter.ts",
+          "hash": "bf2b334a8864c4dd9af6ccf9fab969fc35d5252a67eab53c73fe8482e709c445"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/GrokAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/GrokAdapter.ts",
+          "hash": "4edb2c5c63f45bec71ce2390b29e3f1adb7af4eee9efe606e0ba53f6fe342bd6"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/OpenCodeAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/OpenCodeAdapter.ts",
+          "hash": "99c3eec78c37ddf19c876cbaff3898a8128af9abc8ea24b370f42d2de3cd8a74"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/ChatView.tsx",
+          "path": "t3-core/apps/web/src/components/ChatView.tsx",
+          "hash": "f1e265e1923de74bc27c3586af56ebb02eb23945a7ad25a39d3bbcc8f61b879e"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_084618bc6e81d207",
+          "rel": "contracts/src/orchestration.ts",
+          "path": "t3-core/packages/contracts/src/orchestration.ts",
+          "hash": "9ae0bb353e31102db5b87556cd3981c21f57b57d49e03d127b36b867dcfed768"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_084618bc6e81d207",
+          "rel": "contracts/src/provider.ts",
+          "path": "t3-core/packages/contracts/src/provider.ts",
+          "hash": "13ddf7bed50ac0abb13616fa9965e692c37f8497b4ea7c3230d638526cb5ac50"
+        }
+      ]
+    },
+    {
+      "id": "61cf438d",
+      "date": "2026-08-17T16:00:19.842Z",
+      "description": "Fix root cause: decider.ts was dropping activeToolchain/activeDeviceId when creating thread.turn-start-requested event payload. Also fix 2 missing ChatView.tsx call sites.",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/orchestration/decider.ts",
+          "path": "t3-core/apps/server/src/orchestration/decider.ts",
+          "hash": "28144df1fd8ac55865bfd13ed913a9835c5dd7dd981bc63490543fe947a9156d"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/ChatView.tsx",
+          "path": "t3-core/apps/web/src/components/ChatView.tsx",
+          "hash": "2d1ab8f10e307a579a5525e2cf33ec430a2b3e2dd87a7bf64ac301db70eb3cf0"
+        }
+      ]
+    },
+    {
+      "id": "1321fb50",
+      "date": "2026-08-17T16:09:57.712Z",
+      "description": "Rewrite HardwareAgentPrompt for production quality and fix decider.ts root cause dropping activeToolchain",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/orchestration/decider.ts",
+          "path": "t3-core/apps/server/src/orchestration/decider.ts",
+          "hash": "28144df1fd8ac55865bfd13ed913a9835c5dd7dd981bc63490543fe947a9156d"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/ChatView.tsx",
+          "path": "t3-core/apps/web/src/components/ChatView.tsx",
+          "hash": "2d1ab8f10e307a579a5525e2cf33ec430a2b3e2dd87a7bf64ac301db70eb3cf0"
+        }
+      ]
+    },
+    {
+      "id": "218ccffe",
+      "date": "2026-08-18T07:56:19.252Z",
+      "description": "Fix BoardSelectorPill initial load bug, redesign hardware popover, and fix PowerShell WMI query",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/orchestration/Layers/ProviderRuntimeIngestion.ts",
+          "path": "t3-core/apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts",
+          "hash": "139919f174547539b6187a77fe7f1f6840bbcb5367e0910f7f4c75e285422932"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/CodexAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/CodexAdapter.ts",
+          "hash": "3c574147eae3aeb62875307d55d38cafc11e1bc8ea075364b0bc27b10ef2174e"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/BranchToolbar.tsx",
+          "path": "t3-core/apps/web/src/components/BranchToolbar.tsx",
+          "hash": "41a0ea23a28bebd54c9c6a510d17325da232366aa1927278897b0dc8c7e1292e"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/chat/ChatHeader.tsx",
+          "path": "t3-core/apps/web/src/components/chat/ChatHeader.tsx",
+          "hash": "def691a140f6ae5605ab225efc0c995f651a2e0080d433b689edabc31a25ac17"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/chat/MessagesTimeline.tsx",
+          "path": "t3-core/apps/web/src/components/chat/MessagesTimeline.tsx",
+          "hash": "22d53ff2bcc120ec39c739433f61e4cc32183c7a6defdb45d441f1008e226698"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/ChatView.tsx",
+          "path": "t3-core/apps/web/src/components/ChatView.tsx",
+          "hash": "80b389f510c51d4bfac10fc11ef6aff14f1d4fc73a0a2c91e518400196f485a7"
         }
       ]
     }

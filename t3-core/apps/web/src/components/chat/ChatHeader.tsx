@@ -6,7 +6,7 @@ import {
   type ThreadId,
   type HardwareDevice,
 } from "@t3tools/contracts";
-import type { HardwareAction } from "./HardwareActionsControl";
+import { BoardSelectorPill, type HardwareAction } from "../hardware/BoardSelectorPill";
 import type { ActiveToolchain } from "../../state/toolchain";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import {
@@ -32,7 +32,6 @@ import ProjectScriptsControl, {
   type NewProjectScriptInput,
   type ProjectScriptActionResult,
 } from "../ProjectScriptsControl";
-import { HardwareActionsControl } from "./HardwareActionsControl";
 import { OpenInPicker } from "./OpenInPicker";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
@@ -330,7 +329,10 @@ export const ChatHeader = memo(function ChatHeader({
             onDeleteScript={onDeleteProjectScript}
           />
         )}
-        <HardwareActionsControl onRunHardwareAction={onRunHardwareAction} />
+        <BoardSelectorPill
+          environmentId={activeThreadEnvironmentId}
+          onRunHardwareAction={onRunHardwareAction}
+        />
         {showOpenInPicker && (
           <OpenInPicker
             environmentId={activeThreadEnvironmentId}

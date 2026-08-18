@@ -22,6 +22,7 @@ import {
   RuntimeMode,
 } from "./orchestration.ts";
 import { ProviderInstanceId, ProviderDriverKind } from "./providerInstance.ts";
+import { ToolchainTypeSchema } from "./toolchain.ts";
 
 const ProviderSessionStatus = Schema.Literals([
   "connecting",
@@ -74,6 +75,8 @@ export const ProviderSendTurnInput = Schema.Struct({
   ),
   modelSelection: Schema.optional(ModelSelection),
   interactionMode: Schema.optional(ProviderInteractionMode),
+  activeToolchain: Schema.optional(ToolchainTypeSchema),
+  activeDeviceId: Schema.optional(Schema.String),
 });
 export type ProviderSendTurnInput = typeof ProviderSendTurnInput.Type;
 

@@ -27,6 +27,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
+import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
 import * as SynchronizedRef from "effect/SynchronizedRef";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import * as EffectAcpErrors from "effect-acp/errors";
@@ -950,7 +951,12 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
                   mapAcpToAdapterError(PROVIDER, input.threadId, "session/set_model", cause),
               });
 
-              const text = input.input?.trim();
+              const hardwarePrompt = yield* buildHardwareSystemPrompt(
+                input.activeToolchain,
+                input.activeDeviceId,
+              );
+              const rawText = input.input?.trim();
+              const text = rawText ? hardwarePrompt + "\n\n" + rawText : hardwarePrompt;
               const imagePromptParts = yield* Effect.forEach(
                 input.attachments ?? [],
                 (attachment) =>

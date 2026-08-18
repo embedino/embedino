@@ -28,7 +28,6 @@ import {
 import { BranchToolbarBranchSelector } from "./BranchToolbarBranchSelector";
 import { BranchToolbarEnvironmentSelector } from "./BranchToolbarEnvironmentSelector";
 import { BranchToolbarEnvModeSelector } from "./BranchToolbarEnvModeSelector";
-import { BoardSelectorPill } from "./hardware/BoardSelectorPill";
 import { useHardwareSubscription } from "../state/hardware";
 import { Button } from "./ui/button";
 import {
@@ -396,10 +395,6 @@ export const BranchToolbar = memo(function BranchToolbar({
     () => scopeThreadRef(environmentId, threadId),
     [environmentId, threadId],
   );
-
-  // Auto-scan hardware for this environment
-  useHardwareSubscription(environmentId);
-
   const draftThread = useComposerDraftStore((store) =>
     draftId ? store.getDraftSession(draftId) : store.getDraftThreadByRef(threadRef),
   );
@@ -521,7 +516,6 @@ export const BranchToolbar = memo(function BranchToolbar({
               onUsePreviousWorktree={onUsePreviousWorktree}
             />
           ) : null}
-          <BoardSelectorPill />
         </div>
       )}
 

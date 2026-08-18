@@ -147,7 +147,11 @@ function resolvePythonCommand(platform: NodeJS.Platform): string {
   return platform === "win32" ? "python" : "python3";
 }
 
-function findPio(platform: NodeJS.Platform): { installed: boolean; version: string | null } {
+function findPio(platform: NodeJS.Platform): {
+  installed: boolean;
+  version: string | null;
+  path: string | null;
+} {
   const home = getUserHome();
   const ext = getExecutableExtension(platform);
   const candidates: string[] = [];
@@ -207,12 +211,12 @@ function findPio(platform: NodeJS.Platform): { installed: boolean; version: stri
     try {
       if (NodeFS.existsSync(candidate)) {
         const ver = extractPioVersion(candidate);
-        return { installed: true, version: ver ?? "PlatformIO Core" };
+        return { installed: true, version: ver ?? "PlatformIO Core", path: candidate };
       }
     } catch {}
   }
 
-  return { installed: false, version: null };
+  return { installed: false, version: null, path: null };
 }
 
 function extractPioVersion(binaryPath: string): string | null {
@@ -230,7 +234,11 @@ function extractPioVersion(binaryPath: string): string | null {
   return "PlatformIO Core";
 }
 
-function findArduinoCli(platform: NodeJS.Platform): { installed: boolean; version: string | null } {
+function findArduinoCli(platform: NodeJS.Platform): {
+  installed: boolean;
+  version: string | null;
+  path: string | null;
+} {
   const home = getUserHome();
   const ext = getExecutableExtension(platform);
   const candidates: string[] = [];
@@ -265,12 +273,12 @@ function findArduinoCli(platform: NodeJS.Platform): { installed: boolean; versio
     try {
       if (NodeFS.existsSync(candidate)) {
         const ver = extractArduinoCliVersion(candidate);
-        return { installed: true, version: ver ?? "Arduino CLI" };
+        return { installed: true, version: ver ?? "Arduino CLI", path: candidate };
       }
     } catch {}
   }
 
-  return { installed: false, version: null };
+  return { installed: false, version: null, path: null };
 }
 
 function extractArduinoCliVersion(binaryPath: string): string | null {
@@ -298,9 +306,78 @@ export const getToolchainStatus = () =>
     return {
       platformioInstalled: pio.installed,
       platformioVersion: pio.version,
+      platformioPath: pio.path,
       arduinoInstalled: arduino.installed,
       arduinoVersion: arduino.version,
+      arduinoCliPath: arduino.path,
     } satisfies ToolchainStatus;
+  });
+
+/**
+ * Returns the resolved absolute filesystem paths for installed toolchain
+ * binaries. Used by HardwareAgentPrompt to inject full paths into agent
+ * instructions so the agent never relies on the system PATH.
+ */
+export const getToolchainBinaryPaths = () =>
+  Effect.gen(function* () {
+    const platform = yield* HostProcessPlatform;
+    const ext = getExecutableExtension(platform);
+
+    // Resolve Arduino CLI binary path
+    let arduinoCliPath: string | null = null;
+    const arduinoCandidates = [
+      NodePath.join(getArduinoCliDestDir(platform), `arduino-cli${ext}`),
+      NodePath.join(getUserHome(), "bin", `arduino-cli${ext}`),
+      NodePath.join(getUserHome(), ".arduino", `arduino-cli${ext}`),
+    ];
+    if (platform === "win32") {
+      const localAppData = process.env.LOCALAPPDATA || "";
+      const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+      arduinoCandidates.push(NodePath.join(localAppData, "Arduino15", "arduino-cli.exe"));
+      arduinoCandidates.push(NodePath.join(programFiles, "Arduino CLI", "arduino-cli.exe"));
+    }
+    for (const candidate of arduinoCandidates) {
+      try {
+        if (NodeFS.existsSync(candidate)) {
+          arduinoCliPath = candidate;
+          break;
+        }
+      } catch {}
+    }
+
+    // Resolve PlatformIO binary path
+    let platformioPath: string | null = null;
+    const pioCandidates = [NodePath.join(getPenvBinDir(platform), `pio${ext}`)];
+    if (platform === "win32") {
+      const appData = process.env.APPDATA || "";
+      try {
+        const pyDir = NodePath.join(appData, "Python");
+        if (NodeFS.existsSync(pyDir)) {
+          for (const entry of NodeFS.readdirSync(pyDir)) {
+            pioCandidates.push(NodePath.join(pyDir, entry, "Scripts", "pio.exe"));
+          }
+        }
+      } catch {}
+      const localAppData = process.env.LOCALAPPDATA || "";
+      try {
+        const pyDir = NodePath.join(localAppData, "Programs", "Python");
+        if (NodeFS.existsSync(pyDir)) {
+          for (const entry of NodeFS.readdirSync(pyDir)) {
+            pioCandidates.push(NodePath.join(pyDir, entry, "Scripts", "pio.exe"));
+          }
+        }
+      } catch {}
+    }
+    for (const candidate of pioCandidates) {
+      try {
+        if (NodeFS.existsSync(candidate)) {
+          platformioPath = candidate;
+          break;
+        }
+      } catch {}
+    }
+
+    return { arduinoCliPath, platformioPath };
   });
 
 // ---------------------------------------------------------------------------

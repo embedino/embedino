@@ -22,6 +22,7 @@ import {
   TurnId,
 } from "./baseSchemas.ts";
 import { ProviderInstanceId } from "./providerInstance.ts";
+import { ToolchainTypeSchema } from "./toolchain.ts";
 
 export const ORCHESTRATION_WS_METHODS = {
   dispatchCommand: "orchestration.dispatchCommand",
@@ -826,6 +827,8 @@ export const ThreadTurnStartCommand = Schema.Struct({
   ),
   bootstrap: Schema.optional(ThreadTurnStartBootstrap),
   sourceProposedPlan: Schema.optional(SourceProposedPlanReference),
+  activeToolchain: Schema.optional(ToolchainTypeSchema),
+  activeDeviceId: Schema.optional(Schema.String),
   createdAt: IsoDateTime,
 });
 
@@ -845,6 +848,8 @@ const ClientThreadTurnStartCommand = Schema.Struct({
   interactionMode: ProviderInteractionMode,
   bootstrap: Schema.optional(ThreadTurnStartBootstrap),
   sourceProposedPlan: Schema.optional(SourceProposedPlanReference),
+  activeToolchain: Schema.optional(ToolchainTypeSchema),
+  activeDeviceId: Schema.optional(Schema.String),
   createdAt: IsoDateTime,
 });
 
@@ -1240,6 +1245,8 @@ export const ThreadTurnStartRequestedPayload = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_PROVIDER_INTERACTION_MODE)),
   ),
   sourceProposedPlan: Schema.optional(SourceProposedPlanReference),
+  activeToolchain: Schema.optional(ToolchainTypeSchema),
+  activeDeviceId: Schema.optional(Schema.String),
   createdAt: IsoDateTime,
 });
 
