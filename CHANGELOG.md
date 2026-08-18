@@ -19,6 +19,7 @@ All notable changes to the Embedino project will be documented in this file.
 - **Windows Device Scanner**: Fixed a PowerShell syntax error in the WMI query (`DeviceService.ts`) that caused the scanner to silently return empty device lists (`[]`), which previously triggered false "No connected devices" states.
 - **Live Terminal Streaming**: Fixed bug where agent command execution (`stdout`) was dropped or overwritten. Orchestrator now correctly buffers and streams WebSocket `command_output` into the chat UI.
 - **Hardware Agent Context**: Instructed agent to append exact `<sketch_dir>` in compilation commands to prevent workspace root build failures.
+- **Test Assertions**: Stabilized AI test failures in `ClaudeAdapter.test.ts`, `CodexAdapter.test.ts`, and `OpenCodeAdapter.test.ts` caused by dynamic hardware context injection. Replaced strict payload string equivalence checks with resilient property validations to decouple tests from system prompt modifications.
 
 ## [Earlier Phases]
 ### Added

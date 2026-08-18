@@ -291,7 +291,7 @@ export const subscribeDevices = () =>
                 timeout.unref();
               }
             });
-          } catch (_e) {
+          } catch {
             // Ignored
           }
         }

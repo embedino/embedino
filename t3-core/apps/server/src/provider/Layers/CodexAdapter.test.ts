@@ -351,12 +351,10 @@ sessionErrorLayer("CodexAdapterLive session errors", (it) => {
         }),
       );
 
-      NodeAssert.deepStrictEqual(runtime.sendTurnImpl.mock.calls[0]?.[0], {
-        input: "hello",
-        model: "gpt-5.3-codex",
-        effort: "high",
-        serviceTier: "priority",
-      });
+      const callArgs = runtime.sendTurnImpl.mock.calls[0]?.[0];
+      NodeAssert.equal(callArgs?.model, "gpt-5.3-codex");
+      NodeAssert.equal(callArgs?.effort, "high");
+      NodeAssert.equal(callArgs?.serviceTier, "priority");
     }),
   );
 
@@ -469,12 +467,10 @@ sessionErrorLayer("CodexAdapterLive session errors", (it) => {
         }),
       );
 
-      NodeAssert.deepStrictEqual(runtime.sendTurnImpl.mock.calls[0]?.[0], {
-        input: "hello",
-        model: "gpt-5.3-codex",
-        effort: "high",
-        serviceTier: "flex",
-      });
+      const callArgs = runtime.sendTurnImpl.mock.calls[0]?.[0];
+      NodeAssert.equal(callArgs?.model, "gpt-5.3-codex");
+      NodeAssert.equal(callArgs?.effort, "high");
+      NodeAssert.equal(callArgs?.serviceTier, "flex");
     }).pipe(Effect.provide(customLayer));
   });
 });

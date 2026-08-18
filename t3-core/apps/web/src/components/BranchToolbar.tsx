@@ -28,7 +28,6 @@ import {
 import { BranchToolbarBranchSelector } from "./BranchToolbarBranchSelector";
 import { BranchToolbarEnvironmentSelector } from "./BranchToolbarEnvironmentSelector";
 import { BranchToolbarEnvModeSelector } from "./BranchToolbarEnvModeSelector";
-import { useHardwareSubscription } from "../state/hardware";
 import { Button } from "./ui/button";
 import {
   Menu,
