@@ -35,16 +35,24 @@ const mockAgentCommand = process.execPath;
 
 async function makeMockGrokWrapper(extraEnv?: Record<string, string>) {
   const dir = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "grok-acp-mock-"));
-  const wrapperPath = NodePath.join(dir, "fake-grok.sh");
-  const envExports = Object.entries(extraEnv ?? {})
-    .map(([key, value]) => `export ${key}=${JSON.stringify(value)}`)
-    .join("\n");
-  const script = `#!/bin/sh
-${envExports}
-exec ${JSON.stringify(mockAgentCommand)} ${JSON.stringify(mockAgentPath)} "$@"
-`;
-  await NodeFSP.writeFile(wrapperPath, script, "utf8");
-  await NodeFSP.chmod(wrapperPath, 0o755);
+  // eslint-disable-next-line t3code/no-global-process-runtime
+  const isWindows = NodeOS.platform() === "win32";
+  const wrapperPath = NodePath.join(dir, isWindows ? "fake-grok.cmd" : "fake-grok.sh");
+
+  if (isWindows) {
+    const envExports = Object.entries(extraEnv ?? {})
+      .map(([key, value]) => `set "${key}=${value}"`)
+      .join("\r\n");
+    const script = `@echo off\r\n${envExports}\r\n"${mockAgentCommand}" "${mockAgentPath}" %*\r\n`;
+    await NodeFSP.writeFile(wrapperPath, script, "utf8");
+  } else {
+    const envExports = Object.entries(extraEnv ?? {})
+      .map(([key, value]) => `export ${key}=${JSON.stringify(value)}`)
+      .join("\n");
+    const script = `#!/bin/sh\n${envExports}\nexec ${JSON.stringify(mockAgentCommand)} ${JSON.stringify(mockAgentPath)} "$@"\n`;
+    await NodeFSP.writeFile(wrapperPath, script, "utf8");
+    await NodeFSP.chmod(wrapperPath, 0o755);
+  }
   return wrapperPath;
 }
 
@@ -188,34 +196,37 @@ it.layer(grokAdapterTestLayer)("GrokAdapterLive", (it) => {
     }),
   );
 
-  it.effect("closes the ACP child process when a session stops", () =>
-    Effect.gen(function* () {
-      const threadId = ThreadId.make("grok-stop-session-close");
-      const tempDir = yield* Effect.promise(() =>
-        NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "grok-adapter-exit-log-")),
-      );
-      const exitLogPath = NodePath.join(tempDir, "exit.log");
+  // eslint-disable-next-line t3code/no-global-process-runtime
+  it.effect.skipIf(NodeOS.platform() === "win32")(
+    "closes the ACP child process when a session stops",
+    () =>
+      Effect.gen(function* () {
+        const threadId = ThreadId.make("grok-stop-session-close");
+        const tempDir = yield* Effect.promise(() =>
+          NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "grok-adapter-exit-log-")),
+        );
+        const exitLogPath = NodePath.join(tempDir, "exit.log");
 
-      const wrapperPath = yield* Effect.promise(() =>
-        makeMockGrokWrapper({
-          T3_ACP_EXIT_LOG_PATH: exitLogPath,
-        }),
-      );
-      const adapter = yield* makeTestAdapter(wrapperPath);
+        const wrapperPath = yield* Effect.promise(() =>
+          makeMockGrokWrapper({
+            T3_ACP_EXIT_LOG_PATH: exitLogPath,
+          }),
+        );
+        const adapter = yield* makeTestAdapter(wrapperPath);
 
-      yield* adapter.startSession({
-        threadId,
-        provider: ProviderDriverKind.make("grok"),
-        cwd: process.cwd(),
-        runtimeMode: "full-access",
-        modelSelection: { instanceId: ProviderInstanceId.make("grok"), model: "grok-build" },
-      });
+        yield* adapter.startSession({
+          threadId,
+          provider: ProviderDriverKind.make("grok"),
+          cwd: process.cwd(),
+          runtimeMode: "full-access",
+          modelSelection: { instanceId: ProviderInstanceId.make("grok"), model: "grok-build" },
+        });
 
-      yield* adapter.stopSession(threadId);
+        yield* adapter.stopSession(threadId);
 
-      const exitLog = yield* waitForFileContent(exitLogPath);
-      assert.include(exitLog, "SIGTERM");
-    }),
+        const exitLog = yield* waitForFileContent(exitLogPath);
+        assert.include(exitLog, "SIGTERM");
+      }),
   );
 
   it.effect("reports a Grok session running only while the prompt is in flight", () =>
@@ -1015,7 +1026,7 @@ it.layer(grokAdapterTestLayer)("GrokAdapterLive", (it) => {
     }),
   );
 
-  it.effect("rejects sendTurn with empty input and no attachments", () =>
+  it.effect("accepts sendTurn with empty input because of hardware context injection", () =>
     Effect.gen(function* () {
       const threadId = ThreadId.make("grok-empty-turn");
 
@@ -1030,15 +1041,13 @@ it.layer(grokAdapterTestLayer)("GrokAdapterLive", (it) => {
         modelSelection: { instanceId: ProviderInstanceId.make("grok"), model: "grok-build" },
       });
 
-      const error = yield* Effect.flip(
-        adapter.sendTurn({
-          threadId,
-          input: "   ",
-          attachments: [],
-        }),
-      );
+      const result = yield* adapter.sendTurn({
+        threadId,
+        input: "   ",
+        attachments: [],
+      });
 
-      assert.equal(error._tag, "ProviderAdapterValidationError");
+      assert.isDefined(result.turnId);
 
       yield* adapter.stopSession(threadId);
     }),
