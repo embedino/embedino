@@ -10,6 +10,7 @@ All notable changes to the Embedino project will be documented in this file.
 ## [2026-08-18]
 ### Added
 - **Module Variant Confirmation**: Added Rule 6 to the hardware agent prompt to explicitly ask the user for exact module variants (e.g., `ESP32-S3-WROOM-1-N16R8`) before writing board-specific configurations.
+- **Board Naming Dialog UX**: Implemented a dedicated modal (`BoardNamingDialog`) that intelligently intercepts generic board connections (e.g., CP2102, generic ESP32) and explicitly prompts the user to identify their specific variant.
 
 ### Changed
 - **Board Selector Redesign**: Moved "Flash" and "Monitor" hardware action buttons directly inside the `BoardSelectorPopover` to clean up the chat header. The actions only appear when a valid board is selected and online.
@@ -20,6 +21,7 @@ All notable changes to the Embedino project will be documented in this file.
 - **Live Terminal Streaming**: Fixed bug where agent command execution (`stdout`) was dropped or overwritten. Orchestrator now correctly buffers and streams WebSocket `command_output` into the chat UI.
 - **Hardware Agent Context**: Instructed agent to append exact `<sketch_dir>` in compilation commands to prevent workspace root build failures.
 - **Test Assertions**: Stabilized AI test failures in `ClaudeAdapter.test.ts`, `CodexAdapter.test.ts`, and `OpenCodeAdapter.test.ts` caused by dynamic hardware context injection. Replaced strict payload string equivalence checks with resilient property validations to decouple tests from system prompt modifications.
+- **Generic Board Detection**: Fixed a bug where boards like `ESP32-S3` with hyphens bypassed the generic keyword filter. The detection now strips non-alphanumeric characters for accurate classification.
 
 ## [Earlier Phases]
 ### Added

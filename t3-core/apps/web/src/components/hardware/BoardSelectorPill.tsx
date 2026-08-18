@@ -14,6 +14,7 @@ import { usePrimaryEnvironmentId } from "~/state/environments";
 import { Dialog } from "~/components/ui/dialog";
 import { ToolchainSetupDialog } from "~/components/wiring/ToolchainSetup";
 import { BoardSelectorPopover } from "./BoardSelectorPopover";
+import { BoardNamingDialog } from "./BoardNamingDialog";
 
 import type { HardwareDevice, EnvironmentId } from "@t3tools/contracts";
 import type { ActiveToolchain } from "~/state/toolchain";
@@ -39,6 +40,7 @@ export const BoardSelectorPill = memo(function BoardSelectorPill({
   useHardwareSubscription(effectiveEnvironmentId);
   const state = useAtomValue(hardwareStateAtom);
   const [open, setOpen] = useState(false);
+  const [namingDevice, setNamingDevice] = useState<HardwareDevice | null>(null);
   const deviceCount = getConnectedDeviceCount(state);
 
   // Compute display text
@@ -79,10 +81,15 @@ export const BoardSelectorPill = memo(function BoardSelectorPill({
           <BoardSelectorPopover
             onClose={() => setOpen(false)}
             onRunHardwareAction={onRunHardwareAction}
+            onNamingDevice={(device) => {
+              setOpen(false);
+              setNamingDevice(device);
+            }}
           />
         )}
       </Popover.Root>
       <ToolchainSetupDialog />
+      <BoardNamingDialog device={namingDevice} onClose={() => setNamingDevice(null)} />
     </Dialog>
   );
 });

@@ -1,9 +1,9 @@
 import { Atom } from "effect/unstable/reactivity";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
-import type { HardwareDevice, HardwareEvent } from "@t3tools/contracts";
+import type { HardwareDevice, HardwareEvent, DeviceAssociationInput } from "@t3tools/contracts";
 import { EnvironmentId, WS_METHODS } from "@t3tools/contracts";
 import { EnvironmentRegistry } from "@t3tools/client-runtime/connection";
-import { subscribe } from "@t3tools/client-runtime/rpc";
+import { request, subscribe } from "@t3tools/client-runtime/rpc";
 import { createRuntimeCommand } from "@t3tools/client-runtime/state/runtime";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
@@ -158,4 +158,33 @@ export function useHardwareSubscription(environmentId: EnvironmentId | null) {
       if (retryTimeout !== null) clearTimeout(retryTimeout);
     };
   }, [environmentId, subscribe]);
+}
+
+// ---------------------------------------------------------------------------
+// hardwareSetDeviceAssociation — unary RPC via createRuntimeCommand
+// ---------------------------------------------------------------------------
+
+function setDeviceAssociationEffect(environmentId: EnvironmentId, payload: DeviceAssociationInput) {
+  return Effect.gen(function* () {
+    const registry = yield* EnvironmentRegistry;
+    return yield* registry.run(
+      environmentId,
+      request(WS_METHODS.hardwareSetDeviceAssociation, payload),
+    );
+  });
+}
+
+export const hardwareSetDeviceAssociationCommand = createRuntimeCommand(connectionAtomRuntime, {
+  label: "hardware-set-device-association",
+  execute: (input: {
+    readonly environmentId: EnvironmentId;
+    readonly payload: DeviceAssociationInput;
+  }) => setDeviceAssociationEffect(input.environmentId, input.payload),
+});
+
+export function useHardwareSetDeviceAssociation() {
+  return useAtomCommand(hardwareSetDeviceAssociationCommand, {
+    label: "use-hardware-set-device-association",
+    reportFailure: true,
+  });
 }

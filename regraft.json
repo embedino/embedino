@@ -7251,10 +7251,11 @@
         },
         "server/src/orchestration/decider.ts": {
           "upstreamHash": "962360e902ecc30eb3b5df17a8efce2cba8a8172b1ed7986fb60c5c00874d7cb",
-          "localHash": "28144df1fd8ac55865bfd13ed913a9835c5dd7dd981bc63490543fe947a9156d",
+          "localHash": "51c202f0f2310b5be332abeed59c45cb1a85d25f69aef35fef3de5bc0b5f213d",
           "intentIds": [
             "1321fb50",
-            "61cf438d"
+            "61cf438d",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -7352,9 +7353,10 @@
         },
         "server/src/orchestration/Layers/ProviderCommandReactor.ts": {
           "upstreamHash": "c76c8ac1af4beecebedce4b3f0af4da345ee8dcd9b043d69db671de8d91502aa",
-          "localHash": "5f1c6ffdec84f19bb2a7a4939be3be9884c276ac6ac17d4ae1ce1eb7e1b605e0",
+          "localHash": "41b3b728951709cd6a03690b64f0ff4f40b539babae323faf4c36ab78caa2e24",
           "intentIds": [
-            "c6ac8d02"
+            "c6ac8d02",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -7382,9 +7384,10 @@
         },
         "server/src/orchestration/Layers/ProviderRuntimeIngestion.ts": {
           "upstreamHash": "37439bead5ecd06d4a16947c09994d7f48ef7cc215ff8e6871986e760793a4b6",
-          "localHash": "139919f174547539b6187a77fe7f1f6840bbcb5367e0910f7f4c75e285422932",
+          "localHash": "c8e6ad6805060e74ad817a54526900e940e0907c3f7f020d91bf7b7aba6f5153",
           "intentIds": [
-            "218ccffe"
+            "218ccffe",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -8608,9 +8611,10 @@
         },
         "server/src/provider/Layers/ClaudeAdapter.test.ts": {
           "upstreamHash": "d6bcf020b6c3a86d68c8efb358b443563413e12c29b9f09aa087c16b5c0b6fe9",
-          "localHash": "64feeb29c8e52c21dfa1a242698e4c9ede876969a33bc15571968685749889fe",
+          "localHash": "58f7ce9dfcee55e95a3ac1a26fb11051cee85dec4e0f4d688f82d3c5817a085d",
           "intentIds": [
-            "226c33dc"
+            "226c33dc",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -8641,8 +8645,10 @@
         },
         "server/src/provider/Layers/CodexAdapter.test.ts": {
           "upstreamHash": "fe96a3f5a0799bc49148bce4a9857476ada2d7f3dffc10361def61c139ec9eb8",
-          "localHash": "fe96a3f5a0799bc49148bce4a9857476ada2d7f3dffc10361def61c139ec9eb8",
-          "intentIds": [],
+          "localHash": "9e4ddaef240d3f6e03d34831bd0cd0d396144d441f714ace6992a770c29d949b",
+          "intentIds": [
+            "d492efad"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -8758,8 +8764,10 @@
         },
         "server/src/provider/Layers/GrokAdapter.test.ts": {
           "upstreamHash": "c56cecf6efc361e04133463eb01e70426610f66f43c5eba6e29acf46aa64d425",
-          "localHash": "c56cecf6efc361e04133463eb01e70426610f66f43c5eba6e29acf46aa64d425",
-          "intentIds": [],
+          "localHash": "a3bbdb54afd2d614be9e5fb159726e32490e599b9adc4064e8eea8a641f522e5",
+          "intentIds": [
+            "d492efad"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -8788,8 +8796,10 @@
         },
         "server/src/provider/Layers/OpenCodeAdapter.test.ts": {
           "upstreamHash": "2bdc0aa9e5e256e7816c48f16004dff824cefa27a3cc9ec1cd8acd9419e9aa32",
-          "localHash": "2bdc0aa9e5e256e7816c48f16004dff824cefa27a3cc9ec1cd8acd9419e9aa32",
-          "intentIds": [],
+          "localHash": "7bd694a1ee7bf2afec27c9f93baefb211c92213712bccc991ca66c17f4546738",
+          "intentIds": [
+            "d492efad"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -11031,10 +11041,11 @@
         },
         "web/src/components/BranchToolbar.tsx": {
           "upstreamHash": "cf67fcd2b24776729eaee065848a876a87800890214de4e27b8b4e10c06532bf",
-          "localHash": "41a0ea23a28bebd54c9c6a510d17325da232366aa1927278897b0dc8c7e1292e",
+          "localHash": "c7f5b7d6e496c0edf3c10bb7a11f5dafa904ba7bbf6b347349e1a1660244b99f",
           "intentIds": [
             "1702dc62",
-            "218ccffe"
+            "218ccffe",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -11108,11 +11119,12 @@
         },
         "web/src/components/chat/ChatHeader.tsx": {
           "upstreamHash": "d63e5e231cd545361eb994bd27deea893c53d197ef45632d8029c47b0046a8d3",
-          "localHash": "def691a140f6ae5605ab225efc0c995f651a2e0080d433b689edabc31a25ac17",
+          "localHash": "e1a8a1f5de3da2fc36d3e3ae15e1e541a6e5ab883be547976a79fdf0696587a2",
           "intentIds": [
             "218ccffe",
             "86385d25",
-            "b848f9e5"
+            "b848f9e5",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -11419,10 +11431,11 @@
         },
         "web/src/components/chat/MessagesTimeline.tsx": {
           "upstreamHash": "3b5c1b2f3f11d40585341f7e81d6167fd704fe2cf740bf7d671f94f30e7bab79",
-          "localHash": "22d53ff2bcc120ec39c739433f61e4cc32183c7a6defdb45d441f1008e226698",
+          "localHash": "75759a074762dbb6ed9877bac590ca5d37dd492b45125f777943ac06259f2807",
           "intentIds": [
             "218ccffe",
-            "b848f9e5"
+            "b848f9e5",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -11657,14 +11670,15 @@
         },
         "web/src/components/ChatView.tsx": {
           "upstreamHash": "ec93b3e2f19a2b8da749a905514cc49ad234cd4e5ec17da2c41b8120ba4d557d",
-          "localHash": "80b389f510c51d4bfac10fc11ef6aff14f1d4fc73a0a2c91e518400196f485a7",
+          "localHash": "a24954ad13bba34f05b7e91b95954ff34eb5e9f29312f8ae6fd1568001418889",
           "intentIds": [
             "1321fb50",
             "218ccffe",
             "61cf438d",
             "86385d25",
             "b848f9e5",
-            "c6ac8d02"
+            "c6ac8d02",
+            "d492efad"
           ],
           "needsIntent": false,
           "pending": null
@@ -20858,6 +20872,90 @@
           "rel": "web/src/components/ChatView.tsx",
           "path": "t3-core/apps/web/src/components/ChatView.tsx",
           "hash": "80b389f510c51d4bfac10fc11ef6aff14f1d4fc73a0a2c91e518400196f485a7"
+        }
+      ]
+    },
+    {
+      "id": "d492efad",
+      "date": "2026-08-18T15:21:15.888Z",
+      "description": "Implement BoardNamingDialog UX for generic board identification and fix generic board detection logic",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/orchestration/decider.ts",
+          "path": "t3-core/apps/server/src/orchestration/decider.ts",
+          "hash": "51c202f0f2310b5be332abeed59c45cb1a85d25f69aef35fef3de5bc0b5f213d"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/orchestration/Layers/ProviderCommandReactor.ts",
+          "path": "t3-core/apps/server/src/orchestration/Layers/ProviderCommandReactor.ts",
+          "hash": "41b3b728951709cd6a03690b64f0ff4f40b539babae323faf4c36ab78caa2e24"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/orchestration/Layers/ProviderRuntimeIngestion.ts",
+          "path": "t3-core/apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts",
+          "hash": "c8e6ad6805060e74ad817a54526900e940e0907c3f7f020d91bf7b7aba6f5153"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/ClaudeAdapter.test.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/ClaudeAdapter.test.ts",
+          "hash": "58f7ce9dfcee55e95a3ac1a26fb11051cee85dec4e0f4d688f82d3c5817a085d"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/CodexAdapter.test.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/CodexAdapter.test.ts",
+          "hash": "9e4ddaef240d3f6e03d34831bd0cd0d396144d441f714ace6992a770c29d949b"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/GrokAdapter.test.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/GrokAdapter.test.ts",
+          "hash": "a3bbdb54afd2d614be9e5fb159726e32490e599b9adc4064e8eea8a641f522e5"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/OpenCodeAdapter.test.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/OpenCodeAdapter.test.ts",
+          "hash": "7bd694a1ee7bf2afec27c9f93baefb211c92213712bccc991ca66c17f4546738"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/BranchToolbar.tsx",
+          "path": "t3-core/apps/web/src/components/BranchToolbar.tsx",
+          "hash": "c7f5b7d6e496c0edf3c10bb7a11f5dafa904ba7bbf6b347349e1a1660244b99f"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/chat/ChatHeader.tsx",
+          "path": "t3-core/apps/web/src/components/chat/ChatHeader.tsx",
+          "hash": "e1a8a1f5de3da2fc36d3e3ae15e1e541a6e5ab883be547976a79fdf0696587a2"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/chat/MessagesTimeline.tsx",
+          "path": "t3-core/apps/web/src/components/chat/MessagesTimeline.tsx",
+          "hash": "75759a074762dbb6ed9877bac590ca5d37dd492b45125f777943ac06259f2807"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/ChatView.tsx",
+          "path": "t3-core/apps/web/src/components/ChatView.tsx",
+          "hash": "a24954ad13bba34f05b7e91b95954ff34eb5e9f29312f8ae6fd1568001418889"
         }
       ]
     }

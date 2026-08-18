@@ -1,17 +1,41 @@
 import * as React from "react";
 import { Popover } from "@base-ui/react/popover";
 import { useAtomValue } from "@effect/atom-react";
-import { CheckIcon, CircleIcon, ZapIcon, Loader2, DownloadIcon, MonitorIcon } from "lucide-react";
-import { hardwareStateAtom, updateHardwareState } from "~/state/hardware";
+import {
+  CheckIcon,
+  CircleIcon,
+  ZapIcon,
+  Loader2,
+  DownloadIcon,
+  MonitorIcon,
+  PencilIcon,
+  XIcon,
+} from "lucide-react";
+import {
+  hardwareStateAtom,
+  updateHardwareState,
+  useHardwareSetDeviceAssociation,
+} from "~/state/hardware";
 import { DialogTrigger } from "~/components/ui/dialog";
 import { toastManager } from "~/components/ui/toast";
 import { useActiveToolchain, type ActiveToolchain } from "~/state/toolchain";
+import { usePrimaryEnvironmentId } from "~/state/environments";
 import type { HardwareDevice } from "@t3tools/contracts";
 import type { HardwareAction } from "./BoardSelectorPill";
+
+const GENERIC_KEYWORDS = new Set(["esp32", "esp32s2", "esp32s3", "esp32c3", "esp8266", "rp2040"]);
+
+function isGenericBoard(boardName: string | null | undefined): boolean {
+  if (!boardName) return true;
+  const lower = boardName.toLowerCase();
+  const normalized = lower.replace(/[^a-z0-9]/g, "");
+  return GENERIC_KEYWORDS.has(normalized) || lower.includes("generic") || lower.includes("unknown");
+}
 
 export function BoardSelectorPopover({
   onClose,
   onRunHardwareAction,
+  onNamingDevice,
 }: {
   onClose: () => void;
   onRunHardwareAction: (
@@ -19,9 +43,22 @@ export function BoardSelectorPopover({
     device: HardwareDevice,
     toolchain: NonNullable<ActiveToolchain>,
   ) => void;
+  onNamingDevice: (device: HardwareDevice) => void;
 }) {
   const state = useAtomValue(hardwareStateAtom);
   const [activeToolchain] = useActiveToolchain();
+  const environmentId = usePrimaryEnvironmentId();
+  const setDeviceAssociation = useHardwareSetDeviceAssociation();
+
+  const [editingDeviceId, setEditingDeviceId] = React.useState<string | null>(null);
+  const [editBoardName, setEditBoardName] = React.useState("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editingDeviceId && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editingDeviceId]);
 
   const handleAction = (action: HardwareAction) => {
     if (!state.activeDeviceId) {
@@ -70,44 +107,136 @@ export function BoardSelectorPopover({
               {state.connectedDevices.length > 0 ? (
                 state.connectedDevices.map((device: HardwareDevice) => {
                   const isActive = device.id === state.activeDeviceId;
+                  const isEditing = device.id === editingDeviceId;
                   const label = device.boardName
                     ? `${device.boardName} · ${device.portDisplayName}`
                     : `USB Serial${device.driverChip ? ` (${device.driverChip})` : ""} · ${device.portDisplayName}`;
+                  const isGeneric = isGenericBoard(device.boardName);
+
+                  if (isEditing) {
+                    return (
+                      <div
+                        key={device.id}
+                        className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm bg-foreground/[0.08]"
+                      >
+                        <input
+                          ref={inputRef}
+                          className="flex-1 bg-transparent outline-none border-b border-border/50 focus:border-primary text-sm min-w-0"
+                          value={editBoardName}
+                          onChange={(e) => setEditBoardName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && editBoardName.trim()) {
+                              if (environmentId) {
+                                setDeviceAssociation({
+                                  environmentId,
+                                  payload: { deviceId: device.id, boardName: editBoardName.trim() },
+                                }).catch(() => {});
+                              }
+                              updateHardwareState({
+                                activeDeviceId: device.id,
+                                targetBoardName: editBoardName.trim(),
+                                targetPortDisplay: device.portDisplayName,
+                                isOnline: true,
+                              });
+                              setEditingDeviceId(null);
+                            } else if (e.key === "Escape") {
+                              setEditingDeviceId(null);
+                            }
+                          }}
+                          placeholder="e.g. ESP32-S3-WROOM-1"
+                        />
+                        <button
+                          className="text-muted-foreground hover:text-foreground cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (editBoardName.trim()) {
+                              if (environmentId) {
+                                setDeviceAssociation({
+                                  environmentId,
+                                  payload: { deviceId: device.id, boardName: editBoardName.trim() },
+                                }).catch(() => {});
+                              }
+                              updateHardwareState({
+                                activeDeviceId: device.id,
+                                targetBoardName: editBoardName.trim(),
+                                targetPortDisplay: device.portDisplayName,
+                                isOnline: true,
+                              });
+                              setEditingDeviceId(null);
+                            }
+                          }}
+                        >
+                          <CheckIcon className="size-4" />
+                        </button>
+                        <button
+                          className="text-muted-foreground hover:text-destructive cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingDeviceId(null);
+                          }}
+                        >
+                          <XIcon className="size-4" />
+                        </button>
+                      </div>
+                    );
+                  }
 
                   return (
-                    <button
+                    <div
                       key={device.id}
-                      type="button"
-                      className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm text-left cursor-pointer transition-colors hover:bg-foreground/[0.08] active:bg-foreground/[0.12]"
-                      onClick={() => {
-                        updateHardwareState({
-                          activeDeviceId: device.id,
-                          targetBoardName: device.boardName ?? device.driverChip ?? "Generic USB",
-                          targetPortDisplay: device.portDisplayName,
-                          isOnline: true,
-                        });
-                        // Don't close immediately here so the user can click "Flash" next without reopening
-                      }}
+                      className="group flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-foreground/[0.08]"
                     >
-                      {isActive ? (
-                        <CheckIcon className="size-4 shrink-0 text-foreground" />
-                      ) : (
-                        <CircleIcon className="size-4 shrink-0 opacity-20" />
-                      )}
-                      <span className="flex-1 truncate">{label}</span>
-                      {isActive ? (
-                        <span className="text-xs text-muted-foreground ml-auto">Active</span>
-                      ) : device.status === "enriching" ? (
-                        <div className="flex items-center text-xs text-muted-foreground/70 ml-auto gap-1">
-                          <Loader2 className="size-3 animate-spin" />
-                          Identifying...
-                        </div>
-                      ) : device.status === "generic" ? (
-                        <span className="text-xs text-muted-foreground/70 ml-auto">
-                          Set Board →
-                        </span>
-                      ) : null}
-                    </button>
+                      <button
+                        type="button"
+                        className="flex flex-1 items-center gap-2 text-left cursor-pointer outline-none min-w-0"
+                        onClick={() => {
+                          if (isGeneric) {
+                            onNamingDevice(device);
+                          } else {
+                            updateHardwareState({
+                              activeDeviceId: device.id,
+                              targetBoardName:
+                                device.boardName ?? device.driverChip ?? "Generic USB",
+                              targetPortDisplay: device.portDisplayName,
+                              isOnline: true,
+                            });
+                          }
+                        }}
+                      >
+                        {isActive ? (
+                          <CheckIcon className="size-4 shrink-0 text-foreground" />
+                        ) : (
+                          <CircleIcon className="size-4 shrink-0 opacity-20" />
+                        )}
+                        <span className="flex-1 truncate">{label}</span>
+                        {isActive ? (
+                          <span className="text-xs text-muted-foreground ml-auto group-hover:hidden pr-1">
+                            Active
+                          </span>
+                        ) : device.status === "enriching" ? (
+                          <div className="flex items-center text-xs text-muted-foreground/70 ml-auto gap-1 group-hover:hidden pr-1">
+                            <Loader2 className="size-3 animate-spin" />
+                            Identifying...
+                          </div>
+                        ) : device.status === "generic" ? (
+                          <span className="text-xs text-muted-foreground/70 ml-auto group-hover:hidden pr-1">
+                            Set Board →
+                          </span>
+                        ) : null}
+                      </button>
+
+                      <button
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground cursor-pointer transition-opacity ml-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditBoardName(device.boardName ?? device.driverChip ?? "");
+                          setEditingDeviceId(device.id);
+                        }}
+                        title="Edit Board Name"
+                      >
+                        <PencilIcon className="size-3.5" />
+                      </button>
+                    </div>
                   );
                 })
               ) : (
