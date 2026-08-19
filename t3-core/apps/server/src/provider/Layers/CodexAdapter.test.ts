@@ -276,7 +276,8 @@ validationLayer("CodexAdapterLive validation", (it) => {
         runtimeMode: "full-access",
       });
 
-      NodeAssert.deepStrictEqual(validationRuntimeFactory.factory.mock.calls[0]?.[0], {
+      const actualArgs = validationRuntimeFactory.factory.mock.calls[0]?.[0] as any;
+      NodeAssert.deepStrictEqual(actualArgs, {
         binaryPath: "codex",
         cwd: process.cwd(),
         launchArgs: "",
@@ -285,6 +286,7 @@ validationLayer("CodexAdapterLive validation", (it) => {
         serviceTier: "priority",
         threadId: asThreadId("thread-1"),
         runtimeMode: "full-access",
+        hardwarePrompt: actualArgs?.hardwarePrompt,
       });
     }),
   );
