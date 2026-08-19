@@ -7,6 +7,11 @@ All notable changes to the Embedino project will be documented in this file.
 - Interactive Wiring Viewer (UI for component-specific wiring maps).
 - AI-Powered Datasheet Explorer (pdf.js integration with context injection).
 
+## [2026-08-19]
+### Changed
+- **Hardware Prompt Efficiency**: Compressed the 1,500-token Embedino System Prompt into a deeply dense, 300-token XML block for massive token savings and increased AI attention.
+- **Dynamic Mid-Chat Board Swap**: Added live hardware tracking (`lastHardwarePrompt`) to Cursor, Grok, OpenCode, and Codex adapters. The system now seamlessly intercepts physical USB swaps and updates the AI's internal state (via `[System Update]` injection or background `developer_instructions` overwrite) without requiring a new chat.
+
 ## [2026-08-18]
 ### Added
 - **Module Variant Confirmation**: Added Rule 6 to the hardware agent prompt to explicitly ask the user for exact module variants (e.g., `ESP32-S3-WROOM-1-N16R8`) before writing board-specific configurations.
