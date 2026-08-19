@@ -3153,6 +3153,12 @@ function ChatViewContent(props: ChatViewProps) {
         return;
       }
 
+      // SEC-01: Prevent Command Injection via hardware parameters
+      const isValidPort = /^[a-zA-Z0-9_\-.:/]+$/.test(device.port);
+      if (!isValidPort) {
+        console.error("Invalid port name provided. Disallowed characters detected.");
+        return;
+      }
       const portArg = `"${device.port}"`;
       let command = "";
 
@@ -3168,6 +3174,12 @@ function ChatViewContent(props: ChatViewProps) {
         const arduinoBin = toolchainState.arduinoCliPath
           ? `& "${toolchainState.arduinoCliPath}"`
           : "arduino-cli";
+
+        const isValidFqbn = !device.fqbn || /^[a-zA-Z0-9_\-:]+$/.test(device.fqbn);
+        if (!isValidFqbn) {
+          console.error("Invalid FQBN provided. Disallowed characters detected.");
+          return;
+        }
         const fqbnArg = device.fqbn ? `-b "${device.fqbn}" ` : "";
 
         // Find the specific directory containing the .ino file

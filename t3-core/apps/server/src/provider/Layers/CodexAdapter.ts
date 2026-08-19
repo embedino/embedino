@@ -94,6 +94,7 @@ interface CodexAdapterSessionContext {
   readonly runtime: CodexSessionRuntimeShape;
   readonly eventFiber: Fiber.Fiber<void, never>;
   stopped: boolean;
+  lastHardwarePrompt?: string;
 }
 
 function mapCodexRuntimeError(
@@ -1664,8 +1665,13 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
             ? getCodexServiceTierOptionValue(input.modelSelection)
             : undefined;
         const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+        const hardwarePrompt = yield* buildHardwareSystemPrompt(
+          input.activeToolchain,
+          input.activeDeviceId,
+        );
         const runtimeInput: CodexSessionRuntimeOptions = {
           threadId: input.threadId,
+          hardwarePrompt,
           providerInstanceId: boundInstanceId,
           cwd: input.cwd ?? process.cwd(),
           binaryPath: codexConfig.binaryPath,
@@ -1758,6 +1764,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
           runtime,
           eventFiber,
           stopped: false,
+          lastHardwarePrompt: hardwarePrompt,
         });
         sessionScopeTransferred = true;
 
@@ -1813,15 +1820,22 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
       input.modelSelection?.instanceId === boundInstanceId
         ? getCodexServiceTierOptionValue(input.modelSelection)
         : undefined;
+    const finalInput = input.input;
+
     const hardwarePrompt = yield* buildHardwareSystemPrompt(
       input.activeToolchain,
       input.activeDeviceId,
     );
-    const finalInput = input.input ? hardwarePrompt + "\n\n" + input.input : hardwarePrompt;
+
+    let forceInteractionMode = input.interactionMode;
+    if (session.lastHardwarePrompt !== hardwarePrompt) {
+      forceInteractionMode = input.interactionMode ?? "default";
+      session.lastHardwarePrompt = hardwarePrompt;
+    }
 
     return yield* session.runtime
       .sendTurn({
-        input: finalInput,
+        ...(finalInput ? { input: finalInput } : {}),
         ...(input.modelSelection?.instanceId === boundInstanceId
           ? { model: input.modelSelection.model }
           : {}),
@@ -1831,8 +1845,9 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
             }
           : {}),
         ...(serviceTier ? { serviceTier } : {}),
-        ...(input.interactionMode !== undefined ? { interactionMode: input.interactionMode } : {}),
+        ...(forceInteractionMode !== undefined ? { interactionMode: forceInteractionMode } : {}),
         ...(codexAttachments.length > 0 ? { attachments: codexAttachments } : {}),
+        hardwarePrompt,
       })
       .pipe(Effect.mapError((cause) => mapCodexRuntimeError(input.threadId, "turn/start", cause)));
   });

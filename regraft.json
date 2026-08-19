@@ -8504,9 +8504,10 @@
         },
         "server/src/provider/CodexDeveloperInstructions.ts": {
           "upstreamHash": "d01afa6fd8c7b193448e2fead86ef93f1daa682281e13c0ff7d48c02a8ae88f7",
-          "localHash": "c2f999199a321896a4d327df1dd81e8bcb66a6bfc97ba3acabbec8f4a4ab6cd5",
+          "localHash": "0635fd4113200a75a1ab7305fb1b85c42e3f225e49390b9a093c9fdb6983c1ac",
           "intentIds": [
-            "b848f9e5"
+            "b848f9e5",
+            "bfec078b"
           ],
           "needsIntent": false,
           "pending": null
@@ -8654,9 +8655,10 @@
         },
         "server/src/provider/Layers/CodexAdapter.ts": {
           "upstreamHash": "967d78dc9e58021d7d95d3db1ccf4d67ff50c7c14655a2a1835be63a2b70bf38",
-          "localHash": "3c574147eae3aeb62875307d55d38cafc11e1bc8ea075364b0bc27b10ef2174e",
+          "localHash": "de324847b4fd29c01be7c2c8220241b6a55f0476a4f114e06f1afe7476b40388",
           "intentIds": [
             "218ccffe",
+            "bfec078b",
             "c6ac8d02"
           ],
           "needsIntent": false,
@@ -8713,8 +8715,10 @@
         },
         "server/src/provider/Layers/CodexSessionRuntime.ts": {
           "upstreamHash": "bf6372610e0f646d84036dc510833008bb8b174d1f6e16c1ba5a9de64aba6deb",
-          "localHash": "bf6372610e0f646d84036dc510833008bb8b174d1f6e16c1ba5a9de64aba6deb",
-          "intentIds": [],
+          "localHash": "e0921b7b33e44e7bd071856dc4247e3d1a3ec1df8195cbb3bbbc28584d3b0ac2",
+          "intentIds": [
+            "bfec078b"
+          ],
           "needsIntent": false,
           "pending": null
         },
@@ -8727,8 +8731,9 @@
         },
         "server/src/provider/Layers/CursorAdapter.ts": {
           "upstreamHash": "5e9518bb0479b3c0705f0f5b91221f68b82c8441b9c919297bba8c08c8bcc7d0",
-          "localHash": "bf2b334a8864c4dd9af6ccf9fab969fc35d5252a67eab53c73fe8482e709c445",
+          "localHash": "4c7cdead472f2c12d4becdd1f794b85aeb1cd4f436daa330ee6174863982d6da",
           "intentIds": [
+            "bfec078b",
             "c6ac8d02"
           ],
           "needsIntent": false,
@@ -8773,8 +8778,9 @@
         },
         "server/src/provider/Layers/GrokAdapter.ts": {
           "upstreamHash": "c1f60640fd757ddd63ca00bb2a11a489d6417280404391dc38c21885f8b36411",
-          "localHash": "4edb2c5c63f45bec71ce2390b29e3f1adb7af4eee9efe606e0ba53f6fe342bd6",
+          "localHash": "9a09f97aaf7a6d86df8fad969e31b96c64216061aceca9fd2e152e58de37c580",
           "intentIds": [
+            "bfec078b",
             "c6ac8d02"
           ],
           "needsIntent": false,
@@ -8805,8 +8811,9 @@
         },
         "server/src/provider/Layers/OpenCodeAdapter.ts": {
           "upstreamHash": "c9ff471676c7c5f31192a45e9beebb689de447a3d800edcbb411f0a4aea64bf0",
-          "localHash": "99c3eec78c37ddf19c876cbaff3898a8128af9abc8ea24b370f42d2de3cd8a74",
+          "localHash": "060bbce10523ff70973c3dee6eb5e5727263f6b1b709ea7eae2210770d0ddacf",
           "intentIds": [
+            "bfec078b",
             "c6ac8d02"
           ],
           "needsIntent": false,
@@ -11670,13 +11677,14 @@
         },
         "web/src/components/ChatView.tsx": {
           "upstreamHash": "ec93b3e2f19a2b8da749a905514cc49ad234cd4e5ec17da2c41b8120ba4d557d",
-          "localHash": "a24954ad13bba34f05b7e91b95954ff34eb5e9f29312f8ae6fd1568001418889",
+          "localHash": "7d900c6c502656ee61d8849ede01a7e8b29da6d5a83bc378d590579021a4317d",
           "intentIds": [
             "1321fb50",
             "218ccffe",
             "61cf438d",
             "86385d25",
             "b848f9e5",
+            "bfec078b",
             "c6ac8d02",
             "d492efad"
           ],
@@ -17449,8 +17457,9 @@
         },
         "contracts/src/provider.ts": {
           "upstreamHash": "45501bda98271090f3c624806697144069d26ee75746d168e32e61d3a42fc0bb",
-          "localHash": "13ddf7bed50ac0abb13616fa9965e692c37f8497b4ea7c3230d638526cb5ac50",
+          "localHash": "a4b8f6c67f6b01e0377039849790001fa88f0b1cf207c15a7d88b8ffe772398b",
           "intentIds": [
+            "bfec078b",
             "c6ac8d02"
           ],
           "needsIntent": false,
@@ -20956,6 +20965,69 @@
           "rel": "web/src/components/ChatView.tsx",
           "path": "t3-core/apps/web/src/components/ChatView.tsx",
           "hash": "a24954ad13bba34f05b7e91b95954ff34eb5e9f29312f8ae6fd1568001418889"
+        }
+      ]
+    },
+    {
+      "id": "bfec078b",
+      "date": "2026-08-19T11:38:34.456Z",
+      "description": "Fix hardware prompt dynamic injection in Cursor, Grok, OpenCode, and Codex adapters",
+      "targets": [
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/CodexDeveloperInstructions.ts",
+          "path": "t3-core/apps/server/src/provider/CodexDeveloperInstructions.ts",
+          "hash": "0635fd4113200a75a1ab7305fb1b85c42e3f225e49390b9a093c9fdb6983c1ac"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/CodexAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/CodexAdapter.ts",
+          "hash": "de324847b4fd29c01be7c2c8220241b6a55f0476a4f114e06f1afe7476b40388"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/CodexSessionRuntime.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/CodexSessionRuntime.ts",
+          "hash": "e0921b7b33e44e7bd071856dc4247e3d1a3ec1df8195cbb3bbbc28584d3b0ac2"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/CursorAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/CursorAdapter.ts",
+          "hash": "4c7cdead472f2c12d4becdd1f794b85aeb1cd4f436daa330ee6174863982d6da"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/GrokAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/GrokAdapter.ts",
+          "hash": "9a09f97aaf7a6d86df8fad969e31b96c64216061aceca9fd2e152e58de37c580"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "server/src/provider/Layers/OpenCodeAdapter.ts",
+          "path": "t3-core/apps/server/src/provider/Layers/OpenCodeAdapter.ts",
+          "hash": "060bbce10523ff70973c3dee6eb5e5727263f6b1b709ea7eae2210770d0ddacf"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_aad200ece5ccfcf6",
+          "rel": "web/src/components/ChatView.tsx",
+          "path": "t3-core/apps/web/src/components/ChatView.tsx",
+          "hash": "7d900c6c502656ee61d8849ede01a7e8b29da6d5a83bc378d590579021a4317d"
+        },
+        {
+          "kind": "graft-file",
+          "graftId": "g_084618bc6e81d207",
+          "rel": "contracts/src/provider.ts",
+          "path": "t3-core/packages/contracts/src/provider.ts",
+          "hash": "a4b8f6c67f6b01e0377039849790001fa88f0b1cf207c15a7d88b8ffe772398b"
         }
       ]
     }

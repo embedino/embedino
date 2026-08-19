@@ -33,7 +33,7 @@ import * as Path from "effect/Path";
 import * as PubSub from "effect/PubSub";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
-import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
+
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SynchronizedRef from "effect/SynchronizedRef";
@@ -66,6 +66,7 @@ import {
   parsePermissionRequest,
 } from "../acp/AcpRuntimeModel.ts";
 import { makeAcpNativeLoggerFactory } from "../acp/AcpNativeLogging.ts";
+import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
 import { applyCursorAcpModelSelection, makeCursorAcpRuntime } from "../acp/CursorAcpSupport.ts";
 import {
   CursorAskQuestionRequest,
@@ -133,6 +134,9 @@ interface CursorSessionContext {
   readonly pendingUserInputs: Map<ApprovalRequestId, PendingUserInput>;
   readonly turns: Array<{ id: TurnId; items: Array<unknown> }>;
   lastPlanFingerprint: string | undefined;
+  lastHardwarePrompt: string | undefined;
+  activeToolchain: "platformio" | "arduino" | undefined;
+  activeDeviceId: string | undefined;
   activeTurnId: TurnId | undefined;
   /** Number of sendTurn prompts currently in flight or being prepared.
    * >0 means a turn is actively running, so a new sendTurn is a steer that
@@ -778,6 +782,9 @@ export function makeCursorAdapter(
             pendingUserInputs,
             turns: [],
             lastPlanFingerprint: undefined,
+            lastHardwarePrompt: undefined,
+            activeToolchain: input.activeToolchain,
+            activeDeviceId: input.activeDeviceId,
             activeTurnId: undefined,
             promptsInFlight: 0,
             stopped: false,
@@ -962,14 +969,24 @@ export function makeCursorAdapter(
           }
 
           const promptParts: Array<EffectAcpSchema.ContentBlock> = [];
+
+          let rawText = input.input?.trim();
           const hardwarePrompt = yield* buildHardwareSystemPrompt(
-            input.activeToolchain,
-            input.activeDeviceId,
+            ctx.activeToolchain,
+            ctx.activeDeviceId,
           );
-          const rawText = input.input?.trim();
-          const finalPromptText = rawText ? hardwarePrompt + "\n\n" + rawText : hardwarePrompt;
-          if (finalPromptText) {
-            promptParts.push({ type: "text", text: finalPromptText });
+
+          if (ctx.lastHardwarePrompt !== hardwarePrompt) {
+            const prefix =
+              ctx.turns.length === 0 ? "" : "\n\n[System Update: Hardware state has changed]\n";
+            rawText = rawText
+              ? `${prefix}${hardwarePrompt}\n\n${rawText}`
+              : `${prefix}${hardwarePrompt}`;
+            ctx.lastHardwarePrompt = hardwarePrompt;
+          }
+
+          if (rawText) {
+            promptParts.push({ type: "text", text: rawText });
           }
           if (input.attachments && input.attachments.length > 0) {
             for (const attachment of input.attachments) {

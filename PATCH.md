@@ -269,16 +269,30 @@ Fix BoardSelectorPill initial load bug, redesign hardware popover, and fix Power
 ## 2026-08-18 — d492efad
 
 Files:
+- `t3-core/apps/server/src/orchestration/decider.ts` @ `51c202f0f231` · Graft `t3-apps`
 - `t3-core/apps/server/src/orchestration/Layers/ProviderCommandReactor.ts` @ `41b3b7289517` · Graft `t3-apps`
 - `t3-core/apps/server/src/orchestration/Layers/ProviderRuntimeIngestion.ts` @ `c8e6ad680506` · Graft `t3-apps`
-- `t3-core/apps/server/src/orchestration/decider.ts` @ `51c202f0f231` · Graft `t3-apps`
 - `t3-core/apps/server/src/provider/Layers/ClaudeAdapter.test.ts` @ `58f7ce9dfcee` · Graft `t3-apps`
 - `t3-core/apps/server/src/provider/Layers/CodexAdapter.test.ts` @ `9e4ddaef240d` · Graft `t3-apps`
 - `t3-core/apps/server/src/provider/Layers/GrokAdapter.test.ts` @ `a3bbdb54afd2` · Graft `t3-apps`
 - `t3-core/apps/server/src/provider/Layers/OpenCodeAdapter.test.ts` @ `7bd694a1ee7b` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/BranchToolbar.tsx` @ `c7f5b7d6e496` · Graft `t3-apps`
-- `t3-core/apps/web/src/components/ChatView.tsx` @ `a24954ad13bb` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/ChatHeader.tsx` @ `e1a8a1f5de3d` · Graft `t3-apps`
 - `t3-core/apps/web/src/components/chat/MessagesTimeline.tsx` @ `75759a074762` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `a24954ad13bb` · Graft `t3-apps`
 
 Implement BoardNamingDialog UX for generic board identification and fix generic board detection logic
+
+## 2026-08-19 — bfec078b
+
+Files:
+- `t3-core/apps/server/src/provider/CodexDeveloperInstructions.ts` @ `0635fd411320` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/CodexAdapter.ts` @ `de324847b4fd` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/CodexSessionRuntime.ts` @ `e0921b7b33e4` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/CursorAdapter.ts` @ `4c7cdead472f` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/GrokAdapter.ts` @ `9a09f97aaf7a` · Graft `t3-apps`
+- `t3-core/apps/server/src/provider/Layers/OpenCodeAdapter.ts` @ `060bbce10523` · Graft `t3-apps`
+- `t3-core/apps/web/src/components/ChatView.tsx` @ `7d900c6c5026` · Graft `t3-apps`
+- `t3-core/packages/contracts/src/provider.ts` @ `a4b8f6c67f6b` · Graft `t3-packages`
+
+Fix hardware prompt dynamic injection in Cursor, Grok, OpenCode, and Codex adapters

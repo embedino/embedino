@@ -27,7 +27,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
-import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
+
 import * as SynchronizedRef from "effect/SynchronizedRef";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import * as EffectAcpErrors from "effect-acp/errors";
@@ -54,6 +54,7 @@ import {
 } from "../acp/AcpCoreRuntimeEvents.ts";
 import { parsePermissionRequest } from "../acp/AcpRuntimeModel.ts";
 import { makeAcpNativeLoggerFactory } from "../acp/AcpNativeLogging.ts";
+import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
 import {
   applyGrokAcpModelSelection,
   currentGrokModelIdFromSessionSetup,
@@ -110,6 +111,9 @@ interface GrokSessionContext {
   readonly pendingUserInputs: Map<ApprovalRequestId, PendingUserInput>;
   turns: Array<{ id: TurnId; items: Array<unknown> }>;
   lastPlanFingerprint: string | undefined;
+  lastHardwarePrompt: string | undefined;
+  activeToolchain: "platformio" | "arduino" | undefined;
+  activeDeviceId: string | undefined;
   activeTurnId: TurnId | undefined;
   /** Turns already interrupted; late prompt RPCs must not resurrect them. */
   interruptedTurnIds: Set<TurnId>;
@@ -775,6 +779,9 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
             pendingUserInputs,
             turns: [],
             lastPlanFingerprint: undefined,
+            lastHardwarePrompt: undefined,
+            activeToolchain: input.activeToolchain,
+            activeDeviceId: input.activeDeviceId,
             activeTurnId: undefined,
             interruptedTurnIds: new Set(),
             promptsInFlight: 0,
@@ -951,12 +958,20 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
                   mapAcpToAdapterError(PROVIDER, input.threadId, "session/set_model", cause),
               });
 
+              let text = input.input?.trim();
               const hardwarePrompt = yield* buildHardwareSystemPrompt(
-                input.activeToolchain,
-                input.activeDeviceId,
+                ctx.activeToolchain,
+                ctx.activeDeviceId,
               );
-              const rawText = input.input?.trim();
-              const text = rawText ? hardwarePrompt + "\n\n" + rawText : hardwarePrompt;
+
+              if (ctx.lastHardwarePrompt !== hardwarePrompt) {
+                const prefix =
+                  ctx.turns.length === 0 ? "" : "\n\n[System Update: Hardware state has changed]\n";
+                text = text
+                  ? `${prefix}${hardwarePrompt}\n\n${text}`
+                  : `${prefix}${hardwarePrompt}`;
+                ctx.lastHardwarePrompt = hardwarePrompt;
+              }
               const imagePromptParts = yield* Effect.forEach(
                 input.attachments ?? [],
                 (attachment) =>

@@ -15,18 +15,17 @@ import {
 import * as Cause from "effect/Cause";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
+import { Data, Effect, Exit, Fiber, Ref, Scope } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
-import * as Ref from "effect/Ref";
-import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
 import type { OpencodeClient, Part, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 
+import { parsePermissionRequest } from "../acp/AcpRuntimeModel.ts";
+import { makeAcpNativeLoggerFactory } from "../acp/AcpNativeLogging.ts";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
@@ -218,6 +217,9 @@ interface OpenCodeSessionContext {
   readonly emittedTextByPartId: Map<string, string>;
   readonly completedAssistantPartIds: Set<string>;
   readonly turns: Array<OpenCodeTurnSnapshot>;
+  lastHardwarePrompt: string | undefined;
+  activeToolchain: "platformio" | "arduino" | undefined;
+  activeDeviceId: string | undefined;
   activeTurnId: TurnId | undefined;
   activeAgent: string | undefined;
   activeVariant: string | undefined;
@@ -1382,6 +1384,9 @@ export function makeOpenCodeAdapter(
           messageRoleById: new Map(),
           completedAssistantPartIds: new Set(),
           turns: [],
+          lastHardwarePrompt: undefined,
+          activeToolchain: input.activeToolchain,
+          activeDeviceId: input.activeDeviceId,
           activeTurnId: undefined,
           activeAgent: undefined,
           activeVariant: undefined,
@@ -1439,11 +1444,17 @@ export function makeOpenCodeAdapter(
       }
 
       const hardwarePrompt = yield* buildHardwareSystemPrompt(
-        input.activeToolchain,
-        input.activeDeviceId,
+        context.activeToolchain,
+        context.activeDeviceId,
       );
-      const rawText = input.input?.trim();
-      const text = rawText ? hardwarePrompt + "\n\n" + rawText : hardwarePrompt;
+      let text = input.input?.trim();
+
+      if (context.lastHardwarePrompt !== hardwarePrompt) {
+        const prefix =
+          context.turns.length === 0 ? "" : "\n\n[System Update: Hardware state has changed]\n";
+        text = text ? `${prefix}${hardwarePrompt}\n\n${text}` : `${prefix}${hardwarePrompt}`;
+        context.lastHardwarePrompt = hardwarePrompt;
+      }
       const fileParts = toOpenCodeFileParts({
         attachments: input.attachments,
         resolveAttachmentPath: (attachment) =>
