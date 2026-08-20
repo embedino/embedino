@@ -8,13 +8,12 @@ Welcome to the **Embedino** codebase. This document is the single source of trut
 
 **Embedino** is an open-source, local-first, AI-powered IDE and workspace designed specifically for embedded systems, microcontrollers, and hardware engineering. It is derived from **[pingdotgg/t3code](https://github.com/pingdotgg/t3code)**.
 
-### The 5 MVP Killer Features
+### The 4 MVP Killer Features
 
 1. **Bring-Your-Own-Provider AI:** Context-aware embedded assistant for debugging pinouts, explaining compiler logs, and analyzing code.
 2. **Automatic Board & Device Detection:** Instant polling of connected USB/COM devices and microcontrollers.
 3. **One-Click Flash & Build:** Seamless integration with PlatformIO, Arduino CLI, and native toolchains.
-4. **Interactive Wiring Viewer:** Vector-based component wiring diagrams with isolated preview tabs.
-5. **AI Datasheet Explorer:** PDF reader with selectable text layer and instant "Ask AI" context injection.
+4. **Interactive Wiring Viewer:** Professional, data-dense pinout tables and intelligent focus selection.
 
 ---
 
@@ -45,13 +44,13 @@ embedino workspace/
 
 ## 3. The 3 Golden Rules for Scaling to 100+ Features (CRITICAL)
 
-To guarantee that scaling Embedino to 100+ features (Board detection, Serial Monitor, Pinout Canvas, PDF Datasheet reader, AI flash pipeline) **never breaks during upstream T3 Code pulls**, every agent must follow these rules:
+To guarantee that scaling Embedino to 100+ features (Board detection, Serial Monitor, Pinout Canvas, AI flash pipeline) **never breaks during upstream T3 Code pulls**, every agent must follow these rules:
 
 ### Rule 1: The 95/5 Modular Isolation Principle (Dedicated Directories)
 
 - **95% of our code MUST live in dedicated Embedino directories:**
   - Schemas & Contracts: `packages/contracts/src/hardware/...` or `toolchain.ts`
-  - Frontend Components: `apps/web/src/components/hardware/...`, `components/wiring/...`, `components/datasheet/...`
+  - Frontend Components: `apps/web/src/components/hardware/...`, `components/wiring/...`
   - Reactive Atoms: `apps/web/src/state/hardware.ts` or `state/toolchain.ts`
   - Backend Services: `apps/server/src/hardware/...` or `apps/server/src/toolchain/...`
 - **Why this is indestructible:** Upstream T3 Code **never creates or touches these files**. There is literally **zero chance of a merge conflict** on any of our feature files.

@@ -15,5 +15,7 @@
   - Initial scaffolding of the Embedino concept, focusing on PlatformIO and Arduino CLI integrations.
 
 ### Upcoming Milestones
-- **Q4 2026**: Release Interactive Wiring Viewer & AI-Powered Datasheet Explorer to beta.
+- **Q4 2026**: Release Interactive Wiring Viewer.
+- **Q4 2026 (November)**: V1 MVP Beta Launch!
 - **Q1 2027**: Expanded support for bare-metal Zephyr and ESP-IDF compilation directly within the local workspace environment.
+- **Q2 2027**: AI-Powered Datasheet Explorer (pdf.js integration).

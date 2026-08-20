@@ -4,14 +4,13 @@
 **Embedino** is a local-first, AI-powered workspace built specifically for embedded systems and hardware engineers. It is built on top of the open-source T3 Code editor.
 Embedino is NOT just another generic AI chatbot. It is the operating system for embedded engineers. Users bring their own AI providers (OpenAI, Claude, Ollama, etc.), and Embedino provides the hardware-specific engineering workflows.
 
-## 2. V1 MVP: The 5 "Killer Features"
+## 2. V1 MVP: The 4 "Killer Features"
 The initial release strips away unnecessary bloat and focuses entirely on the daily tasks of a hardware engineer:
 
 - **[COMPLETED] AI with Bring Your Own Provider (BYOP)**: Context-aware chat for explaining errors, generating drivers, reading datasheets, and intelligent hardware-aware generation. The agent automatically detects the selected toolchain (Arduino CLI vs PlatformIO) and active board in the UI, correctly scaffolding `.ino` or `platformio.ini` boilerplates without hallucinating pins.
 - **[COMPLETED] Automatic Board & Device Detection**: A dedicated hardware panel that polls USB devices, COM ports, and identifies chips instantly. Uses OS-level scanning (`powershell` / `system_profiler` / `/sys/class/tty`) and persistent storage (`~/.embedino/device-associations.json`) mapped dynamically via Effect reactive atoms into a T3 UI component.
 - **[COMPLETED] One-Click Flash & Build (with Smart Onboarding)**: Embedino provides a choice of build systems (PlatformIO, Arduino CLI, or native SDKs) during the initial onboarding. It handles the heavy downloading and installation upfront, ensuring the workspace remains lightweight while guaranteeing a flawless, one-click runtime experience.
-- **Interactive Wiring Viewer (Code-First with Isolated Tab Preview)**: A right-panel UI triggered by a "Preview Wiring" button on configuration files. Instead of a cluttered full-board map, it provides isolated component tabs (e.g., [MPU6050], [SD Card]) showing only the specific wiring for the selected component to reduce visual noise. It features beautiful vector canvas views and raw data tables (with "Copy as Markdown" for easy documentation).
-- **AI-Powered Datasheet Explorer (pdf.js integration)**: A side-by-side layout (Chat in center, PDF on right). Uses pdf.js to render a selectable HTML text layer over PDFs. Selecting text in the PDF triggers a pop-up action menu (e.g., "✨ Ask AI") that injects the selected context directly into the AI chat panel.
+- **[COMPLETED] Interactive Wiring Viewer (Code-First with Isolated Tab Preview)**: A professional, data-dense pinout table UI triggered by a "Preview Wiring" button on configuration files. It features intelligent dropdown focus selection that automatically highlights specific components, making wiring diagrams readable without visual clutter.
 
 ## 3. Codebase Foundation (T3 Code)
 Embedino is built on top of **[pingdotgg/t3code](https://github.com/pingdotgg/t3code)**.
