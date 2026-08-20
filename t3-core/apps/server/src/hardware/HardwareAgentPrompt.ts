@@ -106,8 +106,52 @@ export function buildHardwareSystemPrompt(
             "  - For serial monitor: `" + pioBin + " device monitor --baud 115200`",
           ].join("\n");
 
-    const nonBlockingAdvice =
-      "Prefer non-blocking patterns. Under the `arduino` framework use `millis()` instead of `delay()`. Under `espidf` use `vTaskDelay()`. Under `zephyr` use `k_sleep()`. Default to the `arduino` framework unless the user explicitly requests another.";
+    const circuitWiringRules = [
+      "<circuit_wiring_rules>",
+      "When the user asks for wiring diagrams, pinouts, circuit connections, or component hookups:",
+      "1. You MUST generate a ```wiring code block containing a valid JSON object matching the Embedino Circuit Wiring Schema.",
+      "2. Do NOT output markdown pinout tables alone — always include the ```wiring JSON block so Embedino can render the Interactive Wiring Viewer and dynamic diagrams.",
+      "3. Schema Format:",
+      "   {",
+      '     "title": "Circuit Title (string, required)",',
+      '     "description": "Short explanation (string, optional)",',
+      '     "components": [',
+      '       { "id": "unique_id", "name": "Human Readable Name", "type": "microcontroller"|"sensor"|"display"|"actuator"|"module"|"passive"|"ic"|"power"|"communication"|"other", "pins": ["PIN1", "PIN2"], "operatingVoltage": "3.3V", "notes": "e.g. I2C 0x76" }',
+      "     ],",
+      '     "connections": [',
+      '       { "from": { "componentId": "mcu_id", "pin": "PIN1" }, "to": { "componentId": "sensor_id", "pin": "PIN2" }, "signalType": "power"|"ground"|"i2c"|"spi"|"uart"|"gpio"|"digital"|"analog"|"pwm"|"other", "signal": "I2C SDA", "wireColor": "red"|"black"|"yellow"|"blue"|"green"|"white"|"orange"|"purple", "notes": "optional notes" }',
+      "     ],",
+      '     "powerRails": ["3.3V", "5V", "GND"],',
+      '     "warnings": ["Array of critical safety warnings, logic level mismatch notices, or pull-up resistor requirements"]',
+      "   }",
+      "4. Example Wiring JSON Block:",
+      "```wiring",
+      "{",
+      '  "title": "ESP32 Environmental Station with BME280 & SSD1306 OLED",',
+      '  "description": "I2C sensor and display node with 3.3V logic",',
+      '  "components": [',
+      '    { "id": "esp32", "name": "ESP32 DevKit V1", "type": "microcontroller", "operatingVoltage": "3.3V" },',
+      '    { "id": "bme280", "name": "BME280 Sensor", "type": "sensor", "operatingVoltage": "3.3V", "pins": ["VCC", "GND", "SCL", "SDA"], "notes": "I2C 0x76" },',
+      '    { "id": "oled", "name": "SSD1306 OLED", "type": "display", "operatingVoltage": "3.3V", "pins": ["VCC", "GND", "SCL", "SDA"], "notes": "I2C 0x3C" }',
+      "  ],",
+      '  "connections": [',
+      '    { "from": { "componentId": "esp32", "pin": "3V3" }, "to": { "componentId": "bme280", "pin": "VCC" }, "signalType": "power", "wireColor": "red" },',
+      '    { "from": { "componentId": "esp32", "pin": "GND" }, "to": { "componentId": "bme280", "pin": "GND" }, "signalType": "ground", "wireColor": "black" },',
+      '    { "from": { "componentId": "esp32", "pin": "GPIO22" }, "to": { "componentId": "bme280", "pin": "SCL" }, "signalType": "i2c", "signal": "I2C SCL", "wireColor": "yellow" },',
+      '    { "from": { "componentId": "esp32", "pin": "GPIO21" }, "to": { "componentId": "bme280", "pin": "SDA" }, "signalType": "i2c", "signal": "I2C SDA", "wireColor": "blue" },',
+      '    { "from": { "componentId": "esp32", "pin": "3V3" }, "to": { "componentId": "oled", "pin": "VCC" }, "signalType": "power", "wireColor": "red" },',
+      '    { "from": { "componentId": "esp32", "pin": "GND" }, "to": { "componentId": "oled", "pin": "GND" }, "signalType": "ground", "wireColor": "black" },',
+      '    { "from": { "componentId": "esp32", "pin": "GPIO22" }, "to": { "componentId": "oled", "pin": "SCL" }, "signalType": "i2c", "signal": "I2C SCL", "wireColor": "yellow" },',
+      '    { "from": { "componentId": "esp32", "pin": "GPIO21" }, "to": { "componentId": "oled", "pin": "SDA" }, "signalType": "i2c", "signal": "I2C SDA", "wireColor": "blue" }',
+      "  ],",
+      '  "powerRails": ["3.3V", "GND"],',
+      '  "warnings": [',
+      '    "ESP32 GPIO pins operate at 3.3V and are NOT 5V tolerant. Ensure all peripherals use 3.3V logic."',
+      "  ]",
+      "}",
+      "```",
+      "</circuit_wiring_rules>",
+    ].join("\n");
 
     return [
       "<hardware_context>",
@@ -125,6 +169,7 @@ export function buildHardwareSystemPrompt(
       `- Auto-search online for datasheets/pinouts.`,
       `- Persona: Expert embedded engineer. Be concise.`,
       "</embedded_rules>",
+      circuitWiringRules,
     ].join("\n");
   });
 }

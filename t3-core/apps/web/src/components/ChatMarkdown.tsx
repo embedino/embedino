@@ -99,6 +99,7 @@ import {
   openUrlInPreview,
   BrowserPreviewUnavailableError,
 } from "../browser/openFileInPreview";
+import { WiringLaunchCard } from "./wiring/WiringLaunchCard";
 
 interface ChatMarkdownProps {
   text: string;
@@ -1655,8 +1656,25 @@ function ChatMarkdown({
           return <pre {...props}>{children}</pre>;
         }
 
-        const language = extractFenceLanguage(codeBlock.className);
+        const language = extractFenceLanguage(codeBlock.className).toLowerCase();
         const fenceTitle = extractFenceTitle(extractPreCodeMeta(node));
+
+        // 1. Interactive Wiring JSON Interception -> Chat Launch Card
+        if (
+          language === "wiring" ||
+          (language === "json" && fenceTitle?.toLowerCase().includes("wiring"))
+        ) {
+          return (
+            <RenderErrorBoundary fallback={<pre {...props}>{children}</pre>}>
+              <WiringLaunchCard
+                code={codeBlock.code}
+                fenceTitle={fenceTitle ?? undefined}
+                threadRef={threadRef}
+              />
+            </RenderErrorBoundary>
+          );
+        }
+
         return (
           <MarkdownCodeBlock
             code={codeBlock.code}

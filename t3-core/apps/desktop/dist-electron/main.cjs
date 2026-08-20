@@ -7085,7 +7085,9 @@ effect_Schema.Struct({
 	resumeCursor: effect_Schema.optional(effect_Schema.Unknown),
 	approvalPolicy: effect_Schema.optional(ProviderApprovalPolicy),
 	sandboxMode: effect_Schema.optional(ProviderSandboxMode),
-	runtimeMode: RuntimeMode
+	runtimeMode: RuntimeMode,
+	activeToolchain: effect_Schema.optional(ToolchainTypeSchema),
+	activeDeviceId: effect_Schema.optional(effect_Schema.String)
 });
 effect_Schema.Struct({
 	threadId: ThreadId,
@@ -10556,6 +10558,165 @@ var HardwareDetectionError = class extends effect_Schema.TaggedErrorClass()("Har
 	message: effect_Schema.String,
 	details: effect_Schema.optional(effect_Schema.String)
 }) {};
+//#endregion
+//#region ../../packages/contracts/src/hardware/wiring.ts
+const CircuitComponentTypeSchema = effect_Schema.Literals([
+	"microcontroller",
+	"sensor",
+	"display",
+	"actuator",
+	"module",
+	"passive",
+	"ic",
+	"power",
+	"communication",
+	"other"
+]);
+const CircuitSignalTypeSchema = effect_Schema.Literals([
+	"power",
+	"ground",
+	"i2c",
+	"spi",
+	"uart",
+	"gpio",
+	"digital",
+	"analog",
+	"pwm",
+	"dac",
+	"touch",
+	"can",
+	"1wire",
+	"swd",
+	"jtag",
+	"other"
+]);
+effect_Schema.Literals([
+	"red",
+	"black",
+	"yellow",
+	"blue",
+	"green",
+	"white",
+	"orange",
+	"purple",
+	"brown",
+	"gray",
+	"custom"
+]);
+const CircuitPinDefinition = effect_Schema.Struct({
+	/** Pin identifier on the board or component (e.g. "GPIO21", "3V3", "VCC", "SDA", "D5") */
+	pin: effect_Schema.String,
+	/** Optional human-readable function label (e.g. "I2C SDA", "ADC1_CH0", "Builtin LED") */
+	label: effect_Schema.optional(effect_Schema.String),
+	/** Pin signal category */
+	type: effect_Schema.optional(CircuitSignalTypeSchema),
+	/** Operating voltage on this pin (e.g. "3.3V", "5V") */
+	voltage: effect_Schema.optional(effect_Schema.String),
+	/** Description or special capabilities */
+	description: effect_Schema.optional(effect_Schema.String)
+});
+const CircuitPinItem = effect_Schema.Union([effect_Schema.String, CircuitPinDefinition]);
+const CircuitConnectionEndpoint = effect_Schema.Struct({
+	/** ID of the microcontroller board or peripheral component */
+	componentId: effect_Schema.String,
+	/** Specific pin on that component (e.g. "GPIO21", "VCC", "D4") */
+	pin: effect_Schema.String
+});
+const CircuitConnection = effect_Schema.Struct({
+	/** Source connection endpoint */
+	from: CircuitConnectionEndpoint,
+	/** Target connection endpoint */
+	to: CircuitConnectionEndpoint,
+	/** Type of signal or bus protocol */
+	signalType: effect_Schema.optional(CircuitSignalTypeSchema),
+	/** Signal name (e.g. "3.3V", "GND", "I2C SDA", "SPI SCK", "PWM D5") */
+	signal: effect_Schema.optional(effect_Schema.String),
+	/** Recommended jumper wire color */
+	wireColor: effect_Schema.optional(effect_Schema.String),
+	/** Nominal voltage level (e.g. "3.3V", "5V") */
+	voltage: effect_Schema.optional(effect_Schema.String),
+	/** Specific wiring instructions, passive values, or notes (e.g. "10k pull-up resistor") */
+	notes: effect_Schema.optional(effect_Schema.String)
+});
+const CircuitBoard = effect_Schema.Struct({
+	/** Unique identifier within this circuit (e.g. "esp32", "uno_r3") */
+	id: effect_Schema.String,
+	/** Human-readable board name (e.g. "ESP32-WROOM-32 DevKit", "Arduino Uno") */
+	name: effect_Schema.String,
+	/** Microcontroller chip family (e.g. "ESP32", "ATmega328P", "RP2040") */
+	mcu: effect_Schema.optional(effect_Schema.String),
+	/** Board operating/logic voltage (e.g. "3.3V", "5V") */
+	operatingVoltage: effect_Schema.optional(effect_Schema.String),
+	/** Declared pins used or available */
+	pins: effect_Schema.optional(effect_Schema.Array(CircuitPinItem)),
+	/** Additional board details */
+	description: effect_Schema.optional(effect_Schema.String)
+});
+const CircuitComponent = effect_Schema.Struct({
+	/** Unique component ID within this circuit (e.g. "bme280", "oled", "led1") */
+	id: effect_Schema.String,
+	/** Display name (e.g. "BME280 Temperature & Humidity Sensor", "SSD1306 OLED") */
+	name: effect_Schema.String,
+	/** Category classification */
+	type: CircuitComponentTypeSchema,
+	/** Manufacturer part number or model (e.g. "BME280", "SSD1306", "SG90") */
+	partNumber: effect_Schema.optional(effect_Schema.String),
+	/** Component supply voltage range (e.g. "3.3V", "3.3V-5V", "5V") */
+	operatingVoltage: effect_Schema.optional(effect_Schema.String),
+	/** Declared pins on this component */
+	pins: effect_Schema.optional(effect_Schema.Array(CircuitPinItem)),
+	/** Configuration notes, default I2C addresses, jumper settings */
+	notes: effect_Schema.optional(effect_Schema.String),
+	/** Value for passive components (e.g. "220Ω", "10kΩ", "100nF") */
+	value: effect_Schema.optional(effect_Schema.String)
+});
+const CircuitWarningStruct = effect_Schema.Struct({
+	/** Severity level */
+	level: effect_Schema.optional(effect_Schema.Literals([
+		"warning",
+		"error",
+		"info"
+	])),
+	/** Warning description (e.g. "ESP32 GPIO is 3.3V only; 5V sensor requires level shifter") */
+	message: effect_Schema.String,
+	/** Affected component or board IDs */
+	affectedComponents: effect_Schema.optional(effect_Schema.Array(effect_Schema.String))
+});
+const CircuitWarning = effect_Schema.Union([CircuitWarningStruct, effect_Schema.String]);
+const CircuitWiringDiagram = effect_Schema.Struct({
+	/** Optional diagram ID */
+	id: effect_Schema.optional(effect_Schema.String),
+	/** Circuit title */
+	title: effect_Schema.String,
+	/** Project or circuit summary */
+	description: effect_Schema.optional(effect_Schema.String),
+	/** Microcontroller board(s) in the circuit (optional, can also be declared in components) */
+	boards: effect_Schema.optional(effect_Schema.Array(CircuitBoard)),
+	/** Peripheral components, sensors, actuators, and modules */
+	components: effect_Schema.Array(CircuitComponent),
+	/** Netlist / pin-to-pin connections */
+	connections: effect_Schema.Array(CircuitConnection),
+	/** Optional safety advisories or warnings */
+	warnings: effect_Schema.optional(effect_Schema.Array(CircuitWarning)),
+	/** Declared power supply rails */
+	powerRails: effect_Schema.optional(effect_Schema.Array(effect_Schema.String)),
+	/** Declared power sources */
+	powerSources: effect_Schema.optional(effect_Schema.Array(effect_Schema.String))
+});
+const CircuitWiringPayload = effect_Schema.Union([
+	CircuitWiringDiagram,
+	effect_Schema.Struct({ circuit: CircuitWiringDiagram }),
+	effect_Schema.Struct({ wiring: CircuitWiringDiagram })
+]);
+effect_Schema.TaggedErrorClass()("WiringParseError", {
+	message: effect_Schema.String,
+	rawText: effect_Schema.optional(effect_Schema.String)
+});
+effect_Schema.TaggedErrorClass()("WiringValidationError", {
+	message: effect_Schema.String,
+	details: effect_Schema.optional(effect_Schema.String)
+});
+effect_Schema.decodeUnknownSync(CircuitWiringPayload);
 //#endregion
 //#region ../../packages/contracts/src/rpc.ts
 const WS_METHODS = {
