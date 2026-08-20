@@ -1,9 +1,18 @@
 import { describe, expect, it } from "@effect/vitest";
+import { vi } from "vitest";
 import { parseCircuitWiringJson } from "@t3tools/contracts";
 import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
 import * as Effect from "effect/Effect";
 
 import { buildHardwareSystemPrompt } from "./HardwareAgentPrompt.ts";
+
+vi.mock("./DeviceService.ts", () => ({
+  scanDevices: () => Effect.succeed([]),
+}));
+
+vi.mock("../toolchain/ToolchainService.ts", () => ({
+  getToolchainBinaryPaths: () => Effect.succeed({ arduinoCliPath: null, platformioPath: null }),
+}));
 
 describe("HardwareAgentPrompt Assembly", () => {
   const runPrompt = (toolchain?: "platformio" | "arduino", deviceId?: string) =>
