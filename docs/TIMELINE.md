@@ -9,7 +9,7 @@
   - Added explicit module variant confirmation logic to prevent flashing incorrect firmware to generic-named boards (e.g., generic ESP32 vs ESP32-S3-WROOM).
   - Redesigned Board Selector UI.
 - **August 15, 2026**: 
-  - Restructured `t3-core` into the Embedino architecture following the 95/5 Modular Isolation Principle.
+  - Restructured `core` into the Embedino architecture following the 95/5 Modular Isolation Principle.
   - Established `regraft.json` synchronization pipeline.
 - **Early August 2026**: 
   - Initial scaffolding of the Embedino concept, focusing on PlatformIO and Arduino CLI integrations.

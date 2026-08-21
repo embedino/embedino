@@ -13,7 +13,7 @@ concurrency:
 
 defaults:
   run:
-    working-directory: ./t3-core
+    working-directory: ./core
 
 jobs:
   check_and_build:
@@ -30,7 +30,7 @@ jobs:
           node-version-file: package.json
           cache: true
           run-install: true
-          working-directory: t3-core
+          working-directory: core
 
       - name: Check Formatting & Linting
         run: vp check
@@ -52,7 +52,7 @@ jobs:
           node-version-file: package.json
           cache: true
           run-install: true
-          working-directory: t3-core
+          working-directory: core
 
       - name: Run Test Suite
         run: vp run test

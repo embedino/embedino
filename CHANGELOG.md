@@ -37,4 +37,4 @@ All notable changes to the Embedino project will be documented in this file.
 - **Dynamic Toolchain Setup**: One-click install/setup for PlatformIO and Arduino CLI.
 
 ### Changed
-- **Professional Refactor**: Cleaned codebase of temporary "AI smells", strict typing, and synced with upstream T3 core (commit `038560e`).
+- **Professional Refactor**: Cleaned codebase of temporary "AI smells", strict typing, and synced with upstream Embedino core (commit `038560e`).

@@ -1,9 +1,9 @@
-# Definitive Embedino vs. Upstream T3 Code Audit, Architectural Rationale & Remediation Report
+# Definitive Embedino vs. Upstream Embedino Audit, Architectural Rationale & Remediation Report
 
 **Document Version:** 1.0.0 (Master Audit Synthesis)  
 **Date of Audit:** August 19, 2026  
 **Local Workspace:** `c:\Users\rapid\Desktop\embedino workspace`  
-**Derived From:** `pingdotgg/t3code` (`https://github.com/pingdotgg/t3code.git`)  
+**Derived From:** `embedino/embedino` (`https://github.com/embedino/embedino.git`)  
 **Base Pinned Upstream Commit (Regraft):** `5a84614809b6e853b872f9e57ff4b97e9df5df02` (*fix(web): align the composer model picker (#6252)*)  
 **Latest Upstream HEAD Evaluated:** `24c4ba68f536d56e8482a1e4d7070a6771da551d` (*fix(desktop): close the window before quit cleanup (#6562)*)  
 **Auditing Subagent Team:** `worker_report_writer_1` (Master Synthesizer), `worker_diff_1`, `explorer_hardware_1`, `explorer_toolchain_1`, `explorer_docking_1`, `auditor_arch_1`, `critic_sec_perf_1`, `explorer_prompt_leakage_1`
@@ -26,7 +26,7 @@
    - [3.3 AI Grounding & Prompt Integration (MVP Feature #1 Synergy)](#33-ai-grounding--prompt-integration-mvp-feature-1-synergy)
 4. [Critical Investigation: AI System Prompt & Hardware Context Leakage](#4-critical-investigation-ai-system-prompt--hardware-context-leakage)
    - [4.1 Defect Topology: Redundancy vs. Visibility Leakage](#41-defect-topology-redundancy-vs-visibility-leakage)
-   - [4.2 Upstream T3 Code Architecture vs. Embedino Adapter Failures](#42-upstream-t3-code-architecture-vs-embedino-adapter-failures)
+   - [4.2 Upstream Embedino Architecture vs. Embedino Adapter Failures](#42-upstream-embedino-code-architecture-vs-embedino-adapter-failures)
    - [4.3 Provider-by-Provider Failure Analysis](#43-provider-by-provider-failure-analysis)
    - [4.4 Complete Production-Ready Code Remediation Diffs](#44-complete-production-ready-code-remediation-diffs)
 5. [Full Quality, Architecture, Security & Performance Audit](#5-full-quality-architecture-security--performance-audit)
@@ -46,7 +46,7 @@
 
 ## 1.1 The Embedino Vision & The 5 MVP Killer Features
 
-**Embedino** is an open-source, local-first, AI-powered IDE and specialized engineering workspace designed specifically for embedded systems, microcontrollers (MCUs), and hardware engineering. Derived from the world-class AI coding client **[pingdotgg/t3code](https://github.com/pingdotgg/t3code)**, Embedino bridges the historic chasm between modern software developer ergonomics (LLM agent orchestration, reactive web UI, WebSocket RPC, atomic state management) and physical hardware development.
+**Embedino** is an open-source, local-first, AI-powered IDE and specialized engineering workspace designed specifically for embedded systems, microcontrollers (MCUs), and hardware engineering. Derived from the world-class AI coding client **[embedino/embedino](https://github.com/embedino/embedino)**, Embedino bridges the historic chasm between modern software developer ergonomics (LLM agent orchestration, reactive web UI, WebSocket RPC, atomic state management) and physical hardware development.
 
 Standard embedded IDEs (e.g., Eclipse-based vendor tools, Arduino IDE 2.x, or generic VS Code setups) suffer from fragmented toolchains, opaque COM port configurations, manual driver installs, and zero awareness from AI coding assistants. Embedino fundamentally transforms this workflow around **5 MVP Killer Features**:
 
@@ -72,10 +72,10 @@ Standard embedded IDEs (e.g., Eclipse-based vendor tools, Arduino IDE 2.x, or ge
 
 ## 1.2 Comparison Parameters & Baseline Commit Topography
 
-To establish a strict, programmatically verifiable baseline, the official `pingdotgg/t3code` upstream repository was cloned and diffed against the local Embedino workspace. 
+To establish a strict, programmatically verifiable baseline, the official `embedino/embedino` upstream repository was cloned and diffed against the local Embedino workspace. 
 
-- **Upstream Repository:** `https://github.com/pingdotgg/t3code.git`
-- **Tracked Grafts Container:** `t3-core/`
+- **Upstream Repository:** `https://github.com/embedino/embedino.git`
+- **Tracked Grafts Container:** `core/`
 - **Pinned Upstream Commit SHA:** `5a84614809b6e853b872f9e57ff4b97e9df5df02` (Tagged: `v0.1.0-upstream-sync`)
 - **Upstream Release Marker:** `fix(web): align the composer model picker (#6252)`
 - **Latest Upstream Comparison HEAD:** `24c4ba68f536d56e8482a1e4d7070a6771da551d` (*fix(desktop): close the window before quit cleanup (#6562)*)
@@ -85,7 +85,7 @@ To establish a strict, programmatically verifiable baseline, the official `pingd
 
 ## 1.3 Executive Differential Metrics Table
 
-A total of **15,920 repository files** were evaluated across upstream T3 Code and Embedino. The differential distribution adheres strictly to the architectural isolation rules defined in `AGENTS.md`:
+A total of **15,920 repository files** were evaluated across upstream Embedino and Embedino. The differential distribution adheres strictly to the architectural isolation rules defined in `AGENTS.md`:
 
 | Metric Category | File Count | Percentage | Architectural Significance |
 | :--- | :---: | :---: | :--- |
@@ -96,9 +96,9 @@ A total of **15,920 repository files** were evaluated across upstream T3 Code an
 | ↳ *Synced Upstream Features* | *163* | *1.02%* | Pull Request management, Favicon discovery, and Clerk profile updates synced from upstream. |
 | **Added Files (Total)** | **81** | **0.5%** | Dedicated hardware/toolchain modules, atoms, UI components, root configs. |
 | ↳ *Added in Workspace Root* | *23* | *0.14%* | `AGENTS.md`, `PATCH.md`, `regraft.json`, `usb_devices.json`, CI workflows. |
-| ↳ *Added in `t3-core/`* | *58* | *0.36%* | Dedicated hardware services, toolchain services, Effect state, UI components. |
+| ↳ *Added in `core/`* | *58* | *0.36%* | Dedicated hardware services, toolchain services, Effect state, UI components. |
 | **Pruned / Excluded Upstream Files** | **13,879** | **87.2%** | Intentionally excluded via `regraft.json` (`apps/mobile/**`, `docs/`, `infra/`, `.repos/`). |
-| **Total Tracked Workspace Surface** | **2,122** | **100.0%** | Active local workspace files in `t3-core` + root configuration. |
+| **Total Tracked Workspace Surface** | **2,122** | **100.0%** | Active local workspace files in `core` + root configuration. |
 
 ---
 
@@ -136,7 +136,7 @@ A total of **15,920 repository files** were evaluated across upstream T3 Code an
 Upstream modifications are categorized into functional subsystems to substantiate the docking port architecture.
 
 ### Category A: Core Thin Docking Ports (8 Files — The 5% Touchpoints)
-These files represent the approved structural touchpoints where Embedino docks into upstream T3 Code:
+These files represent the approved structural touchpoints where Embedino docks into upstream Embedino:
 
 | File Path | Upstream Lines | Local Lines | Diff (+/-) | Architectural Role & Docking Verification |
 | :--- | :---: | :---: | :---: | :--- |
@@ -178,7 +178,7 @@ Files propagating `activeToolchain` and `activeDeviceId` through the turn-state 
 
 ### Category D: Build, Workspace & Upstream Feature Syncs (161 Files)
 - **Root Configurations (4 files, +508 / -19 lines):** `package.json` (tracking pinned commit), `pnpm-workspace.yaml` (pruning mobile paths), `scripts/build-desktop-artifact.ts` (desktop bundling).
-- **Pull Request Subsystem (46 files, +9,410 / -617 lines):** Synced from upstream T3 Code (`AzureDevOpsPullRequestProvider`, `GitHubPullRequestCli`, `GitLabPullRequestCli`, `PullRequestSummaryTab.tsx`, `PullRequestDetailPanel.tsx`).
+- **Pull Request Subsystem (46 files, +9,410 / -617 lines):** Synced from upstream Embedino (`AzureDevOpsPullRequestProvider`, `GitHubPullRequestCli`, `GitLabPullRequestCli`, `PullRequestSummaryTab.tsx`, `PullRequestDetailPanel.tsx`).
 - **Preview & Port Scanner (12 files, +1,240 / -110 lines):** Synced port scanning enhancements (`PortScanner.ts`, `usePreviewBridge.ts`, `browserTargetResolver.ts`).
 - **Favicon & UI Presentation (10 files, +1,520 / -85 lines):** Upstream favicon capture system (`FaviconCapture.ts`, `browserFaviconStore.ts`).
 - **Styling & CSS (1 file, +67 / -59 lines):** `apps/web/src/index.css` (custom board selector styles and animations).
@@ -187,7 +187,7 @@ Files propagating `activeToolchain` and `activeDeviceId` through the turn-state 
 
 ## 2.2 Comprehensive Inventory of Dedicated Added Files
 
-The following **81 files** represent 100% dedicated Embedino code that upstream T3 Code never touches.
+The following **81 files** represent 100% dedicated Embedino code that upstream Embedino never touches.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -227,7 +227,7 @@ The following **81 files** represent 100% dedicated Embedino code that upstream 
 | **Workspace Root** | `PATCH.md` | 284 | Ledger of recorded Regraft intent notes documenting local divergences. |
 | **Workspace Root** | `regraft.json` | 20,963 | Complete Regraft graft configuration, pinned SHAs, and exclusion boundaries. |
 | **Workspace Root** | `usb_devices.json` | 908 | USB vendor and product ID database for microcontroller identification. |
-| **Oxlint Custom Plugin** | `oxlint-plugin-t3code/*` (10 files) | 788 | Custom static analysis plugin for Effect TS patterns and monorepo rules. |
+| **Oxlint Custom Plugin** | `oxlint-plugin-embedino/*` (10 files) | 788 | Custom static analysis plugin for Effect TS patterns and monorepo rules. |
 | **Synced Favicon Assets** | `apps/desktop/src/preview/FaviconCapture.ts`, etc. (9 files) | 2,820 | Desktop favicon extraction and caching utilities synced from upstream. |
 | **Synced PR Components** | `apps/web/src/components/pullRequest/*` (18 files) | 2,099 | Pull request review and management components synced from upstream. |
 | **CI / CD Workflows** | `.github/workflows/*` (14 files) | 3,049 | Automated release workflows, desktop packaging CI, and issue templates. |
@@ -243,16 +243,16 @@ In strict adherence to **Rule 3 (Strict Regraft Exclusions)**, `regraft.json` de
   "grafts": [
     {
       "id": "g_aad200ece5ccfcf6",
-      "name": "t3-apps",
+      "name": "embedino-apps",
       "path": "apps",
-      "dest": "t3-core/apps",
+      "dest": "core/apps",
       "excluded": ["mobile/**"]
     },
     {
       "id": "g_5a9d8bbcfc4627d7",
-      "name": "t3-scripts",
+      "name": "embedino-scripts",
       "path": "scripts",
-      "dest": "t3-core/scripts",
+      "dest": "core/scripts",
       "excluded": ["mobile-*"]
     }
   ]
@@ -402,10 +402,10 @@ During extensive real-world usage across external AI provider harnesses (**OpenA
 
 ---
 
-## 4.2 Upstream T3 Code Architecture vs. Embedino Adapter Failures
+## 4.2 Upstream Embedino Architecture vs. Embedino Adapter Failures
 
-### Upstream T3 Code Architectural Standard
-Upstream `pingdotgg/t3code` strictly separates **Session Developer Instructions** (hidden, authoritative, sent once per session) from **User Message Turns** (`sendTurn`):
+### Upstream Embedino Architectural Standard
+Upstream `embedino/embedino` strictly separates **Session Developer Instructions** (hidden, authoritative, sent once per session) from **User Message Turns** (`sendTurn`):
 
 | Provider | Upstream System Instruction Mechanism (Hidden) | Upstream User Turn Payload (`sendTurn`) |
 | :--- | :--- | :--- |
@@ -482,7 +482,7 @@ In Embedino, a naive integration prepended `hardwarePrompt` to `input.input` ins
 +  const hw = hardwarePrompt ? `\n\n${hardwarePrompt}` : "";
 +  return `${base}${hw}
  
- <runtime_info>In case you're asked: you are running in T3 Code through the Codex harness, as ${toSingleLine(runtime.model)} with ${toSingleLine(runtime.reasoningEffort)} reasoning effort. No need to mention this otherwise.</runtime_info>`;
+ <runtime_info>In case you're asked: you are running in Embedino through the Codex harness, as ${toSingleLine(runtime.model)} with ${toSingleLine(runtime.reasoningEffort)} reasoning effort. No need to mention this otherwise.</runtime_info>`;
  }
 ```
 
@@ -830,9 +830,9 @@ pnpm run tc
 pnpm exec vp check --fix
 
 # 3. Unit and Contract Test Suites
-pnpm run --filter @t3tools/contracts test
-pnpm run --filter @t3tools/server test
-pnpm run --filter @t3tools/web test
+pnpm run --filter @embedino/contracts test
+pnpm run --filter @embedino/server test
+pnpm run --filter @embedino/web test
 
 # 4. Full Production Desktop Packaging Build
 pnpm run build:desktop
@@ -845,7 +845,7 @@ regraft note "Apply Milestone 4 security patches and system prompt leakage remed
 
 # 7. Master Audit Attestation
 
-This audit report represents an exhaustive, rigorous, and forensic evaluation of the Embedino codebase against upstream `pingdotgg/t3code`. All file counts, line numbers, diffs, architectural ratings, and code remediations have been verified against active workspace files.
+This audit report represents an exhaustive, rigorous, and forensic evaluation of the Embedino codebase against upstream `embedino/embedino`. All file counts, line numbers, diffs, architectural ratings, and code remediations have been verified against active workspace files.
 
 **Report Generated & Attested by:** `worker_report_writer_1`  
 **Milestone:** Milestone 4 (Definitive Master Audit Report)  

@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--embedino-font-sans);
+  --font-mono: var(--embedino-font-mono);
+  --color-background: var(--embedino-background);
+  --color-foreground: var(--embedino-foreground);
+  --color-popover: var(--embedino-popover);
+  --color-popover-foreground: var(--embedino-popover-foreground);
+  --color-primary: var(--embedino-primary);
+  --color-primary-foreground: var(--embedino-primary-foreground);
+  --color-muted: var(--embedino-muted);
+  --color-muted-foreground: var(--embedino-muted-foreground);
+  --color-accent: var(--embedino-accent);
+  --color-accent-foreground: var(--embedino-accent-foreground);
+  --color-border: var(--embedino-border);
+  --color-input: var(--embedino-input);
+  --color-ring: var(--embedino-ring);
+  --radius-sm: calc(var(--embedino-radius) - 4px);
+  --radius-md: calc(var(--embedino-radius) - 2px);
+  --radius-lg: var(--embedino-radius);
+  --radius-xl: calc(var(--embedino-radius) + 4px);
+  --radius-2xl: calc(var(--embedino-radius) + 8px);
+}
+
+:host {
+  --embedino-font-sans:
+    "DM Sans Variable", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    sans-serif;
+  --embedino-font-mono:
+    "SF Mono", "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --embedino-radius: 0.625rem;
+  --embedino-background: white;
+  --embedino-foreground: oklch(0.269 0 0);
+  --embedino-popover: white;
+  --embedino-popover-foreground: oklch(0.269 0 0);
+  --embedino-primary: oklch(0.488 0.217 264);
+  --embedino-primary-foreground: white;
+  --embedino-muted: rgb(0 0 0 / 4%);
+  --embedino-muted-foreground: oklch(0.556 0 0);
+  --embedino-accent: rgb(0 0 0 / 4%);
+  --embedino-accent-foreground: oklch(0.269 0 0);
+  --embedino-border: rgb(0 0 0 / 8%);
+  --embedino-input: rgb(0 0 0 / 10%);
+  --embedino-ring: oklch(0.488 0.217 264);
+  color: var(--embedino-foreground);
+  font-family: var(--embedino-font-sans);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--embedino-border);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--embedino-ring) 72%, transparent);
+  outline-offset: 1px;
+}
