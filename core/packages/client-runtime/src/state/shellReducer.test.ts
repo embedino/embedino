@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { ProjectId, ProviderInstanceId, ThreadId } from "@embedino/contracts";
-import type { OrchestrationShellSnapshot, OrchestrationShellStreamEvent } from "@embedino/contracts";
+import type {
+  OrchestrationShellSnapshot,
+  OrchestrationShellStreamEvent,
+} from "@embedino/contracts";
 
 import { applyShellStreamEvent } from "./shellReducer.ts";
 

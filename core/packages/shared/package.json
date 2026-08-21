@@ -225,9 +225,9 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@embedino/contracts": "workspace:*",
     "@noble/curves": "catalog:",
     "@noble/hashes": "catalog:",
-    "@embedino/contracts": "workspace:*",
     "effect": "catalog:",
     "jose": "catalog:",
     "yaml": "catalog:"

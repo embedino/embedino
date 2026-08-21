@@ -1238,7 +1238,10 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
             }),
           );
 
-          yield* runDevRunnerWithInput({ ...devServerInput, embedinoHome: input.embedinoHome }).pipe(
+          yield* runDevRunnerWithInput({
+            ...devServerInput,
+            embedinoHome: input.embedinoHome,
+          }).pipe(
             Effect.provide(Layer.mergeAll(emptyConfigLayer, netServiceLayer, spawnerLayer)),
             Effect.provideService(HostProcessPlatform, "linux"),
             Effect.provideService(HostProcessWorkingDirectory, input.cwd),

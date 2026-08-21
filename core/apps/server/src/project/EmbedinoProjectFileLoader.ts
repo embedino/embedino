@@ -63,44 +63,44 @@ export const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const load: EmbedinoProjectFileLoader["Service"]["load"] = Effect.fn("EmbedinoProjectFileLoader.load")(
-    function* (workspaceRoot) {
-      const filePath = path.join(workspaceRoot, EMBEDINO_PROJECT_FILE_NAME);
-      const raw = yield* fileSystem.readFileString(filePath).pipe(
-        Effect.map(Option.some),
-        Effect.catchTags({
-          PlatformError: (error) =>
-            error.reason._tag === "NotFound"
-              ? Effect.succeed(Option.none<string>())
-              : logEmbedinoProjectFileLoadError(
-                  new EmbedinoProjectFileLoadError({
-                    operation: "read",
-                    workspaceRoot,
-                    filePath,
-                    cause: error,
-                  }),
-                ).pipe(Effect.as(Option.none<string>())),
-        }),
-      );
-      if (Option.isNone(raw)) {
-        return Option.none<EmbedinoProjectFile>();
-      }
-      return yield* decodeEmbedinoProjectFileJson(raw.value).pipe(
-        Effect.map(Option.some),
-        Effect.catchTags({
-          SchemaError: (error) =>
-            logEmbedinoProjectFileLoadError(
-              new EmbedinoProjectFileLoadError({
-                operation: "decode",
-                workspaceRoot,
-                filePath,
-                cause: error,
-              }),
-            ).pipe(Effect.as(Option.none<EmbedinoProjectFile>())),
-        }),
-      );
-    },
-  );
+  const load: EmbedinoProjectFileLoader["Service"]["load"] = Effect.fn(
+    "EmbedinoProjectFileLoader.load",
+  )(function* (workspaceRoot) {
+    const filePath = path.join(workspaceRoot, EMBEDINO_PROJECT_FILE_NAME);
+    const raw = yield* fileSystem.readFileString(filePath).pipe(
+      Effect.map(Option.some),
+      Effect.catchTags({
+        PlatformError: (error) =>
+          error.reason._tag === "NotFound"
+            ? Effect.succeed(Option.none<string>())
+            : logEmbedinoProjectFileLoadError(
+                new EmbedinoProjectFileLoadError({
+                  operation: "read",
+                  workspaceRoot,
+                  filePath,
+                  cause: error,
+                }),
+              ).pipe(Effect.as(Option.none<string>())),
+      }),
+    );
+    if (Option.isNone(raw)) {
+      return Option.none<EmbedinoProjectFile>();
+    }
+    return yield* decodeEmbedinoProjectFileJson(raw.value).pipe(
+      Effect.map(Option.some),
+      Effect.catchTags({
+        SchemaError: (error) =>
+          logEmbedinoProjectFileLoadError(
+            new EmbedinoProjectFileLoadError({
+              operation: "decode",
+              workspaceRoot,
+              filePath,
+              cause: error,
+            }),
+          ).pipe(Effect.as(Option.none<EmbedinoProjectFile>())),
+      }),
+    );
+  });
 
   return EmbedinoProjectFileLoader.of({ load });
 });

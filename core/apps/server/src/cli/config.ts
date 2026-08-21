@@ -78,7 +78,9 @@ export const tailscaleServePortFlag = Flag.integer("tailscale-serve-port").pipe(
 const EnvServerConfig = Config.all({
   logLevel: Config.logLevel("EMBEDINO_LOG_LEVEL").pipe(Config.withDefault("Info")),
   traceMinLevel: Config.logLevel("EMBEDINO_TRACE_MIN_LEVEL").pipe(Config.withDefault("Info")),
-  traceTimingEnabled: Config.boolean("EMBEDINO_TRACE_TIMING_ENABLED").pipe(Config.withDefault(true)),
+  traceTimingEnabled: Config.boolean("EMBEDINO_TRACE_TIMING_ENABLED").pipe(
+    Config.withDefault(true),
+  ),
   traceFile: Config.string("EMBEDINO_TRACE_FILE").pipe(
     Config.option,
     Config.map(Option.getOrUndefined),
@@ -97,14 +99,19 @@ const EnvServerConfig = Config.all({
   otlpExportIntervalMs: Config.int("EMBEDINO_OTLP_EXPORT_INTERVAL_MS").pipe(
     Config.withDefault(10_000),
   ),
-  otlpServiceName: Config.string("EMBEDINO_OTLP_SERVICE_NAME").pipe(Config.withDefault("embedino-server")),
+  otlpServiceName: Config.string("EMBEDINO_OTLP_SERVICE_NAME").pipe(
+    Config.withDefault("embedino-server"),
+  ),
   mode: Config.schema(ServerConfig.RuntimeMode, "EMBEDINO_MODE").pipe(
     Config.option,
     Config.map(Option.getOrUndefined),
   ),
   port: Config.port("EMBEDINO_PORT").pipe(Config.option, Config.map(Option.getOrUndefined)),
   host: Config.string("EMBEDINO_HOST").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  embedinoHome: Config.string("EMBEDINO_HOME").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  embedinoHome: Config.string("EMBEDINO_HOME").pipe(
+    Config.option,
+    Config.map(Option.getOrUndefined),
+  ),
   devUrl: Config.url("VITE_DEV_SERVER_URL").pipe(Config.option, Config.map(Option.getOrUndefined)),
   devAllowedOrigins: Config.string("EMBEDINO_DEV_ALLOWED_ORIGINS").pipe(
     Config.withDefault(""),

@@ -517,7 +517,9 @@ export const migrateDevDbCommand = Command.make(
     ),
     baseDir: Flag.string("base-dir").pipe(
       Flag.optional,
-      Flag.withDescription("Isolated .embedino directory. Defaults to the current worktree's .embedino."),
+      Flag.withDescription(
+        "Isolated .embedino directory. Defaults to the current worktree's .embedino.",
+      ),
     ),
     source: Flag.string("source").pipe(
       Flag.optional,

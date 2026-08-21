@@ -1,4 +1,8 @@
-import { EMBEDINO_PROJECT_FILE_NAME, type EnvironmentId, type ThreadEnvMode } from "@embedino/contracts";
+import {
+  EMBEDINO_PROJECT_FILE_NAME,
+  type EnvironmentId,
+  type ThreadEnvMode,
+} from "@embedino/contracts";
 import { parseEmbedinoProjectFile } from "@embedino/shared/embedinoProjectFile";
 import { executeAtomQuery } from "@embedino/client-runtime/state/runtime";
 

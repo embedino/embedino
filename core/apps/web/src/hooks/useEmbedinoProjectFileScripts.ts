@@ -33,7 +33,12 @@ export function useEmbedinoProjectFileState(
   environmentId: EnvironmentId,
   cwd: string | null,
 ): EmbedinoProjectFileState {
-  const query = useProjectFileQuery(environmentId, cwd ?? "", EMBEDINO_PROJECT_FILE_NAME, cwd !== null);
+  const query = useProjectFileQuery(
+    environmentId,
+    cwd ?? "",
+    EMBEDINO_PROJECT_FILE_NAME,
+    cwd !== null,
+  );
   const contents = query.data && !query.data.truncated ? query.data.contents : null;
   const isPending = query.isPending;
   return useMemo(() => {

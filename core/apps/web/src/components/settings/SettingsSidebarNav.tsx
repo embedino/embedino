@@ -33,7 +33,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "../ui/sidebar";
-import { EmbedinoConnectSidebarAvatar, EmbedinoConnectSidebarSignIn } from "../clerk/EmbedinoConnectSidebarSignIn";
+import {
+  EmbedinoConnectSidebarAvatar,
+  EmbedinoConnectSidebarSignIn,
+} from "../clerk/EmbedinoConnectSidebarSignIn";
 import { scrollToSettingsTarget } from "./settingsLayout";
 import {
   searchSettings,

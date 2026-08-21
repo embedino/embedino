@@ -128,7 +128,10 @@ describe("ssh tunnel scripts", () => {
     });
 
     assert.include(script, "exec npx --yes 'embedino@nightly; touch /tmp/embedino-owned' \"$@\"");
-    assert.include(script, "exec npm exec --yes 'embedino@nightly; touch /tmp/embedino-owned' -- \"$@\"");
+    assert.include(
+      script,
+      "exec npm exec --yes 'embedino@nightly; touch /tmp/embedino-owned' -- \"$@\"",
+    );
     assert.notInclude(script, "exec npx --yes embedino@nightly; touch /tmp/embedino-owned");
   });
 
@@ -173,14 +176,20 @@ describe("ssh tunnel scripts", () => {
     assert.include(buildRemoteLaunchScript(), '--base-dir "$DEFAULT_SERVER_HOME"');
     assert.notInclude(buildRemoteLaunchScript(), "server-home");
     assert.include(buildRemoteLaunchScript(), "Remote Embedino server did not become ready");
-    assert.include(buildRemoteLaunchScript({ packageSpec: "embedino@nightly" }), "embedino@nightly");
+    assert.include(
+      buildRemoteLaunchScript({ packageSpec: "embedino@nightly" }),
+      "embedino@nightly",
+    );
     assert.include(
       buildRemotePairingScript(target),
       '"$RUNNER_FILE" auth pairing create --base-dir "$PAIRING_BASE_DIR" --json',
     );
     assert.include(buildRemotePairingScript(target), 'PAIRING_BASE_DIR="$DEFAULT_SERVER_HOME"');
     assert.notInclude(buildRemotePairingScript(target), "server-home");
-    assert.include(buildRemotePairingScript(target, { packageSpec: "embedino@nightly" }), "embedino@nightly");
+    assert.include(
+      buildRemotePairingScript(target, { packageSpec: "embedino@nightly" }),
+      "embedino@nightly",
+    );
     assert.include(
       buildRemoteStopScript(target),
       'if [ "$REMOTE_MANAGED" != "external" ] && [ -n "$REMOTE_PID" ]',

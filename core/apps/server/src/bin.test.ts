@@ -195,7 +195,10 @@ it.layer(NodeServices.layer)("bin cli parsing", (it) => {
         assert.fail(`Expected ShowHelp, got ${error._tag}`);
       }
       assert.deepEqual(error.commandPath, ["embedino", "connect"]);
-      assert.include(error.errors[0]?.message ?? "", "missing Embedino Connect public configuration");
+      assert.include(
+        error.errors[0]?.message ?? "",
+        "missing Embedino Connect public configuration",
+      );
 
       const output = (yield* TestConsole.errorLines).join("\n");
       assert.include(output, "ERROR");
@@ -252,7 +255,10 @@ it.layer(NodeServices.layer)("bin cli parsing", (it) => {
       assert.include(output, "Embedino Connect\n  Exposure: disabled");
       assert.include(output, "  Authorization: missing");
       assert.include(output, "  Environment link: not provisioned");
-      assert.include(output, "Next: Run `embedino connect link` to authorize and enable Embedino Connect.");
+      assert.include(
+        output,
+        "Next: Run `embedino connect link` to authorize and enable Embedino Connect.",
+      );
     }),
   );
 

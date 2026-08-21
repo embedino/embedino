@@ -629,7 +629,9 @@ export const makeServerLayer = Layer.unwrap(
                   Schedule.upTo({ duration: "10 minutes" }),
                 ),
               }),
-              Effect.tap(() => Effect.logInfo("Embedino Connect desired link reconciled on startup")),
+              Effect.tap(() =>
+                Effect.logInfo("Embedino Connect desired link reconciled on startup"),
+              ),
               Effect.catch((cause) =>
                 Effect.logWarning("Failed to reconcile Embedino Connect desired link on startup", {
                   cause,

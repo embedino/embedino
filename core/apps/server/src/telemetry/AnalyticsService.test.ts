@@ -45,8 +45,10 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
 
       // Exercise the real implementation directly: the production `layer` is
       // flag-gated (EmbedinoFeatures.telemetryExport) and resolves to a no-op.
-      const telemetryLayer = Layer.effect(AnalyticsService.AnalyticsService, AnalyticsService.make)
-        .pipe(Layer.provideMerge(serverConfigLayer));
+      const telemetryLayer = Layer.effect(
+        AnalyticsService.AnalyticsService,
+        AnalyticsService.make,
+      ).pipe(Layer.provideMerge(serverConfigLayer));
       const configLayer = ConfigProvider.layer(
         ConfigProvider.fromUnknown({
           EMBEDINO_TELEMETRY_ENABLED: true,

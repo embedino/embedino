@@ -30,7 +30,9 @@ it("keeps systemd pinned to the stable launcher rather than a versioned server",
     unitPath: "/home/theo/.config/systemd/user/embedino.service",
   });
 
-  expect(unit).toContain("ExecStart=/usr/bin/node /home/theo/.embedino/runtime/service-launcher.mjs");
+  expect(unit).toContain(
+    "ExecStart=/usr/bin/node /home/theo/.embedino/runtime/service-launcher.mjs",
+  );
   expect(unit).toContain("KillMode=mixed");
   expect(unit).not.toContain("versions/1.2.3");
 });

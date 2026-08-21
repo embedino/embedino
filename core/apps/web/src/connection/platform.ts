@@ -23,7 +23,10 @@ import {
 } from "@embedino/client-runtime/connection";
 import { bootstrapRemoteBearerSession } from "@embedino/client-runtime/authorization";
 import { fetchRemoteEnvironmentDescriptor } from "@embedino/client-runtime/environment";
-import { managedRelayAccountChanges, managedRelaySessionAtom } from "@embedino/client-runtime/relay";
+import {
+  managedRelayAccountChanges,
+  managedRelaySessionAtom,
+} from "@embedino/client-runtime/relay";
 import { EnvironmentRpcRequestObserver } from "@embedino/client-runtime/rpc";
 import {
   AuthStandardClientScopes,

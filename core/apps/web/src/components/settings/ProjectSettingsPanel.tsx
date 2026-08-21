@@ -483,7 +483,8 @@ function ProjectDetail({ group }: { group: SidebarProjectSnapshot }) {
   // What the "Default" option resolves to while no override is set: the
   // repo's embedino.json value when present, otherwise the global setting.
   const inheritedEnvMode = embedinoFile.file?.defaultThreadEnvMode ?? settings.defaultThreadEnvMode;
-  const inheritedEnvModeSource = embedinoFile.file?.defaultThreadEnvMode != null ? "embedino.json" : "global";
+  const inheritedEnvModeSource =
+    embedinoFile.file?.defaultThreadEnvMode != null ? "embedino.json" : "global";
   const importableScripts = useMemo(
     () =>
       embedinoFile.scripts.filter(

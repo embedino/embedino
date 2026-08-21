@@ -68,7 +68,7 @@ const WIRING_VIEWER_OUTPUT = [
   "Embedino renders interactive circuit diagrams from fenced code blocks tagged `wiring`. Whenever the request involves wiring, pinouts, or connecting components, include exactly one such block containing a single JSON object next to your explanation.",
   "",
   "JSON fields:",
-  '- title: string; description: string (optional)',
+  "- title: string; description: string (optional)",
   '- components[]: { id, name, type: "microcontroller" | "sensor" | "display" | "actuator" | "module" | "passive" | "ic" | "power" | "communication" | "other", pins[] (optional), operatingVoltage, notes (optional) }',
   '- connections[]: { from: { componentId, pin }, to: { componentId, pin }, signalType: "power" | "ground" | "i2c" | "spi" | "uart" | "gpio" | "digital" | "analog" | "pwm" | "other", signal (optional label), wireColor: "red" | "black" | "yellow" | "blue" | "green" | "white" | "orange" | "purple", notes (optional) }',
   '- powerRails[]: rails in use, e.g. ["3.3V", "GND"]',

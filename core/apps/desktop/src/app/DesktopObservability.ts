@@ -583,16 +583,16 @@ const tracerLayer = Layer.unwrap(
       !EmbedinoFeatures.telemetryExport || Option.isNone(otlpTracesUrl)
         ? undefined
         : yield* OtlpTracer.make({
-          url: otlpTracesUrl.value,
-          exportInterval: `${environment.otlpExportIntervalMs} millis`,
-          resource: {
-            serviceName: "desktop",
-            attributes: {
-              "service.runtime": "desktop",
-              "service.mode": environment.isDevelopment ? "development" : "packaged",
+            url: otlpTracesUrl.value,
+            exportInterval: `${environment.otlpExportIntervalMs} millis`,
+            resource: {
+              serviceName: "desktop",
+              attributes: {
+                "service.runtime": "desktop",
+                "service.mode": environment.isDevelopment ? "development" : "packaged",
+              },
             },
-          },
-        });
+          });
     const tracer = yield* makeLocalFileTracer({
       filePath: tracePath,
       maxBytes: DESKTOP_LOG_FILE_MAX_BYTES,
