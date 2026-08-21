@@ -68,6 +68,7 @@ import {
 import { makeAcpNativeLoggerFactory } from "../acp/AcpNativeLogging.ts";
 import { buildHardwareSystemPrompt } from "../../hardware/HardwareAgentPrompt.ts";
 import { applyCursorAcpModelSelection, makeCursorAcpRuntime } from "../acp/CursorAcpSupport.ts";
+import * as CursorRulesFile from "../acp/CursorRulesFile.ts";
 import {
   CursorAskQuestionRequest,
   CursorCreatePlanRequest,
@@ -135,6 +136,12 @@ interface CursorSessionContext {
   readonly turns: Array<{ id: TurnId; items: Array<unknown> }>;
   lastPlanFingerprint: string | undefined;
   lastHardwarePrompt: string | undefined;
+  /**
+   * Working directory whose auto-managed `.cursor/rules/embedino-hardware.mdc`
+   * carries this session's hardware context (undefined when the rule file
+   * could not be written, e.g. a read-only workspace).
+   */
+  hardwareRulesCwd: string | undefined;
   activeToolchain: "platformio" | "arduino" | undefined;
   activeDeviceId: string | undefined;
   activeTurnId: TurnId | undefined;
@@ -338,6 +345,16 @@ export function makeCursorAdapter(
     const makeAcpNativeLoggers = yield* makeAcpNativeLoggerFactory();
 
     const sessions = new Map<ThreadId, CursorSessionContext>();
+    /**
+     * Reference count per working directory for the auto-managed hardware
+     * rule file, so concurrent threads sharing a project do not delete the
+     * file out from under each other. `previousContent` holds the user's own
+     * file (if any) captured before the first write.
+     */
+    const hardwareRuleRegistrations = new Map<
+      string,
+      { refs: number; previousContent: string | null }
+    >();
     const threadLocksRef = yield* SynchronizedRef.make(new Map<string, Semaphore.Semaphore>());
     const runtimeEventPubSub = yield* PubSub.unbounded<ProviderRuntimeEvent>();
 
@@ -461,6 +478,32 @@ export function makeCursorAdapter(
       return Effect.succeed(ctx);
     };
 
+    const refreshHardwareRule = (cwd: string, content: string) =>
+      // Mid-session refresh overwrites our own managed file; the user's
+      // original content stays captured in the registration for final release.
+      CursorRulesFile.writeCursorHardwareRule({
+        fileSystem,
+        path,
+        cwd,
+        content,
+      }).pipe(Effect.ignore);
+
+    const releaseHardwareRulesFor = (cwd: string) =>
+      Effect.gen(function* () {
+        const registration = hardwareRuleRegistrations.get(cwd);
+        if (!registration) return;
+        registration.refs -= 1;
+        if (registration.refs > 0) return;
+        hardwareRuleRegistrations.delete(cwd);
+        yield* CursorRulesFile.releaseCursorHardwareRule({
+          fileSystem,
+          path,
+          cwd,
+          previousContent: registration.previousContent,
+        }).pipe(Effect.ignore);
+        yield* CursorRulesFile.removeGitExcludeEntry({ fileSystem, path, cwd }).pipe(Effect.ignore);
+      });
+
     const stopSessionInternal = (ctx: CursorSessionContext) =>
       Effect.gen(function* () {
         if (ctx.stopped) return;
@@ -469,6 +512,9 @@ export function makeCursorAdapter(
         yield* settlePendingUserInputsAsEmptyAnswers(ctx.pendingUserInputs);
         if (ctx.notificationFiber) {
           yield* Fiber.interrupt(ctx.notificationFiber);
+        }
+        if (ctx.hardwareRulesCwd !== undefined) {
+          yield* releaseHardwareRulesFor(ctx.hardwareRulesCwd);
         }
         yield* Effect.ignore(Scope.close(ctx.scope, Exit.void));
         sessions.delete(ctx.threadId);
@@ -537,6 +583,41 @@ export function makeCursorAdapter(
             : cursorSettings;
 
           const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+          // Hardware context rides an auto-managed workspace rule file that
+          // cursor-agent folds into its system prompt, so it never appears as
+          // chat content. Written per session; restored on stop (see
+          // CursorRulesFile.ts). A failed write degrades to no hardware
+          // context rather than blocking the session or leaking into text.
+          const launchHardwarePrompt = yield* buildHardwareSystemPrompt(
+            input.activeToolchain,
+            input.activeDeviceId,
+          );
+          const ruleWrite = yield* CursorRulesFile.writeCursorHardwareRule({
+            fileSystem,
+            path,
+            cwd,
+            content: launchHardwarePrompt,
+          }).pipe(Effect.exit);
+          let hardwareRulesCwd: string | undefined;
+          if (Exit.isSuccess(ruleWrite)) {
+            hardwareRulesCwd = cwd;
+            const registration = hardwareRuleRegistrations.get(cwd);
+            if (registration) {
+              registration.refs += 1;
+            } else {
+              hardwareRuleRegistrations.set(cwd, {
+                refs: 1,
+                previousContent: ruleWrite.value,
+              });
+              yield* CursorRulesFile.ensureGitExcludeEntry({ fileSystem, path, cwd }).pipe(
+                Effect.ignore,
+              );
+            }
+          } else {
+            yield* Effect.logWarning(
+              `Cursor hardware rules could not be written to '${cwd}'; continuing without hardware context.`,
+            );
+          }
           const acp = yield* makeCursorAcpRuntime({
             cursorSettings: effectiveCursorSettings,
             ...(options?.environment ? { environment: options.environment } : {}),
@@ -782,7 +863,10 @@ export function makeCursorAdapter(
             pendingUserInputs,
             turns: [],
             lastPlanFingerprint: undefined,
-            lastHardwarePrompt: undefined,
+            // Pre-seeded with the launch snapshot so the first turn does not
+            // resend hardware context the rule file already delivered.
+            lastHardwarePrompt: hardwareRulesCwd !== undefined ? launchHardwarePrompt : undefined,
+            hardwareRulesCwd,
             activeToolchain: input.activeToolchain,
             activeDeviceId: input.activeDeviceId,
             activeTurnId: undefined,
@@ -970,20 +1054,20 @@ export function makeCursorAdapter(
 
           const promptParts: Array<EffectAcpSchema.ContentBlock> = [];
 
-          let rawText = input.input?.trim();
+          // Hardware state changes mid-session are folded into the auto-
+          // managed rule file instead of the user's message text, keeping
+          // every user-visible prompt exactly what the user typed.
           const hardwarePrompt = yield* buildHardwareSystemPrompt(
             ctx.activeToolchain,
             ctx.activeDeviceId,
           );
-
           if (ctx.lastHardwarePrompt !== hardwarePrompt) {
-            const prefix =
-              ctx.turns.length === 0 ? "" : "\n\n[System Update: Hardware state has changed]\n";
-            rawText = rawText
-              ? `${prefix}${hardwarePrompt}\n\n${rawText}`
-              : `${prefix}${hardwarePrompt}`;
             ctx.lastHardwarePrompt = hardwarePrompt;
+            if (ctx.hardwareRulesCwd !== undefined) {
+              yield* refreshHardwareRule(ctx.hardwareRulesCwd, hardwarePrompt);
+            }
           }
+          const rawText = input.input?.trim();
 
           if (rawText) {
             promptParts.push({ type: "text", text: rawText });

@@ -575,11 +575,20 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
           });
 
           const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+          // The hardware prompt rides grok's hidden `--rules` channel (the CLI
+          // appends it to the system prompt), so the model gets hardware
+          // context without it ever appearing as chat content. sendTurn only
+          // injects text when the state changes after this launch snapshot.
+          const launchHardwarePrompt = yield* buildHardwareSystemPrompt(
+            input.activeToolchain,
+            input.activeDeviceId,
+          );
           const acp = yield* makeGrokAcpRuntime({
             grokSettings,
             ...(options?.environment ? { environment: options.environment } : {}),
             childProcessSpawner,
             cwd,
+            ...(launchHardwarePrompt ? { hardwareRules: launchHardwarePrompt } : {}),
             ...(resumeSessionId ? { resumeSessionId } : {}),
             clientInfo: { name: "embedino-code", version: "0.0.0" },
             ...(mcpSession
@@ -779,7 +788,9 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
             pendingUserInputs,
             turns: [],
             lastPlanFingerprint: undefined,
-            lastHardwarePrompt: undefined,
+            // Pre-seeded with the launch snapshot so the first turn does not
+            // re-send hardware context that `--rules` already delivered.
+            lastHardwarePrompt: launchHardwarePrompt || undefined,
             activeToolchain: input.activeToolchain,
             activeDeviceId: input.activeDeviceId,
             activeTurnId: undefined,

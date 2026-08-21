@@ -555,16 +555,30 @@ it.layer(grokAdapterTestLayer)("GrokAdapterLive", (it) => {
         modelSelection: { instanceId: ProviderInstanceId.make("grok"), model: "grok-build" },
       });
 
-      yield* Effect.gen(function* () {
-        yield* Effect.sleep("500 millis");
-        yield* adapter.interruptTurn(threadId);
-      }).pipe(Effect.forkChild({ startImmediately: true }));
+      const hungTurnFiber = yield* adapter
+        .sendTurn({
+          threadId,
+          input: "hang forever",
+          attachments: [],
+        })
+        .pipe(Effect.forkChild);
 
-      yield* adapter.sendTurn({
-        threadId,
-        input: "hang forever",
-        attachments: [],
+      // Interrupt only once the hung prompt is actually in flight. A blind
+      // timer races prompt preparation (the hardware scan ahead of the spawn)
+      // on slower machines and would cancel the wrong phase of the turn.
+      yield* Effect.gen(function* () {
+        for (let attempt = 0; attempt < 400; attempt += 1) {
+          const sessions = yield* adapter.listSessions();
+          const session = sessions.find((entry) => entry.threadId === threadId);
+          if (session?.activeTurnId !== undefined && session.status === "running") {
+            return;
+          }
+          yield* Effect.sleep("10 millis");
+        }
+        throw new Error("Timed out waiting for the silent prompt to be in flight.");
       });
+      yield* adapter.interruptTurn(threadId);
+      yield* Fiber.join(hungTurnFiber);
       for (let yieldAttempt = 0; yieldAttempt < 8; yieldAttempt += 1) {
         yield* Effect.yieldNow;
       }
@@ -1026,7 +1040,7 @@ it.layer(grokAdapterTestLayer)("GrokAdapterLive", (it) => {
     }),
   );
 
-  it.effect("accepts sendTurn with empty input because of hardware context injection", () =>
+  it.effect("rejects whitespace-only turns now that hardware context rides the rules channel", () =>
     Effect.gen(function* () {
       const threadId = ThreadId.make("grok-empty-turn");
 
@@ -1041,13 +1055,17 @@ it.layer(grokAdapterTestLayer)("GrokAdapterLive", (it) => {
         modelSelection: { instanceId: ProviderInstanceId.make("grok"), model: "grok-build" },
       });
 
-      const result = yield* adapter.sendTurn({
-        threadId,
-        input: "   ",
-        attachments: [],
-      });
+      // Hardware context is delivered at launch via grok's hidden `--rules`
+      // flag, so a turn with no visible text has nothing to send.
+      const error = yield* adapter
+        .sendTurn({
+          threadId,
+          input: "   ",
+          attachments: [],
+        })
+        .pipe(Effect.flip);
 
-      assert.isDefined(result.turnId);
+      assert.equal(error._tag, "ProviderAdapterValidationError");
 
       yield* adapter.stopSession(threadId);
     }),

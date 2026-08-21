@@ -217,7 +217,6 @@ interface OpenCodeSessionContext {
   readonly emittedTextByPartId: Map<string, string>;
   readonly completedAssistantPartIds: Set<string>;
   readonly turns: Array<OpenCodeTurnSnapshot>;
-  lastHardwarePrompt: string | undefined;
   activeToolchain: "platformio" | "arduino" | undefined;
   activeDeviceId: string | undefined;
   activeTurnId: TurnId | undefined;
@@ -1384,7 +1383,6 @@ export function makeOpenCodeAdapter(
           messageRoleById: new Map(),
           completedAssistantPartIds: new Set(),
           turns: [],
-          lastHardwarePrompt: undefined,
           activeToolchain: input.activeToolchain,
           activeDeviceId: input.activeDeviceId,
           activeTurnId: undefined,
@@ -1443,18 +1441,16 @@ export function makeOpenCodeAdapter(
         });
       }
 
+      // OpenCode exposes a dedicated per-request system channel: the `system`
+      // body field is appended to the model's system prompt and is never
+      // rendered as chat content. The hardware prompt rides there instead of
+      // being glued to the user's message text, so it stays invisible and can
+      // refresh every turn without polluting the transcript.
       const hardwarePrompt = yield* buildHardwareSystemPrompt(
         context.activeToolchain,
         context.activeDeviceId,
       );
-      let text = input.input?.trim();
-
-      if (context.lastHardwarePrompt !== hardwarePrompt) {
-        const prefix =
-          context.turns.length === 0 ? "" : "\n\n[System Update: Hardware state has changed]\n";
-        text = text ? `${prefix}${hardwarePrompt}\n\n${text}` : `${prefix}${hardwarePrompt}`;
-        context.lastHardwarePrompt = hardwarePrompt;
-      }
+      const text = input.input?.trim();
       const fileParts = toOpenCodeFileParts({
         attachments: input.attachments,
         resolveAttachmentPath: (attachment) =>
@@ -1504,6 +1500,7 @@ export function makeOpenCodeAdapter(
           model: parsedModel,
           ...(context.activeAgent ? { agent: context.activeAgent } : {}),
           ...(context.activeVariant ? { variant: context.activeVariant } : {}),
+          ...(hardwarePrompt ? { system: hardwarePrompt } : {}),
           parts: [...(text ? [{ type: "text" as const, text }] : []), ...fileParts],
         }),
       ).pipe(

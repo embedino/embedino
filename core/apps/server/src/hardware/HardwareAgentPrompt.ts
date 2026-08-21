@@ -26,9 +26,12 @@ export function buildHardwareSystemPrompt(
   return Effect.gen(function* () {
     const allDevices: Array<HardwareDevice> = yield* scanDevices();
     const binaryPaths = yield* getToolchainBinaryPaths();
-    const devices = activeDeviceId
-      ? allDevices.filter((device) => device.id === activeDeviceId)
-      : allDevices;
+    // Sort deterministically: OS enumeration order (WMI/USB) is not stable
+    // between scans, and an unstable render would make byte-identical hardware
+    // state produce a different prompt every turn.
+    const devices = (
+      activeDeviceId ? allDevices.filter((device) => device.id === activeDeviceId) : [...allDevices]
+    ).sort(compareDevicesForStableRender);
 
     return [
       ROLE_SECTION,
@@ -179,6 +182,12 @@ function hardwareSection(
     state,
     "</hardware_state>",
   ].join("\n");
+}
+
+function compareDevicesForStableRender(left: HardwareDevice, right: HardwareDevice): number {
+  const byPort = left.portDisplayName.localeCompare(right.portDisplayName);
+  if (byPort !== 0) return byPort;
+  return left.id.localeCompare(right.id);
 }
 
 /**

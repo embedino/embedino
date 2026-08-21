@@ -388,6 +388,48 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
     }),
   );
 
+  it.effect("sends the hardware prompt through the hidden system channel, not the user text", () =>
+    Effect.gen(function* () {
+      const adapter = yield* OpenCodeAdapter;
+      const threadId = asThreadId("thread-opencode-hardware-system");
+
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("opencode"),
+        threadId,
+        runtimeMode: "full-access",
+      });
+
+      yield* adapter.sendTurn({
+        threadId,
+        input: "hello",
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("opencode"),
+          model: "openai/gpt-5",
+        },
+      });
+
+      const promptCall = runtimeMock.state.promptCalls.at(-1) as {
+        system?: string;
+        parts?: Array<{ type: string; text?: string }>;
+      };
+
+      // The hardware/system prompt rides in the per-request `system` field
+      // (OpenCode appends it to the model's system prompt)…
+      NodeAssert.equal(typeof promptCall.system, "string");
+      if (typeof promptCall.system === "string") {
+        NodeAssert.ok(promptCall.system.includes("<role>"));
+        NodeAssert.ok(promptCall.system.includes("<hardware_state>"));
+      }
+
+      // …and the user text part carries only what the user typed.
+      const textParts = (promptCall.parts ?? []).filter((part) => part.type === "text");
+      NodeAssert.equal(textParts.length, 1);
+      NodeAssert.equal(textParts[0]?.text, "hello");
+
+      yield* adapter.stopSession(threadId);
+    }),
+  );
+
   it.effect("falls back to a fresh session when the persisted session is gone", () =>
     Effect.gen(function* () {
       const adapter = yield* OpenCodeAdapter;

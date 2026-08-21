@@ -27,16 +27,34 @@ interface GrokAcpRuntimeInput extends Omit<
   readonly childProcessSpawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
   readonly grokSettings: GrokAcpRuntimeGrokSettings | null | undefined;
   readonly environment?: NodeJS.ProcessEnv;
+  /**
+   * Hardware context delivered through grok's hidden `--rules` channel
+   * (appended to the system prompt) so it never renders as chat content.
+   */
+  readonly hardwareRules?: string;
 }
 
 export function buildGrokAcpSpawnInput(
   grokSettings: GrokAcpRuntimeGrokSettings | null | undefined,
   cwd: string,
   environment?: NodeJS.ProcessEnv,
+  hardwareRules?: string,
 ): AcpSessionRuntime.AcpSpawnInput {
   return {
     command: grokSettings?.binaryPath || "grok",
-    args: ["agent", "stdio"],
+    // `--rules` is a global flag: it must precede the `agent` subcommand
+    // (`grok agent stdio --rules …` is rejected by the CLI).
+    //
+    // Rules are flattened to a single line because the argument travels
+    // through CreateProcess/cmd.exe quoting, which cannot carry raw newlines
+    // in argv; the section tags keep the prompt unambiguous either way.
+    args: [
+      ...(hardwareRules
+        ? ["--rules", hardwareRules.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim()]
+        : []),
+      "agent",
+      "stdio",
+    ],
     cwd,
     env: {
       ...environment,
@@ -62,7 +80,12 @@ export const makeGrokAcpRuntime = (
     const acpContext = yield* Layer.build(
       AcpSessionRuntime.layer({
         ...input,
-        spawn: buildGrokAcpSpawnInput(input.grokSettings, input.cwd, input.environment),
+        spawn: buildGrokAcpSpawnInput(
+          input.grokSettings,
+          input.cwd,
+          input.environment,
+          input.hardwareRules,
+        ),
         authMethodId: resolveGrokAuthMethodId(input.environment),
       }).pipe(
         Layer.provide(

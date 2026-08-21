@@ -33,6 +33,23 @@ describe("buildGrokAcpSpawnInput", () => {
       },
     });
   });
+
+  it("prepends --rules before the agent subcommand when hardware rules are set", () => {
+    const spawn = buildGrokAcpSpawnInput(
+      { binaryPath: "/usr/local/bin/grok" },
+      "/tmp/project",
+      undefined,
+      "<hardware_state>\nPort COM3\n</hardware_state>",
+    );
+
+    // Newlines are flattened for safe argv transport; tags keep it unambiguous.
+    expect(spawn.args).toEqual([
+      "--rules",
+      "<hardware_state> Port COM3 </hardware_state>",
+      "agent",
+      "stdio",
+    ]);
+  });
 });
 
 describe("applyGrokAcpModelSelection", () => {

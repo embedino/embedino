@@ -41,6 +41,12 @@ const mockAgentPath = NodePath.join(__dirname, "../../../scripts/acp-mock-agent.
 const mockAgentCommand = "node";
 const mockAgentArgs = [mockAgentPath] as const;
 
+// Sessions run in a throwaway workspace so the auto-managed hardware rules
+// file (.cursor/rules/embedino-hardware.mdc) never lands in this repository.
+const makeTestWorkspace = Effect.promise(() =>
+  NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "cursor-acp-cwd-")),
+);
+
 async function makeMockAgentWrapper(
   extraEnv?: Record<string, string>,
   options?: { initialDelaySeconds?: number },
@@ -185,7 +191,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       const session = yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -250,6 +256,77 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
     }),
   );
 
+  it.effect("delivers hardware context through a workspace rule file, not the prompt text", () =>
+    Effect.gen(function* () {
+      const adapter = yield* CursorAdapter;
+      const serverSettings = yield* ServerSettingsService;
+      const threadId = ThreadId.make("cursor-hardware-rules-probe");
+      const tempDir = yield* Effect.promise(() =>
+        NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "cursor-acp-")),
+      );
+      const requestLogPath = NodePath.join(tempDir, "requests.ndjson");
+      const argvLogPath = NodePath.join(tempDir, "argv.txt");
+      yield* Effect.promise(() => NodeFSP.writeFile(requestLogPath, "", "utf8"));
+      const wrapperPath = yield* Effect.promise(() =>
+        makeProbeWrapper(requestLogPath, argvLogPath),
+      );
+      yield* serverSettings.updateSettings({ providers: { cursor: { binaryPath: wrapperPath } } });
+
+      const workspace = yield* makeTestWorkspace;
+      const ruleFilePath = NodePath.join(workspace, ".cursor", "rules", "embedino-hardware.mdc");
+
+      yield* adapter.startSession({
+        threadId,
+        provider: ProviderDriverKind.make("cursor"),
+        cwd: workspace,
+        runtimeMode: "full-access",
+        modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
+      });
+
+      // The rule file exists at session start and carries the hardware prompt.
+      const ruleContent = yield* Effect.promise(() => NodeFSP.readFile(ruleFilePath, "utf8"));
+      assert.include(ruleContent, "alwaysApply: true");
+      assert.include(ruleContent, "<hardware_state>");
+
+      const turnCompletedFiber = yield* adapter.streamEvents.pipe(
+        Stream.filter((event) => event.threadId === threadId && event.type === "turn.completed"),
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      yield* adapter.sendTurn({
+        threadId,
+        input: "hello",
+        attachments: [],
+      });
+      yield* Fiber.join(turnCompletedFiber).pipe(Effect.timeout("5 seconds"));
+
+      // The visible user text part carries only what the user typed.
+      const requests = yield* Effect.promise(() => readJsonLines(requestLogPath));
+      const promptRequest = requests.find((entry) => entry.method === "session/prompt");
+      assert.isDefined(promptRequest);
+      const promptParams = promptRequest.params as Record<string, unknown>;
+      const promptBlocks = (promptParams.prompt ?? []) as Array<{
+        type: string;
+        text?: string;
+      }>;
+      const textBlocks = promptBlocks.filter((block) => block.type === "text");
+      assert.equal(textBlocks.length, 1);
+      assert.equal(textBlocks[0]?.text, "hello");
+
+      yield* adapter.stopSession(threadId);
+
+      // Stopping the session removes the auto-managed file.
+      const fileGone = yield* Effect.promise(() =>
+        NodeFSP.access(ruleFilePath).then(
+          () => false,
+          () => true,
+        ),
+      );
+      assert.isTrue(fileGone);
+    }),
+  );
+
   it.effect("steers a running turn instead of opening a new one on mid-turn sendTurn", () =>
     Effect.gen(function* () {
       const adapter = yield* CursorAdapter;
@@ -272,7 +349,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -346,7 +423,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -385,14 +462,14 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
             adapter.startSession({
               threadId,
               provider: ProviderDriverKind.make("cursor"),
-              cwd: process.cwd(),
+              cwd: yield* makeTestWorkspace,
               runtimeMode: "full-access",
               modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
             }),
             adapter.startSession({
               threadId,
               provider: ProviderDriverKind.make("cursor"),
-              cwd: process.cwd(),
+              cwd: yield* makeTestWorkspace,
               runtimeMode: "full-access",
               modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
             }),
@@ -417,7 +494,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
         .startSession({
           threadId: ThreadId.make("bad-provider"),
           provider: ProviderDriverKind.make("codex"),
-          cwd: process.cwd(),
+          cwd: yield* makeTestWorkspace,
           runtimeMode: "full-access",
         })
         .pipe(Effect.result);
@@ -445,7 +522,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "composer-2" },
       });
@@ -511,7 +588,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
         yield* adapter.startSession({
           threadId,
           provider: ProviderDriverKind.make("cursor"),
-          cwd: process.cwd(),
+          cwd: yield* makeTestWorkspace,
           runtimeMode: "full-access",
           modelSelection,
         });
@@ -605,7 +682,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
           yield* adapter.startSession({
             threadId,
             provider: ProviderDriverKind.make("cursor"),
-            cwd: process.cwd(),
+            cwd: yield* makeTestWorkspace,
             runtimeMode: "approval-required",
             modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
           });
@@ -772,7 +849,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
         yield* adapter.startSession({
           threadId,
           provider: ProviderDriverKind.make("cursor"),
-          cwd: process.cwd(),
+          cwd: yield* makeTestWorkspace,
           runtimeMode: "full-access",
           modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
         });
@@ -871,7 +948,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -1000,7 +1077,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "approval-required",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -1069,7 +1146,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "approval-required",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -1112,7 +1189,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -1155,7 +1232,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -1198,7 +1275,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "default" },
       });
@@ -1238,7 +1315,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "composer-2" },
       });
@@ -1303,7 +1380,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
       yield* adapter.startSession({
         threadId,
         provider: ProviderDriverKind.make("cursor"),
-        cwd: process.cwd(),
+        cwd: yield* makeTestWorkspace,
         runtimeMode: "full-access",
         modelSelection: { instanceId: ProviderInstanceId.make("cursor"), model: "composer-2" },
       });
@@ -1391,7 +1468,7 @@ cursorAdapterTestLayer("CursorAdapterLive", (it) => {
         yield* adapter.startSession({
           threadId,
           provider: ProviderDriverKind.make("cursor"),
-          cwd: process.cwd(),
+          cwd: yield* makeTestWorkspace,
           runtimeMode: "full-access",
           modelSelection: {
             instanceId: customInstanceId,
