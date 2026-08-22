@@ -1869,6 +1869,61 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
     }),
   );
 
+  it.effect("appends the Embedino co-author trailer to commits by default", () =>
+    Effect.gen(function* () {
+      const repoDir = yield* makeTempDir("embedino-git-manager-");
+      yield* initRepo(repoDir);
+      NodeFS.writeFileSync(NodePath.join(repoDir, "README.md"), "hello\nattribution\n");
+
+      const { manager } = yield* makeManager({
+        textGeneration: {
+          generateCommitMessage: () =>
+            Effect.succeed({ subject: "Add feature work", body: "- did things" }),
+        },
+      });
+      yield* runStackedAction(manager, {
+        cwd: repoDir,
+        action: "commit",
+      });
+
+      const body = yield* runGit(repoDir, ["log", "-1", "--pretty=%B"]).pipe(
+        Effect.map((result) => result.stdout),
+      );
+      expect(body).toContain("- did things");
+      expect(body).toContain("Co-authored-by: Embedino <noreply@embedino.app>");
+    }),
+  );
+
+  it.effect("omits the co-author trailer when commit attribution is disabled", () =>
+    Effect.gen(function* () {
+      const repoDir = yield* makeTempDir("embedino-git-manager-");
+      yield* initRepo(repoDir);
+      NodeFS.writeFileSync(NodePath.join(repoDir, "README.md"), "hello\nno-attribution\n");
+
+      const { manager } = yield* makeManager({
+        serverSettings: {
+          sourceControlAttribution: {
+            commitAttribution: false,
+          },
+        },
+        textGeneration: {
+          generateCommitMessage: () =>
+            Effect.succeed({ subject: "Add feature work", body: "- did things" }),
+        },
+      });
+      yield* runStackedAction(manager, {
+        cwd: repoDir,
+        action: "commit",
+      });
+
+      const body = yield* runGit(repoDir, ["log", "-1", "--pretty=%B"]).pipe(
+        Effect.map((result) => result.stdout),
+      );
+      expect(body).toContain("- did things");
+      expect(body).not.toContain("Co-authored-by:");
+    }),
+  );
+
   it.effect("commits only selected files when filePaths is provided", () =>
     Effect.gen(function* () {
       const repoDir = yield* makeTempDir("embedino-git-manager-");

@@ -4,10 +4,10 @@ import type { SnoozePreset } from "@embedino/client-runtime/state/thread-settled
 /**
  * Ids for the per-thread action menu. Snooze presets are dispatched as
  * `snooze:<presetId>` so the union stays closed while the preset list
- * remains data-driven.
+ * remains data-driven. Copy targets keep their own ids and ride under the
+ * "copy" submenu.
  */
 export type ThreadActionMenuId =
-  | "new-thread-on-branch"
   | "pin"
   | "unpin"
   | "settle"
@@ -18,6 +18,7 @@ export type ThreadActionMenuId =
   | "rename"
   | "regenerate-title"
   | "mark-unread"
+  | "copy"
   | "copy-path"
   | "copy-branch"
   | "copy-thread-id"
@@ -43,19 +44,15 @@ export interface ThreadActionMenuState {
  * Single source for the per-thread action menu: the sidebar row's right-click
  * menu and the chat header menu both render exactly this list, so labels,
  * ordering, and capability gating cannot drift between the two surfaces.
+ *
+ * The menu stays at professional-menu scale (ChatGPT/Claude/Linear): manage
+ * state first, then content actions, then one grouped Copy submenu, with the
+ * single destructive action last.
  */
 export function buildThreadActionMenuItems(
   state: ThreadActionMenuState,
 ): ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> {
   return [
-    ...(state.branch
-      ? [
-          {
-            id: "new-thread-on-branch" as const,
-            label: `New thread on ${state.branch}`,
-          },
-        ]
-      : []),
     ...(state.supports.pinning
       ? [
           state.isPinned
@@ -99,9 +96,17 @@ export function buildThreadActionMenuItems(
         ]
       : []),
     { id: "mark-unread", label: "Mark unread" },
-    { id: "copy-path", label: "Copy path", icon: "copy" },
-    ...(state.branch ? [{ id: "copy-branch" as const, label: "Copy branch", icon: "copy" }] : []),
-    { id: "copy-thread-id", label: "Copy thread ID", icon: "copy" },
+    // One copy entry instead of three flat rows: identifiers are lookup
+    // affordances, not primary thread management.
+    {
+      id: "copy" as const,
+      label: "Copy",
+      children: [
+        { id: "copy-path" as const, label: "Copy path" },
+        ...(state.branch ? [{ id: "copy-branch" as const, label: "Copy branch" }] : []),
+        { id: "copy-thread-id" as const, label: "Copy thread ID" },
+      ],
+    },
     { id: "delete", label: "Delete", destructive: true, icon: "trash" },
   ];
 }

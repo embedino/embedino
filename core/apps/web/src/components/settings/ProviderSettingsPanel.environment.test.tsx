@@ -37,6 +37,7 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...actual,
     useCallback: reactHookHarness.useCallback,
+    useEffect: reactHookHarness.useEffect,
     useMemo: reactHookHarness.useMemo,
     useRef: reactHookHarness.useRef,
     useState: reactHookHarness.useState,
@@ -163,13 +164,25 @@ describe("EnvironmentProviderSettings routing", () => {
 
     expect(commands.refresh).toHaveBeenCalledWith({ environmentId, input: {} });
 
+    // The update command lives on the per-instance settings dialog, so open
+    // Codex first: activating the quiet row flips the harness's
+    // `activeInstanceId` slot, and the next invocation renders the dialog.
     const providerCard = visitElements(
       panel,
       (element) =>
-        element.props.instanceId === codexId && typeof element.props.onRunUpdate === "function",
+        element.props.instanceId === codexId && typeof element.props.onOpenSettings === "function",
     );
     expect(providerCard).not.toBeNull();
-    (providerCard?.props.onRunUpdate as (() => void) | undefined)?.();
+    (providerCard?.props.onOpenSettings as () => void)?.();
+
+    const reopenedPanel = renderPanel();
+    const settingsDialog = visitElements(
+      reopenedPanel,
+      (element) =>
+        element.props.instanceId === codexId && typeof element.props.onRunUpdate === "function",
+    );
+    expect(settingsDialog).not.toBeNull();
+    (settingsDialog?.props.onRunUpdate as (() => void) | undefined)?.();
     await flushPromises();
 
     expect(commands.updateProvider).toHaveBeenCalledWith({

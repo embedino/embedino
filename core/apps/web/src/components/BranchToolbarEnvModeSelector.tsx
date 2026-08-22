@@ -1,6 +1,7 @@
 import { FolderGit2Icon, FolderGitIcon, FolderIcon, HistoryIcon } from "lucide-react";
 import { memo, useMemo } from "react";
 
+import { cn } from "~/lib/utils";
 import {
   resolveCurrentWorkspaceLabel,
   resolveEnvModeLabel,
@@ -26,6 +27,8 @@ interface BranchToolbarEnvModeSelectorProps {
   onEnvModeChange: (mode: EnvMode) => void;
   previousWorktreeLabel?: string | null;
   onUsePreviousWorktree?: () => void;
+  /** Extra classes for the trigger (used by the in-composer pill variant). */
+  triggerClassName?: string;
 }
 
 export const BranchToolbarEnvModeSelector = memo(function BranchToolbarEnvModeSelector({
@@ -35,6 +38,7 @@ export const BranchToolbarEnvModeSelector = memo(function BranchToolbarEnvModeSe
   onEnvModeChange,
   previousWorktreeLabel,
   onUsePreviousWorktree,
+  triggerClassName,
 }: BranchToolbarEnvModeSelectorProps) {
   const showPreviousWorktree = Boolean(previousWorktreeLabel && onUsePreviousWorktree);
   const envModeItems = useMemo(
@@ -85,7 +89,10 @@ export const BranchToolbarEnvModeSelector = memo(function BranchToolbarEnvModeSe
       <SelectTrigger
         variant="ghost"
         size="xs"
-        className="min-w-0 shrink font-medium"
+        className={cn(
+          "min-w-0 shrink rounded-full font-normal text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring data-pressed:bg-muted [&_[data-slot=select-icon]]:hidden",
+          triggerClassName,
+        )}
         aria-label="Workspace"
         data-composer-context-control
       >
@@ -108,7 +115,13 @@ export const BranchToolbarEnvModeSelector = memo(function BranchToolbarEnvModeSe
           </span>
         </span>
       </SelectTrigger>
-      <SelectPopup>
+      {/* Anchor below the trigger (never flip up over the composer) and use
+          the solid blended popup surface shared with the prompt-input menus. */}
+      <SelectPopup
+        side="bottom"
+        alignItemWithTrigger={false}
+        popupClassName="rounded-xl border border-border bg-background shadow-[0_10px_18px_rgba(0,0,0,0.14)] before:hidden [-webkit-backdrop-filter:none]! [backdrop-filter:none]!"
+      >
         <SelectGroup>
           <SelectGroupLabel>Workspace</SelectGroupLabel>
           <SelectItem value="local">

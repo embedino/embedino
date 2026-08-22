@@ -105,7 +105,6 @@ import { ContextWindowMeter } from "./ContextWindowMeter";
 import { buildExpandedImagePreview, type ExpandedImagePreview } from "./ExpandedImagePreview";
 import { basenameOfPath } from "../../pierre-icons";
 import { cn, randomUUID } from "~/lib/utils";
-import { Separator } from "../ui/separator";
 
 type ComposerCommandMenuPosition = {
   bottom: number;
@@ -192,9 +191,12 @@ import { Select, SelectItem, SelectPopup, SelectValue } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { toastManager } from "../ui/toast";
 import {
+  AtSignIcon,
   BotIcon,
   CircleAlertIcon,
+  ImagePlusIcon,
   PencilRulerIcon,
+  PuzzleIcon,
   type LucideIcon,
   LockIcon,
   LockOpenIcon,
@@ -202,6 +204,8 @@ import {
   SparklesIcon,
   XIcon,
 } from "lucide-react";
+import type { PromptActionItem } from "./PromptActionsMenu";
+import { PromptActionsMenu } from "./PromptActionsMenu";
 import { proposedPlanTitle } from "../../proposedPlan";
 import { getProviderDisplayName, getProviderInteractionModeToggle } from "../../providerModels";
 import {
@@ -254,6 +258,23 @@ const runtimeModeConfig: Record<
 };
 
 const runtimeModeOptions = Object.keys(runtimeModeConfig) as RuntimeMode[];
+
+/**
+ * Shared trigger styling for every footer control (+ actions, model picker,
+ * traits / access level / plan-build) — one identical ghost pill that blends
+ * into the composer card: round, muted label, smooth color transition, soft
+ * muted background on hover/press. Mirrors the PromptActionsMenu trigger.
+ */
+const composerFooterPillTriggerClassName =
+  "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-full border-0 bg-transparent px-2.5 py-0 text-xs font-normal text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring data-pressed:bg-muted disabled:pointer-events-none disabled:opacity-64 [&_svg[data-composer-control-chevron]]:hidden";
+
+/**
+ * Popup surface matching the prompt actions menu: solid card background with
+ * a hairline border and soft drop shadow — no glass blur — so every footer
+ * menu blends with the composer the same way.
+ */
+const composerPopupBlendClassName =
+  "rounded-xl border border-border bg-background shadow-[0_10px_18px_rgba(0,0,0,0.14)] before:hidden [-webkit-backdrop-filter:none]! [backdrop-filter:none]!";
 const COMPOSER_FLOATING_LAYER_SELECTOR = [
   '[data-slot="popover-popup"]',
   '[data-slot="menu-popup"]',
@@ -308,55 +329,56 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
       ? "Plan mode — click to return to normal build mode"
       : "Default mode — click to enter plan mode";
 
+  // beUI prompt-input control language: h-8 rounded-xl ghost pills, muted
+  // labels, no chevrons — matching the model picker trigger beside them.
   const interactionModeToggle = props.showInteractionModeToggle ? (
-    <>
-      <Separator orientation="vertical" className="mx-0.5 hidden h-4 sm:block" />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <ComposerControl
-              className={cn(
-                "shrink-0 whitespace-nowrap",
-                props.interactionMode === "plan"
-                  ? "bg-accent text-accent-foreground hover:bg-accent/80"
-                  : "text-secondary-label hover:text-foreground",
-              )}
-              type="button"
-              onClick={props.onToggleInteractionMode}
-              aria-label={interactionModeTooltip}
-            />
-          }
-        >
-          {props.interactionMode === "plan" ? (
-            <ComposerControlIcon icon={PencilRulerIcon} className="text-current opacity-100" />
-          ) : (
-            <ComposerControlIcon icon={BotIcon} opticalSize="large" />
-          )}
-          <span className="sr-only sm:not-sr-only">
-            {props.interactionMode === "plan" ? "Plan" : "Build"}
-          </span>
-        </TooltipTrigger>
-        <TooltipPopup side="top">{interactionModeTooltip}</TooltipPopup>
-      </Tooltip>
-    </>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <ComposerControl
+            className={cn(
+              composerFooterPillTriggerClassName,
+              props.interactionMode === "plan" &&
+                "bg-accent text-accent-foreground hover:bg-accent/80 data-pressed:bg-accent/80",
+            )}
+            type="button"
+            onClick={props.onToggleInteractionMode}
+            aria-label={interactionModeTooltip}
+          />
+        }
+      >
+        {props.interactionMode === "plan" ? (
+          <ComposerControlIcon icon={PencilRulerIcon} className="text-current opacity-100" />
+        ) : (
+          <ComposerControlIcon icon={BotIcon} />
+        )}
+        <span className="sr-only sm:not-sr-only">
+          {props.interactionMode === "plan" ? "Plan" : "Build"}
+        </span>
+      </TooltipTrigger>
+      <TooltipPopup side="top">{interactionModeTooltip}</TooltipPopup>
+    </Tooltip>
   ) : null;
 
   return (
     <>
-      <Separator orientation="vertical" className="mx-0.5 hidden h-4 sm:block" />
-
       <Tooltip>
         <Select
           value={props.runtimeMode}
           onValueChange={(value) => props.onRuntimeModeChange(value!)}
         >
           <TooltipTrigger
-            render={<ComposerSelectControl className="font-medium" aria-label="Runtime mode" />}
+            render={
+              <ComposerSelectControl
+                aria-label="Runtime mode"
+                className={composerFooterPillTriggerClassName}
+              />
+            }
           >
             <ComposerControlIcon icon={RuntimeModeIcon} />
             <SelectValue>{runtimeModeOption.label}</SelectValue>
           </TooltipTrigger>
-          <SelectPopup alignItemWithTrigger={false}>
+          <SelectPopup alignItemWithTrigger={false} popupClassName={composerPopupBlendClassName}>
             {runtimeModeOptions.map((mode) => {
               const option = runtimeModeConfig[mode];
               const OptionIcon = option.icon;
@@ -972,6 +994,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const mobileComposerExpandReleaseFrameRef = useRef<number | null>(null);
   const mobileComposerExpandInFlightRef = useRef(false);
   const dragDepthRef = useRef(0);
+  const composerImageFileInputRef = useRef<HTMLInputElement | null>(null);
   const stashPulseKeyRef = useRef(0);
   const stashPulseTimeoutRef = useRef<number | null>(null);
   /**
@@ -1217,6 +1240,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     modelOptions: composerModelOptions?.[selectedInstanceId],
     prompt,
     onPromptChange: setPromptFromTraits,
+    triggerClassName: composerFooterPillTriggerClassName,
+    contentClassName: composerPopupBlendClassName,
   });
   const pendingPrimaryAction = useMemo(
     () =>
@@ -2438,6 +2463,51 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     );
   };
 
+  // beUI-style "+" prompt actions: attach images through the hidden file
+  // input, or drop an @ / $ trigger so the command menu opens inline.
+  const promptActions = useMemo<PromptActionItem[]>(
+    () => [
+      {
+        value: "attach-image",
+        label: "Attach image",
+        description: "Add a screenshot or image reference.",
+        icon: <ImagePlusIcon />,
+      },
+      {
+        value: "tag-context",
+        label: "Tag files or folders",
+        description: "Mention workspace context with @.",
+        icon: <AtSignIcon />,
+      },
+      {
+        value: "use-skill",
+        label: "Use a skill",
+        description: "Run a provider skill via $.",
+        icon: <PuzzleIcon />,
+      },
+    ],
+    [],
+  );
+
+  const handlePromptAction = (action: PromptActionItem) => {
+    if (action.value === "attach-image") {
+      composerImageFileInputRef.current?.click();
+      // The native file dialog hands focus back to the trigger on close;
+      // blur it so no focus ring/glow lingers after attach or cancel.
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      return;
+    }
+    if (action.value === "tag-context") {
+      insertComposerTextAtEnd("@", { ensureLeadingBoundary: true });
+      return;
+    }
+    if (action.value === "use-skill") {
+      insertComposerTextAtEnd("$", { ensureLeadingBoundary: true });
+    }
+  };
+
   // File-tree drags land as mentions. Handled in the capture phase so the
   // editor never sees the drop; the load-bearing rules (native stop, "move"
   // effect, no eager focus) live in makeComposerMentionDragHandlers.
@@ -2657,7 +2727,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     >
       <div
         className={cn(
-          "group rounded-[22px] p-px transition-colors duration-200",
+          "group relative w-full rounded-2xl border border-border/80 bg-background transition-colors duration-200 focus-within:border-foreground/25",
           composerProviderState.composerFrameClassName,
         )}
         onDragEnter={onComposerDragEnter}
@@ -2673,7 +2743,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           ref={composerSurfaceRef}
           data-chat-composer-mobile-collapsed={isComposerCollapsedMobile ? "true" : "false"}
           className={cn(
-            "rounded-[20px] transition-[background-color] duration-200",
+            "rounded-2xl",
             isDragOverComposer ? "bg-accent/45 ring-1 ring-primary/70" : null,
             projectSelectionRequired ? "opacity-75" : null,
             composerProviderState.composerSurfaceClassName,
@@ -2699,14 +2769,14 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         >
           {!isComposerCollapsedMobile &&
             (activePendingApproval ? (
-              <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+              <div className="rounded-t-[15px] border-b border-border/65 bg-muted/20">
                 <ComposerPendingApprovalPanel
                   approval={activePendingApproval}
                   pendingCount={pendingApprovals.length}
                 />
               </div>
             ) : pendingUserInputs.length > 0 ? (
-              <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+              <div className="rounded-t-[15px] border-b border-border/65 bg-muted/20">
                 <ComposerPendingUserInputPanel
                   pendingUserInputs={pendingUserInputs}
                   respondingRequestIds={respondingRequestIds}
@@ -2717,7 +2787,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 />
               </div>
             ) : showPlanFollowUpPrompt && activeProposedPlan ? (
-              <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+              <div className="rounded-t-[15px] border-b border-border/65 bg-muted/20">
                 <ComposerPlanFollowUpBanner
                   key={activeProposedPlan.id}
                   planTitle={proposedPlanTitle(activeProposedPlan.planMarkdown) ?? null}
@@ -2727,7 +2797,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
 
           {isComposerCollapsedMobile && activePendingApproval ? (
             <div
-              className="rounded-t-[19px] border-b border-border/65 bg-muted/20"
+              className="rounded-t-[15px] border-b border-border/65 bg-muted/20"
               data-chat-composer-collapsed-controls="true"
             >
               <ComposerPendingApprovalPanel
@@ -2744,7 +2814,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             </div>
           ) : isComposerCollapsedMobile && pendingUserInputs.length > 0 ? (
             <div
-              className="rounded-t-[19px] border-b border-border/65 bg-muted/20"
+              className="rounded-t-[15px] border-b border-border/65 bg-muted/20"
               data-chat-composer-collapsed-controls="true"
             >
               <ComposerPendingUserInputPanel
@@ -2826,7 +2896,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               </button>
               <button
                 type="button"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-message-action text-message-action-foreground hover:bg-message-action-hover disabled:opacity-30"
+                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
                 disabled={collapsedComposerPrimaryActionDisabled}
                 aria-label={collapsedComposerPrimaryActionLabel}
                 onPointerDown={(event) => event.preventDefault()}
@@ -2851,8 +2921,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           <div
             ref={setComposerMenuAnchor}
             className={cn(
-              "relative px-3 pb-2 sm:px-4",
-              hasComposerHeader ? "pt-2.5 sm:pt-3" : "pt-3.5 sm:pt-4",
+              "relative px-4",
+              hasComposerHeader ? "pt-2.5 sm:pt-3" : "pt-3.5",
               isComposerCollapsedMobile && "hidden",
             )}
           >
@@ -2956,7 +3026,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     .map((image) => (
                       <div
                         key={image.id}
-                        className="relative h-16 w-16 overflow-hidden rounded-lg border border-border/80 bg-background"
+                        className="relative h-16 w-16 overflow-hidden rounded-lg border border-border/50 bg-background"
                       >
                         {image.previewUrl ? (
                           <button
@@ -3088,7 +3158,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
 
           {/* Bottom toolbar */}
           {isComposerCollapsedMobile ? null : activePendingApproval ? (
-            <div className="flex items-center justify-end gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
+            <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1 sm:px-4">
               <ComposerPendingApprovalActions
                 requestId={activePendingApproval.requestId}
                 isResponding={respondingRequestIds.includes(activePendingApproval.requestId)}
@@ -3100,13 +3170,29 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               data-chat-composer-footer="true"
               data-chat-composer-footer-compact={isComposerFooterCompact ? "true" : "false"}
               className={cn(
-                "flex min-w-0 flex-nowrap items-center justify-between gap-2 overflow-visible px-3 pb-3 sm:px-4 sm:pb-4",
-                pendingUserInputs.length > 0 && "pt-2",
-                isComposerFooterCompact ? "gap-1.5" : "gap-2 sm:gap-0",
+                "mx-2 mb-2 mt-1 flex min-h-8 min-w-0 flex-nowrap items-center gap-1",
+                pendingUserInputs.length > 0 && "mt-2",
                 showMobilePendingAnswerActions && "hidden sm:flex",
               )}
             >
-              <div className="-m-1 -ms-3.5 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto p-1 ps-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="-my-1 -ms-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 ps-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <PromptActionsMenu
+                  actions={promptActions}
+                  onAction={handlePromptAction}
+                  disabled={isConnecting || isComposerApprovalState || projectSelectionRequired}
+                />
+                <input
+                  ref={composerImageFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    event.target.value = "";
+                    void addComposerImages(files);
+                  }}
+                />
                 {noProviderAvailable ? (
                   <Button
                     type="button"
@@ -3114,7 +3200,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     variant="ghost"
                     disabled
                     data-chat-provider-unavailable="true"
-                    className="shrink-0 gap-2 px-2 text-secondary-label sm:px-3"
+                    className="h-8 shrink-0 gap-2 rounded-xl px-2 text-xs text-secondary-label sm:px-3"
                   >
                     <CircleAlertIcon className="size-4" />
                     No provider available
@@ -3129,7 +3215,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     instanceEntries={providerInstanceEntries}
                     keybindings={keybindings}
                     modelOptionsByInstance={modelOptionsByInstance}
-                    triggerClassName="-ms-2.5"
+                    hideChevron
+                    triggerClassName="-ms-1 h-8 w-auto max-w-52 shrink rounded-full border-0 bg-transparent px-2 py-0 text-xs font-normal text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring data-pressed:bg-muted"
                     terminalOpen={terminalOpen}
                     open={isComposerModelPickerOpen}
                     {...(composerProviderState.modelPickerIconClassName
@@ -3152,17 +3239,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     runtimeMode={runtimeMode}
                     showInteractionModeToggle={composerProviderControls.showInteractionModeToggle}
                     traitsMenuContent={providerTraitsMenuContent}
+                    contentClassName={composerPopupBlendClassName}
                     onToggleInteractionMode={toggleInteractionMode}
                     onRuntimeModeChange={handleRuntimeModeChange}
                   />
                 ) : (
                   <>
-                    {providerTraitsPicker ? (
-                      <>
-                        <Separator orientation="vertical" className="mx-0.5 hidden h-4 sm:block" />
-                        {providerTraitsPicker}
-                      </>
-                    ) : null}
+                    {providerTraitsPicker}
                     <ComposerFooterModeControls
                       showInteractionModeToggle={composerProviderControls.showInteractionModeToggle}
                       interactionMode={interactionMode}
@@ -3180,7 +3263,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 data-chat-composer-primary-actions-compact={
                   isComposerPrimaryActionsCompact ? "true" : "false"
                 }
-                className="flex shrink-0 flex-nowrap items-center justify-end gap-2"
+                className="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-1"
               >
                 <ComposerFooterPrimaryActions
                   compact={isComposerPrimaryActionsCompact}

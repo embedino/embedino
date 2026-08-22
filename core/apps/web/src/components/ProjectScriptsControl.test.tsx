@@ -26,40 +26,26 @@ function renderControl(scripts: ReadonlyArray<ProjectScript>) {
   );
 }
 
-function buttonTag(html: string, ariaLabel: string) {
-  return html.match(new RegExp(`<button[^>]*aria-label="${ariaLabel}"[^>]*>`))?.[0];
-}
-
-function expectResponsiveXsControl(markup: string | undefined) {
-  expect(markup).toBeDefined();
-  expect(markup).toContain("h-7");
-  expect(markup).toContain("gap-1");
-  expect(markup).toContain("text-sm");
-  expect(markup).toContain("sm:h-6");
-  expect(markup).toContain("sm:text-xs");
-  expect(markup).toContain("w-7");
-  expect(markup).toContain("px-0");
-  expect(markup).toContain("sm:w-6");
-  expect(markup).toContain("@3xl/header-actions:w-auto!");
-  expect(markup).toContain("@3xl/header-actions:px-[calc(--spacing(2)-1px)]");
-}
-
 describe("ProjectScriptsControl compact controls", () => {
-  it("keeps the primary Run control compact and expands it with its label", () => {
+  it("collapses all actions behind a single compact add trigger", () => {
     const html = renderControl([PRIMARY_SCRIPT]);
 
-    expectResponsiveXsControl(buttonTag(html, "Run Dev"));
-    expect(html).toContain(
-      'class="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5"',
-    );
+    const buttons = html.match(/<button[^>]*>/g) ?? [];
+    expect(buttons).toHaveLength(1);
+    expect(html).toContain('aria-label="Project actions"');
+    // The trigger keeps the compact header sizing; its label stays screen-only.
+    expect(html).toContain("w-7 px-0");
+    expect(html).toContain("sm:w-6");
+    expect(html).toContain('class="sr-only">Add action</span>');
+    expect(html).toContain('data-toolbar-control=""');
   });
 
-  it("keeps the standalone Add control compact and expands it with its label", () => {
-    const html = renderControl([]);
+  it("never renders script names or run buttons outside the popup", () => {
+    const html = renderControl([PRIMARY_SCRIPT]);
 
-    expectResponsiveXsControl(buttonTag(html, "Add action"));
-    expect(html).toContain(
-      'class="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5"',
-    );
+    expect(html).not.toContain(">Dev</span>");
+    expect(html).not.toContain('aria-label="Run Dev"');
+    // Menus render in portals, so only the trigger exists in static markup.
+    expect((html.match(/<button/g) ?? []).length).toBe(1);
   });
 });

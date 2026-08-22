@@ -100,10 +100,6 @@ export const TerminalFontSize = Schema.Int.check(
 export type TerminalFontSize = typeof TerminalFontSize.Type;
 export const DEFAULT_TERMINAL_FONT_SIZE: TerminalFontSize = 12;
 
-export const EnvironmentIdentificationMode = Schema.Literals(["artwork", "pill", "none"]);
-export type EnvironmentIdentificationMode = typeof EnvironmentIdentificationMode.Type;
-export const DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE: EnvironmentIdentificationMode = "artwork";
-
 /**
  * A user-chosen font family (a single name or a comma-separated list). Empty
  * means "use the app default"; clients compose their own fallback stacks.
@@ -118,9 +114,6 @@ export const ClientSettingsSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
   diffIgnoreWhitespace: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-  environmentIdentificationMode: EnvironmentIdentificationMode.pipe(
-    Schema.withDecodingDefault(Effect.succeed(DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE)),
-  ),
   glassOpacity: GlassOpacity.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_GLASS_OPACITY)),
   ),
@@ -159,6 +152,10 @@ export const ClientSettingsSchema = Schema.Struct({
       model: TrimmedNonEmptyString,
     }),
   ).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
+  // When on, the chat model picker opens straight to the Favorites view
+  // (with "Change" leading to providers) instead of the active provider's
+  // models. Off keeps the classic provider-first behavior.
+  modelPickerOpensFavorites: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   providerModelPreferences: Schema.Record(
     ProviderInstanceId,
     Schema.Struct({
@@ -496,6 +493,19 @@ export const SourceControlWritingStyleSettings = Schema.Struct({
 });
 export type SourceControlWritingStyleSettings = typeof SourceControlWritingStyleSettings.Type;
 
+/**
+ * Marks commits and change requests created through Embedino as made with
+ * Embedino: a `Co-authored-by` trailer on commit messages and a short footer
+ * on generated change request descriptions.
+ */
+export const SourceControlAttributionSettings = Schema.Struct({
+  commitAttribution: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  prAttribution: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+});
+export type SourceControlAttributionSettings = typeof SourceControlAttributionSettings.Type;
+export const DEFAULT_SOURCE_CONTROL_ATTRIBUTION_SETTINGS: SourceControlAttributionSettings =
+  Schema.decodeSync(SourceControlAttributionSettings)({});
+
 export const DEFAULT_AUTOMATIC_GIT_FETCH_INTERVAL = Duration.seconds(30);
 export const DEFAULT_PROVIDER_HEALTH_REFRESH_INTERVAL = Duration.minutes(5);
 
@@ -584,6 +594,9 @@ export const ServerSettings = Schema.Struct({
     ),
   ),
   sourceControlWritingStyle: SourceControlWritingStyleSettings.pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
+  sourceControlAttribution: SourceControlAttributionSettings.pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
   sourceControlWriterModelSelection: Schema.NullOr(ModelSelection).pipe(
@@ -731,6 +744,12 @@ export const ServerSettingsPatch = Schema.Struct({
       followChangeRequestTemplates: Schema.optionalKey(Schema.Boolean),
     }),
   ),
+  sourceControlAttribution: Schema.optionalKey(
+    Schema.Struct({
+      commitAttribution: Schema.optionalKey(Schema.Boolean),
+      prAttribution: Schema.optionalKey(Schema.Boolean),
+    }),
+  ),
   sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   observability: Schema.optionalKey(
     Schema.Struct({
@@ -759,7 +778,6 @@ export const ClientSettingsPatch = Schema.Struct({
   confirmThreadArchive: Schema.optionalKey(Schema.Boolean),
   confirmThreadDelete: Schema.optionalKey(Schema.Boolean),
   diffIgnoreWhitespace: Schema.optionalKey(Schema.Boolean),
-  environmentIdentificationMode: Schema.optionalKey(EnvironmentIdentificationMode),
   glassOpacity: Schema.optionalKey(GlassOpacity),
   fontSizeInterface: Schema.optionalKey(InterfaceFontSize),
   fontSizePrompt: Schema.optionalKey(PromptFontSize),
@@ -778,6 +796,7 @@ export const ClientSettingsPatch = Schema.Struct({
       }),
     ),
   ),
+  modelPickerOpensFavorites: Schema.optionalKey(Schema.Boolean),
   providerModelPreferences: Schema.optionalKey(
     Schema.Record(
       ProviderInstanceId,

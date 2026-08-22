@@ -18,6 +18,7 @@ import {
 } from "@embedino/shared/backgroundActivitySettings";
 
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/useSettings";
+import { DEFAULT_UNIFIED_SETTINGS } from "@embedino/contracts/settings";
 import { cn } from "../../lib/utils";
 import { useEnvironments, usePrimaryEnvironment } from "../../state/environments";
 import { useEnvironmentQuery } from "../../state/query";
@@ -34,13 +35,7 @@ import {
   EmptyTitle,
 } from "../ui/empty";
 import { Skeleton } from "../ui/skeleton";
-import {
-  NumberField,
-  NumberFieldDecrement,
-  NumberFieldGroup,
-  NumberFieldIncrement,
-  NumberFieldInput,
-} from "../ui/number-field";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
@@ -54,7 +49,12 @@ import {
 } from "../Icons";
 import { RedactedSensitiveText } from "./RedactedSensitiveText";
 import { SourceControlWritingSettingsSection } from "./SourceControlWritingSettings";
-import { SettingResetButton, SettingsPageContainer, SettingsSection } from "./settingsLayout";
+import {
+  SettingResetButton,
+  SettingsPageContainer,
+  SettingsRow,
+  SettingsSection,
+} from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 
 const EMPTY_DISCOVERY_RESULT: SourceControlDiscoveryResult = {
@@ -75,7 +75,6 @@ const VCS_ICONS: Partial<Record<VcsDriverKind, Icon>> = {
 };
 
 const SOURCE_CONTROL_SKELETON_ROWS = ["primary", "secondary"] as const;
-const GIT_FETCH_INTERVAL_STEP_SECONDS = 5;
 type BackgroundActivityOverridePatch = Partial<{
   [K in keyof BackgroundActivitySettings["overrides"]]:
     | BackgroundActivitySettings["overrides"][K]
@@ -84,13 +83,6 @@ type BackgroundActivityOverridePatch = Partial<{
 
 function durationToSeconds(duration: Duration.Duration): number {
   return Math.round(Duration.toMillis(duration) / 1_000);
-}
-
-function normalizeFetchIntervalSeconds(value: number | null): number {
-  if (value === null || !Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(0, Math.round(value));
 }
 
 function backgroundActivityOverrideSettings(
@@ -346,6 +338,22 @@ function DiscoveryItemRow({
   );
 }
 
+const GIT_FETCH_INTERVAL_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "0", label: "Off" },
+  { value: "30", label: "Every 30 seconds" },
+  { value: "60", label: "Every minute" },
+  { value: "300", label: "Every 5 minutes" },
+  { value: "900", label: "Every 15 minutes" },
+];
+
+function formatFetchIntervalLabel(seconds: number): string {
+  if (seconds < 60) return `Custom · ${seconds} sec`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `Custom · ${minutes} min`;
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `Custom · ${hours} hr` : `Custom · ${hours.toFixed(1)} hr`;
+}
+
 function GitFetchIntervalSettings() {
   const settings = usePrimarySettings();
   const updateSettings = useUpdatePrimarySettings();
@@ -360,6 +368,12 @@ function GitFetchIntervalSettings() {
   );
   const canResetFetchInterval =
     automaticGitFetchIntervalSeconds !== defaultAutomaticGitFetchIntervalSeconds;
+  const matchedOption = GIT_FETCH_INTERVAL_OPTIONS.find(
+    (option) => Number(option.value) === automaticGitFetchIntervalSeconds,
+  );
+  const selectValue = matchedOption?.value ?? "__custom__";
+  const selectLabel =
+    matchedOption?.label ?? formatFetchIntervalLabel(automaticGitFetchIntervalSeconds);
 
   return (
     <div className="grid gap-3">
@@ -394,33 +408,38 @@ function GitFetchIntervalSettings() {
             </span>
           </div>
           <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-            Refresh remote branch status in the background. Set this to 0 seconds if Git credentials
-            or security keys should only be prompted by explicit Git actions.
+            Refresh remote branch status in the background. Turn this off if Git credentials or
+            security keys should only be prompted by explicit Git actions.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <NumberField
-            value={automaticGitFetchIntervalSeconds}
-            min={0}
-            step={GIT_FETCH_INTERVAL_STEP_SECONDS}
-            size="sm"
-            className="w-32"
-            onValueChange={(value) =>
-              updateSettings(
-                backgroundActivityOverrideSettings(settings.backgroundActivity, {
-                  automaticGitFetchInterval: Duration.seconds(normalizeFetchIntervalSeconds(value)),
-                }),
-              )
-            }
-          >
-            <NumberFieldGroup>
-              <NumberFieldDecrement aria-label="Decrease fetch interval" />
-              <NumberFieldInput aria-label="Automatic Git fetch interval in seconds" />
-              <NumberFieldIncrement aria-label="Increase fetch interval" />
-            </NumberFieldGroup>
-          </NumberField>
-          <span className="text-xs text-muted-foreground">seconds</span>
-        </div>
+        <Select
+          value={selectValue}
+          onValueChange={(value) => {
+            const seconds = Number(value);
+            if (!Number.isFinite(seconds)) return;
+            updateSettings(
+              backgroundActivityOverrideSettings(settings.backgroundActivity, {
+                automaticGitFetchInterval: Duration.seconds(seconds),
+              }),
+            );
+          }}
+        >
+          <SelectTrigger className="w-full sm:w-44 shrink-0" aria-label="Automatic fetch interval">
+            <SelectValue>{selectLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectPopup align="end" alignItemWithTrigger={false}>
+            {GIT_FETCH_INTERVAL_OPTIONS.map((option) => (
+              <SelectItem hideIndicator key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+            {!matchedOption ? (
+              <SelectItem hideIndicator value="__custom__">
+                {selectLabel}
+              </SelectItem>
+            ) : null}
+          </SelectPopup>
+        </Select>
       </div>
     </div>
   );
@@ -503,6 +522,79 @@ function EmptySourceControlDiscovery({
           </Button>
         </EmptyContent>
       </Empty>
+    </SettingsSection>
+  );
+}
+
+/**
+ * Marks work created through Embedino: a `Co-authored-by` trailer on commits
+ * and a short footer on generated change request descriptions. Both default
+ * to on; turning them off keeps the generated content unattributed.
+ */
+function SourceControlAttributionSection() {
+  const settings = usePrimarySettings();
+  const updateSettings = useUpdatePrimarySettings();
+  const attribution = settings.sourceControlAttribution;
+  const defaults = DEFAULT_UNIFIED_SETTINGS.sourceControlAttribution;
+
+  return (
+    <SettingsSection title="Attribution">
+      <SettingsRow
+        {...searchableSetting("commit-attribution")}
+        title="Commit attribution"
+        description="Mark commits created through Embedino with a Co-authored-by trailer."
+        resetAction={
+          attribution.commitAttribution !== defaults.commitAttribution ? (
+            <SettingResetButton
+              label="commit attribution"
+              onClick={() =>
+                updateSettings({
+                  sourceControlAttribution: {
+                    commitAttribution: defaults.commitAttribution,
+                  },
+                })
+              }
+            />
+          ) : null
+        }
+        control={
+          <Switch
+            checked={attribution.commitAttribution}
+            onCheckedChange={(checked) =>
+              updateSettings({ sourceControlAttribution: { commitAttribution: Boolean(checked) } })
+            }
+            aria-label="Mark commits as made with Embedino"
+          />
+        }
+      />
+      <SettingsRow
+        {...searchableSetting("pr-attribution")}
+        title="Change request attribution"
+        description="Add a short “Created with Embedino” footer to generated change request descriptions."
+        resetAction={
+          attribution.prAttribution !== defaults.prAttribution ? (
+            <SettingResetButton
+              label="change request attribution"
+              onClick={() =>
+                updateSettings({
+                  sourceControlAttribution: {
+                    prAttribution: defaults.prAttribution,
+                  },
+                })
+              }
+            />
+          ) : null
+        }
+        control={
+          <Switch
+            checked={attribution.prAttribution}
+            onCheckedChange={(checked) =>
+              updateSettings({ sourceControlAttribution: { prAttribution: Boolean(checked) } })
+            }
+            aria-label="Mark change requests as made with Embedino"
+          />
+        }
+      />
     </SettingsSection>
   );
 }
@@ -597,6 +689,7 @@ export function SourceControlSettingsPanel() {
         />
       )}
 
+      {isPrimaryEnvironment ? <SourceControlAttributionSection /> : null}
       {isPrimaryEnvironment ? <SourceControlWritingSettingsSection /> : null}
     </SettingsPageContainer>
   );

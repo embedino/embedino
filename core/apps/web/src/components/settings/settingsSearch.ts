@@ -1,11 +1,12 @@
+import { EmbedinoFeatures } from "@embedino/contracts";
+
 export type SettingsPath =
   | "/settings/general"
   | "/settings/appearance"
   | "/settings/keybindings"
   | "/settings/providers"
   | "/settings/source-control"
-  | "/settings/connections"
-  | "/settings/archived";
+  | "/settings/connections";
 
 export interface SettingsSearchItem {
   readonly id: string;
@@ -17,15 +18,15 @@ export interface SettingsSearchItem {
 /**
  * Section labels in sidebar order. The sidebar nav and the search-result
  * subtitles both render from this record, so each label exists once.
+ * (Archived threads live inside General, so there is no Archive tab.)
  */
 export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/general": "General",
   "/settings/appearance": "Appearance",
   "/settings/keybindings": "Keybindings",
   "/settings/providers": "Providers",
-  "/settings/source-control": "Source Control",
+  "/settings/source-control": "Git & PR",
   "/settings/connections": "Connections",
-  "/settings/archived": "Archive",
 };
 
 /**
@@ -43,11 +44,10 @@ export const SETTINGS_SEARCH_ITEMS = [
     targetId: "appearance",
   },
   {
+    // Alias so searching “theme” still lands on the color scheme tiles.
     id: "theme",
-    title: "Themes",
+    title: "Color scheme (theme)",
     to: "/settings/appearance",
-    // Theme cards live directly under the scheme tiles; the section is the
-    // stable scroll destination for both.
     targetId: "appearance",
   },
   {
@@ -55,13 +55,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "setting-glass-opacity",
     title: "Glass opacity",
     to: "/settings/appearance",
-  },
-  {
-    id: "environment-identification",
-    title: "Environment identification",
-    to: "/settings/appearance",
-    // The setting is stage-dependent, so its parent section is the stable destination.
-    targetId: "appearance",
   },
   {
     id: "interface-font",
@@ -185,9 +178,27 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
   },
   {
+    id: "provider-models",
+    title: "Provider models",
+    to: "/settings/providers",
+    targetId: "provider-models",
+  },
+  {
     id: "source-control",
     title: "Source control",
     to: "/settings/source-control",
+  },
+  {
+    id: "commit-attribution",
+    title: "Commit attribution",
+    to: "/settings/source-control",
+    targetId: "commit-attribution",
+  },
+  {
+    id: "pr-attribution",
+    title: "Change request attribution",
+    to: "/settings/source-control",
+    targetId: "pr-attribution",
   },
   {
     id: "remote-environments",
@@ -197,7 +208,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "archive",
     title: "Archived threads",
-    to: "/settings/archived",
+    to: "/settings/general",
   },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 
@@ -236,5 +247,22 @@ export function searchSettings(
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];
 
-  return items.filter((item) => normalizeSearchText(item.title).includes(normalizedQuery));
+  return items.filter(
+    (item) =>
+      isFeatureGatedItem(item.id) !== false &&
+      normalizeSearchText(item.title).includes(normalizedQuery),
+  );
+}
+
+/**
+ * Items whose owning surface is behind an `EmbedinoFeatures` flag stay in the
+ * catalog (panels still reference their anchors) but never match a search
+ * while the flag is off.
+ */
+const FEATURE_GATED_ITEM_IDS: Readonly<Record<string, boolean>> = {
+  "remote-environments": EmbedinoFeatures.remoteEnvironments,
+};
+
+function isFeatureGatedItem(id: string): boolean | undefined {
+  return FEATURE_GATED_ITEM_IDS[id];
 }

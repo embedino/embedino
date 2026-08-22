@@ -8,7 +8,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
-  ArchiveIcon,
   ArrowLeftIcon,
   BotIcon,
   GitBranchIcon,
@@ -54,7 +53,6 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/providers": BotIcon,
   "/settings/source-control": GitBranchIcon,
   "/settings/connections": Link2Icon,
-  "/settings/archived": ArchiveIcon,
 };
 
 export const SETTINGS_NAV_ITEMS: ReadonlyArray<{

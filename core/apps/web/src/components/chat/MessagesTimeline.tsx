@@ -2382,7 +2382,7 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
                     render={<span className="flex size-4 items-center justify-center" />}
                   >
                     <LoaderIcon
-                      className="block size-3 shrink-0 animate-spin text-blue-500"
+                      className="block size-3 shrink-0 animate-spin text-muted-foreground"
                       aria-hidden
                     />
                   </TooltipTrigger>

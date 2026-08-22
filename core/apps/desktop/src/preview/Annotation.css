@@ -34,15 +34,15 @@
   --embedino-foreground: oklch(0.269 0 0);
   --embedino-popover: white;
   --embedino-popover-foreground: oklch(0.269 0 0);
-  --embedino-primary: oklch(0.488 0.217 264);
-  --embedino-primary-foreground: white;
+  --embedino-primary: oklch(0.967 0 0);
+  --embedino-primary-foreground: oklch(0.21 0 0);
   --embedino-muted: rgb(0 0 0 / 4%);
   --embedino-muted-foreground: oklch(0.556 0 0);
   --embedino-accent: rgb(0 0 0 / 4%);
   --embedino-accent-foreground: oklch(0.269 0 0);
   --embedino-border: rgb(0 0 0 / 8%);
   --embedino-input: rgb(0 0 0 / 10%);
-  --embedino-ring: oklch(0.488 0.217 264);
+  --embedino-ring: oklch(0.705 0 0);
   color: var(--embedino-foreground);
   font-family: var(--embedino-font-sans);
 }

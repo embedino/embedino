@@ -82,7 +82,7 @@ export const BranchToolbarEnvironmentSelector = memo(function BranchToolbarEnvir
       <SelectTrigger
         variant="ghost"
         size="xs"
-        className="min-w-0 max-w-full font-medium"
+        className="min-w-0 max-w-full rounded-full font-normal text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring data-pressed:bg-muted [&_[data-slot=select-icon]]:hidden"
         aria-label="Run on"
         data-composer-context-control
       >
@@ -103,7 +103,11 @@ export const BranchToolbarEnvironmentSelector = memo(function BranchToolbarEnvir
           </span>
         </span>
       </SelectTrigger>
-      <SelectPopup>
+      <SelectPopup
+        side="bottom"
+        alignItemWithTrigger={false}
+        popupClassName="rounded-xl border border-border bg-background shadow-[0_10px_18px_rgba(0,0,0,0.14)] before:hidden [-webkit-backdrop-filter:none]! [backdrop-filter:none]!"
+      >
         <SelectGroup>
           <SelectGroupLabel>Run on</SelectGroupLabel>
           {availableEnvironments.map((env) => (

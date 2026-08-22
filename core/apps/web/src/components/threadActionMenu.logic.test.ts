@@ -26,15 +26,19 @@ describe("buildThreadActionMenuItems", () => {
         ...baseState,
         supports: { settlement: false, snooze: false, pinning: false, titleRegeneration: false },
       }),
-    ).toEqual(["rename", "mark-unread", "copy-path", "copy-thread-id", "delete"]);
+    ).toEqual(["rename", "mark-unread", "copy", "delete"]);
   });
 
-  it("includes branch items only for threads with a branch", () => {
-    const withBranch = ids({ ...baseState, branch: "feat/menu" });
-    expect(withBranch).toContain("new-thread-on-branch");
-    expect(withBranch).toContain("copy-branch");
-    expect(ids(baseState)).not.toContain("new-thread-on-branch");
-    expect(ids(baseState)).not.toContain("copy-branch");
+  it("keeps copy targets flat under one grouped entry", () => {
+    const copy = buildThreadActionMenuItems({ ...baseState }).find((item) => item.id === "copy");
+    expect(copy?.children?.map((child) => child.id)).toEqual(["copy-path", "copy-thread-id"]);
+    const withBranch = buildThreadActionMenuItems({ ...baseState, branch: "feat/menu" });
+    expect(
+      withBranch.find((item) => item.id === "copy")?.children?.map((child) => child.id),
+    ).toEqual(["copy-path", "copy-branch", "copy-thread-id"]);
+    // The copy targets are submenu children now, not top-level rows.
+    expect(ids({ ...baseState, branch: "feat/menu" })).not.toContain("copy-path");
+    expect(ids({ ...baseState, branch: "feat/menu" })).not.toContain("copy-branch");
   });
 
   it("flips lifecycle labels with thread state", () => {

@@ -111,7 +111,6 @@ import {
   DEFAULT_INTERACTION_MODE,
   DEFAULT_RUNTIME_MODE,
   DEFAULT_THREAD_TERMINAL_ID,
-  MAX_TERMINALS_PER_GROUP,
   type ChatMessage,
   type SessionPhase,
   type Thread,
@@ -160,13 +159,7 @@ import { DiffWorkerPoolProvider } from "./DiffWorkerPoolProvider";
 import { BranchToolbar } from "./BranchToolbar";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
-import {
-  AlarmClockIcon,
-  CheckCircle2Icon,
-  ChevronDownIcon,
-  GitBranchIcon,
-  WifiOffIcon,
-} from "lucide-react";
+import { AlarmClockIcon, CheckCircle2Icon, ChevronDownIcon, GitBranchIcon } from "lucide-react";
 import { cn, randomHex } from "~/lib/utils";
 import { COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS } from "~/workspaceTitlebar";
 import { stackedThreadToast, toastManager } from "./ui/toast";
@@ -181,7 +174,11 @@ import {
 import { newDraftId, newMessageId, newThreadId } from "~/lib/utils";
 import { useBrowserHistoryStore } from "~/browserHistoryStore";
 import { registerFaviconProjectForThread } from "~/browserFaviconStore";
-import { getProviderModelCapabilities, resolveSelectableProvider } from "../providerModels";
+import {
+  formatProviderDriverKindLabel,
+  getProviderModelCapabilities,
+  resolveSelectableProvider,
+} from "../providerModels";
 import { NO_PROVIDER_MODEL_SELECTION } from "../providerInstances";
 import {
   useClientSettings,
@@ -266,11 +263,7 @@ import {
   shouldShowComposerContextStrip,
   shouldShowEnvironmentIndicator,
 } from "./BranchToolbar.logic";
-import {
-  getProviderStatusBannerKey,
-  ProviderStatusBanner,
-  shouldShowProviderStatusBanner,
-} from "./chat/ProviderStatusBanner";
+import { type ChatSystemStatusIssue, ChatStatusIndicator } from "./chat/ChatStatusIndicator";
 import {
   dismissThreadErrorBannerForSession,
   getThreadErrorBannerKey,
@@ -300,14 +293,10 @@ import {
   createLocalDispatchSnapshot,
   deriveComposerSendState,
   dismissBranchMismatchForSession,
-  hasEnvironmentReconnectWarningGraceElapsed,
-  scheduleEnvironmentReconnectWarning,
   hasServerAcknowledgedLocalDispatch,
   isBranchMismatchDismissedForSession,
   shouldShowBranchMismatchBanner,
   getStartedThreadModelChangeBlockReason,
-  LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
-  LastInvokedScriptByProjectSchema,
   type LocalDispatchSnapshot,
   PullRequestDialogState,
   cloneComposerImageForRetry,
@@ -652,10 +641,9 @@ interface PersistentThreadTerminalDrawerProps {
   visible: boolean;
   launchContext: PersistentTerminalLaunchContext | null;
   focusRequestId: number;
-  splitShortcutLabel: string | undefined;
-  splitVerticalShortcutLabel: string | undefined;
   newShortcutLabel: string | undefined;
   closeShortcutLabel: string | undefined;
+  onCloseDrawer: () => void;
   keybindings: ResolvedKeybindingsConfig;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
 }
@@ -666,10 +654,9 @@ const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerminalDra
   visible,
   launchContext,
   focusRequestId,
-  splitShortcutLabel,
-  splitVerticalShortcutLabel,
   newShortcutLabel,
   closeShortcutLabel,
+  onCloseDrawer,
   keybindings,
   onAddTerminalContext,
 }: PersistentThreadTerminalDrawerProps) {
@@ -768,10 +755,6 @@ const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerminalDra
     [panelTerminalIds, serverOrderedTerminalIds, terminalUiState.terminalIds],
   );
   const storeSetTerminalHeight = useTerminalUiStateStore((state) => state.setTerminalHeight);
-  const storeSplitTerminal = useTerminalUiStateStore((state) => state.splitTerminal);
-  const storeSplitTerminalVertical = useTerminalUiStateStore(
-    (state) => state.splitTerminalVertical,
-  );
   const storeNewTerminal = useTerminalUiStateStore((state) => state.newTerminal);
   const storeSetActiveTerminal = useTerminalUiStateStore((state) => state.setActiveTerminal);
   const storeCloseTerminal = useTerminalUiStateStore((state) => state.closeTerminal);
@@ -831,63 +814,6 @@ const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerminalDra
     },
     [storeSetTerminalHeight, threadRef],
   );
-
-  const splitTerminal = useCallback(() => {
-    if (!cwd) {
-      return;
-    }
-    const terminalId = nextTerminalId(allocatableTerminalIds);
-    storeSplitTerminal(threadRef, terminalId);
-    bumpFocusRequestId();
-    void openTerminal({
-      environmentId: threadRef.environmentId,
-      input: {
-        threadId,
-        terminalId,
-        cwd,
-        ...(effectiveWorktreePath != null ? { worktreePath: effectiveWorktreePath } : {}),
-        env: runtimeEnv,
-      },
-    });
-  }, [
-    allocatableTerminalIds,
-    bumpFocusRequestId,
-    cwd,
-    effectiveWorktreePath,
-    runtimeEnv,
-    storeSplitTerminal,
-    threadId,
-    threadRef,
-    openTerminal,
-  ]);
-  const splitTerminalVertical = useCallback(() => {
-    if (!cwd) {
-      return;
-    }
-    const terminalId = nextTerminalId(allocatableTerminalIds);
-    storeSplitTerminalVertical(threadRef, terminalId);
-    bumpFocusRequestId();
-    void openTerminal({
-      environmentId: threadRef.environmentId,
-      input: {
-        threadId,
-        terminalId,
-        cwd,
-        ...(effectiveWorktreePath != null ? { worktreePath: effectiveWorktreePath } : {}),
-        env: runtimeEnv,
-      },
-    });
-  }, [
-    allocatableTerminalIds,
-    bumpFocusRequestId,
-    cwd,
-    effectiveWorktreePath,
-    openTerminal,
-    runtimeEnv,
-    storeSplitTerminalVertical,
-    threadId,
-    threadRef,
-  ]);
 
   const createNewTerminal = useCallback(() => {
     if (!cwd) {
@@ -985,22 +911,17 @@ const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerminalDra
         runtimeEnv={runtimeEnv}
         visible={visible}
         height={terminalUiState.terminalHeight}
-        // Known-session order is MRU and changes on focus; persisted store order keeps sidebar labels stable.
+        // Known-session order is MRU and changes on focus; persisted store order keeps tab labels stable.
         terminalIds={terminalUiState.terminalIds}
         activeTerminalId={terminalUiState.activeTerminalId}
-        terminalGroups={terminalUiState.terminalGroups}
-        activeTerminalGroupId={terminalUiState.activeTerminalGroupId}
         focusRequestId={focusRequestId + localFocusRequestId + (visible ? 1 : 0)}
-        onSplitTerminal={splitTerminal}
-        onSplitTerminalVertical={splitTerminalVertical}
         onNewTerminal={createNewTerminal}
-        splitShortcutLabel={visible ? splitShortcutLabel : undefined}
-        splitVerticalShortcutLabel={visible ? splitVerticalShortcutLabel : undefined}
         newShortcutLabel={visible ? newShortcutLabel : undefined}
         closeShortcutLabel={visible ? closeShortcutLabel : undefined}
         keybindings={keybindings}
         onActiveTerminalChange={activateTerminal}
         onCloseTerminal={closeTerminal}
+        onCloseDrawer={onCloseDrawer}
         onHeightChange={setTerminalHeight}
         onAddTerminalContext={handleAddTerminalContext}
         terminalLabelsById={terminalLabelsById}
@@ -1017,13 +938,9 @@ interface PersistentThreadTerminalPanelProps {
   focusRequestId: number;
   keybindings: ResolvedKeybindingsConfig;
   onAddTerminalContext: (selection: TerminalContextSelection) => void;
-  onSplitTerminal: () => void;
-  onSplitTerminalVertical: () => void;
   onNewTerminal: () => void;
   onActiveTerminalChange: (terminalId: string) => void;
   onCloseTerminal: (terminalId: string) => void;
-  splitShortcutLabel?: string | undefined;
-  splitVerticalShortcutLabel?: string | undefined;
   newShortcutLabel?: string | undefined;
   closeShortcutLabel?: string | undefined;
 }
@@ -1035,13 +952,9 @@ const PersistentThreadTerminalPanel = memo(function PersistentThreadTerminalPane
   focusRequestId,
   keybindings,
   onAddTerminalContext,
-  onSplitTerminal,
-  onSplitTerminalVertical,
   onNewTerminal,
   onActiveTerminalChange,
   onCloseTerminal,
-  splitShortcutLabel,
-  splitVerticalShortcutLabel,
   newShortcutLabel,
   closeShortcutLabel,
 }: PersistentThreadTerminalPanelProps) {
@@ -1152,20 +1065,8 @@ const PersistentThreadTerminalPanel = memo(function PersistentThreadTerminalPane
       height={0}
       terminalIds={surface.terminalIds}
       activeTerminalId={surface.activeTerminalId}
-      terminalGroups={[
-        {
-          id: surface.id,
-          terminalIds: surface.terminalIds,
-          ...(surface.splitDirection === "vertical" ? { splitDirection: "vertical" as const } : {}),
-        },
-      ]}
-      activeTerminalGroupId={surface.id}
       focusRequestId={focusRequestId}
-      onSplitTerminal={onSplitTerminal}
-      onSplitTerminalVertical={onSplitTerminalVertical}
       onNewTerminal={onNewTerminal}
-      splitShortcutLabel={splitShortcutLabel}
-      splitVerticalShortcutLabel={splitVerticalShortcutLabel}
       newShortcutLabel={newShortcutLabel}
       closeShortcutLabel={closeShortcutLabel}
       onActiveTerminalChange={onActiveTerminalChange}
@@ -1384,11 +1285,6 @@ function ChatViewContent(props: ChatViewProps) {
     pendingServerThreadStartFromOriginByThreadId,
     setPendingServerThreadStartFromOriginByThreadId,
   ] = useState<Record<string, boolean>>({});
-  const [lastInvokedScriptByProjectId, setLastInvokedScriptByProjectId] = useLocalStorage(
-    LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
-    {},
-    LastInvokedScriptByProjectSchema,
-  );
   const legendListRef = useRef<LegendListRef | null>(null);
   const [composerOverlayElement, setComposerOverlayElement] = useState<HTMLDivElement | null>(null);
   const [composerOverlayHeight, setComposerOverlayHeight] = useState(0);
@@ -1430,8 +1326,6 @@ function ChatViewContent(props: ChatViewProps) {
   );
   const storeSetTerminalOpen = useTerminalUiStateStore((s) => s.setTerminalOpen);
   const storeEnsureTerminal = useTerminalUiStateStore((state) => state.ensureTerminal);
-  const storeSplitTerminal = useTerminalUiStateStore((s) => s.splitTerminal);
-  const storeSplitTerminalVertical = useTerminalUiStateStore((s) => s.splitTerminalVertical);
   const storeNewTerminal = useTerminalUiStateStore((s) => s.newTerminal);
   const storeSetActiveTerminal = useTerminalUiStateStore((s) => s.setActiveTerminal);
   const storeCloseTerminal = useTerminalUiStateStore((s) => s.closeTerminal);
@@ -1802,24 +1696,6 @@ function ChatViewContent(props: ChatViewProps) {
   const activeEnvironmentConnectionPhase = activeEnvironment?.connection.phase ?? "available";
   const activeEnvironmentUnavailable =
     activeEnvironment !== null && activeEnvironmentConnectionPhase !== "connected";
-  const activeReconnectingEnvironmentId =
-    activeEnvironmentConnectionPhase === "connecting" ||
-    activeEnvironmentConnectionPhase === "reconnecting"
-      ? (activeEnvironment?.environmentId ?? null)
-      : null;
-  const [reconnectWarningGraceElapsedEnvironmentId, setReconnectWarningGraceElapsedEnvironmentId] =
-    useState<EnvironmentId | null>(null);
-  const reconnectWarningGraceElapsed = hasEnvironmentReconnectWarningGraceElapsed(
-    activeReconnectingEnvironmentId,
-    reconnectWarningGraceElapsedEnvironmentId,
-  );
-  useEffect(() => {
-    setReconnectWarningGraceElapsedEnvironmentId(null);
-    if (activeReconnectingEnvironmentId === null) return;
-    return scheduleEnvironmentReconnectWarning(() =>
-      setReconnectWarningGraceElapsedEnvironmentId(activeReconnectingEnvironmentId),
-    );
-  }, [activeReconnectingEnvironmentId]);
   const activeEnvironmentUnavailableLabel = activeEnvironment?.label ?? null;
   const activeEnvironmentUnavailableState = useMemo<EnvironmentUnavailableState | null>(() => {
     if (!activeEnvironmentUnavailable || !activeEnvironmentUnavailableLabel || !activeEnvironment) {
@@ -2035,65 +1911,37 @@ function ChatViewContent(props: ChatViewProps) {
   const serverUpdateState = useAtomValue(
     serverEnvironment.updateStateAtom(serverUpdateEnvironmentId),
   );
-  const systemComposerBannerItems = useMemo<ComposerBannerStackItem[]>(() => {
-    const items: ComposerBannerStackItem[] = [];
-    const updateRunning = serverUpdateState.status === "running";
+  const environmentReconnecting =
+    activeEnvironmentUnavailableState?.connection.phase === "connecting" ||
+    activeEnvironmentUnavailableState?.connection.phase === "reconnecting";
+  // Reconnecting to a version-skewed server usually means the server is
+  // restarting mid-update; fold that into one calm status row.
+  const reconnectingThroughVersionSkew =
+    serverUpdateState.status === "idle" && environmentReconnecting && versionMismatch !== null;
+  const environmentAndUpdateIssues = useMemo<ChatSystemStatusIssue[]>(() => {
+    const issues: ChatSystemStatusIssue[] = [];
     const unavailableConnection = activeEnvironmentUnavailableState?.connection ?? null;
-    const environmentReconnecting =
-      unavailableConnection !== null &&
-      (unavailableConnection.phase === "connecting" ||
-        unavailableConnection.phase === "reconnecting");
-    // Reconnecting to a version-skewed server with no update in flight
-    // usually means the server is restarting mid-update and a refresh wiped
-    // the in-memory update state. Fold the reconnect and version banners
-    // into one calm line instead of stacking "Failed to connect" on
-    // "versions differ". A failed update never folds: its error and retry
-    // action must stay visible.
-    const reconnectingThroughVersionSkew =
-      serverUpdateState.status === "idle" && environmentReconnecting && versionMismatch !== null;
-    // While an update runs, transient connect blips are expected (the server
-    // restarts) and the update banner already shows progress. Hard failure
-    // phases still surface so the Reconnect action stays reachable.
-    const suppressUnavailableBanner =
-      environmentReconnecting &&
-      (updateRunning || (!reconnectingThroughVersionSkew && !reconnectWarningGraceElapsed));
-    if (activeEnvironmentUnavailableState && unavailableConnection && !suppressUnavailableBanner) {
-      if (reconnectingThroughVersionSkew) {
-        items.push({
-          id: `environment-unavailable:${activeEnvironmentUnavailableState.environmentId}`,
-          variant: "default",
-          // Live connection status: calm styling, but it must front the stack.
-          urgent: true,
-          icon: (
-            <span
-              className="size-1.5 animate-status-pulse rounded-full bg-foreground"
-              aria-hidden="true"
-            />
-          ),
-          title: `${unavailableConnection.phase === "connecting" ? "Connecting" : "Reconnecting"} to ${activeEnvironmentUnavailableState.label}`,
-          description: "It may be finishing an update. One moment.",
-        });
-      } else {
-        items.push({
-          id: `environment-unavailable:${activeEnvironmentUnavailableState.environmentId}`,
-          variant: unavailableConnection.phase === "error" ? "error" : "warning",
-          icon: <WifiOffIcon />,
+    if (activeEnvironmentUnavailableState && unavailableConnection) {
+      if (unavailableConnection.phase === "error") {
+        issues.push({
+          key: `env-offline:${activeEnvironmentUnavailableState.environmentId}`,
+          tone: "destructive",
+          pulse: false,
           title: `${activeEnvironmentUnavailableState.label}: ${connectionStatusTitle(unavailableConnection)}`,
-          description:
+          detail:
             unavailableConnection.error ??
             "Reconnect this environment before sending messages or running actions.",
-          actions: (
+          action: (
             <>
               <Button
                 size="xs"
-                disabled={environmentReconnecting}
                 onClick={() =>
                   void handleReconnectActiveEnvironment(
                     activeEnvironmentUnavailableState.environmentId,
                   )
                 }
               >
-                {environmentReconnecting ? "Reconnecting..." : "Reconnect"}
+                Reconnect
               </Button>
               <Button
                 size="xs"
@@ -2105,86 +1953,84 @@ function ChatViewContent(props: ChatViewProps) {
             </>
           ),
         });
+      } else {
+        const connecting = unavailableConnection.phase === "connecting";
+        issues.push({
+          key: `env-connecting:${activeEnvironmentUnavailableState.environmentId}`,
+          tone: "warning",
+          pulse: true,
+          title: `${connecting ? "Connecting" : "Reconnecting"} to ${activeEnvironmentUnavailableState.label}`,
+          detail: reconnectingThroughVersionSkew
+            ? "It may be finishing an update. One moment."
+            : null,
+        });
       }
     }
+    const updateRunning = serverUpdateState.status === "running";
+    const updateFailed = serverUpdateState.status === "failed";
     if (
       serverUpdateEnvironmentId &&
       !reconnectingThroughVersionSkew &&
-      (serverUpdateState.status !== "idle" ||
+      (updateRunning ||
+        updateFailed ||
         (showVersionMismatchBanner && versionMismatch && versionMismatchDismissKey))
     ) {
-      const updateInProgress = serverUpdateState.status === "running";
-      const updateFailed = serverUpdateState.status === "failed";
-      items.push({
-        id: `server-version:${serverUpdateEnvironmentId}`,
-        variant: updateFailed ? "error" : "default",
-        // A running update is live progress the user is waiting on; only the
-        // idle "update available" offer is calm enough to stack behind.
-        urgent: updateInProgress,
-        // In-flight and failed states carry their own status dot inside
-        // ServerUpdateProgress; only the idle offer needs an icon.
-        icon:
-          updateInProgress || updateFailed ? null : (
-            <span
-              className="size-1.5 rounded-full border border-muted-foreground/40"
-              aria-hidden="true"
-            />
-          ),
-        title:
-          updateInProgress || updateFailed ? (
-            `${updateFailed ? "Could not update" : "Updating"} ${versionMismatchServerLabel}`
-          ) : versionMismatch ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button type="button" className="cursor-help rounded-sm text-left">
-                    Server update available
-                  </button>
-                }
+      if (updateRunning || updateFailed) {
+        issues.push({
+          key: `server-update:${serverUpdateEnvironmentId}`,
+          tone: updateFailed ? "destructive" : "info",
+          pulse: updateRunning,
+          title: `${updateFailed ? "Could not update" : "Updating"} ${versionMismatchServerLabel}`,
+          detail: <ServerUpdateProgress state={serverUpdateState} />,
+          action:
+            updateRunning ||
+            !versionMismatch ||
+            versionMismatchSelfUpdate === "desktop-managed" ? undefined : (
+              <ServerUpdateAction
+                environmentId={serverUpdateEnvironmentId}
+                serverLabel={versionMismatchServerLabel}
+                selfUpdate={versionMismatchSelfUpdate}
+                targetVersion={versionMismatch.clientVersion}
+                label="Retry"
               />
-              <TooltipPopup side="top">
-                {versionMismatchServerLabel} {versionMismatch.serverVersion}{" "}
-                <span aria-hidden="true">→</span> {versionMismatch.clientVersion}
-              </TooltipPopup>
-            </Tooltip>
-          ) : (
-            "Server update available"
-          ),
-        description:
-          updateInProgress || updateFailed ? (
-            <ServerUpdateProgress state={serverUpdateState} />
-          ) : versionMismatchSelfUpdate === "desktop-managed" ? (
-            serverUpdateGuidance(versionMismatchSelfUpdate, versionMismatchServerLabel)
-          ) : null,
-        // The desktop-managed guidance is already the description; the action
-        // slot would only repeat it.
-        actions:
-          updateInProgress ||
-          !versionMismatch ||
-          versionMismatchSelfUpdate === "desktop-managed" ? undefined : (
-            <ServerUpdateAction
-              environmentId={serverUpdateEnvironmentId}
-              serverLabel={versionMismatchServerLabel}
-              selfUpdate={versionMismatchSelfUpdate}
-              targetVersion={versionMismatch.clientVersion}
-              label={updateFailed ? "Retry" : "Update"}
-            />
-          ),
-        ...(updateInProgress || updateFailed || !versionMismatchDismissKey
-          ? {}
-          : {
-              dismissLabel: "Dismiss update notice",
-              onDismiss: () => {
-                dismissVersionMismatch(versionMismatchDismissKey);
-                setDismissedVersionMismatchKey(versionMismatchDismissKey);
-              },
-            }),
-      });
+            ),
+        });
+      } else if (versionMismatch) {
+        issues.push({
+          key: `server-update-available:${serverUpdateEnvironmentId}:${versionMismatch.clientVersion}`,
+          tone: "info",
+          pulse: false,
+          title: "Server update available",
+          detail:
+            versionMismatchSelfUpdate === "desktop-managed"
+              ? serverUpdateGuidance(versionMismatchSelfUpdate, versionMismatchServerLabel)
+              : `${versionMismatch.serverVersion} → ${versionMismatch.clientVersion}`,
+          action:
+            versionMismatchSelfUpdate === "desktop-managed" ? undefined : (
+              <ServerUpdateAction
+                environmentId={serverUpdateEnvironmentId}
+                serverLabel={versionMismatchServerLabel}
+                selfUpdate={versionMismatchSelfUpdate}
+                targetVersion={versionMismatch.clientVersion}
+                label="Update"
+              />
+            ),
+          ...(versionMismatchDismissKey
+            ? {
+                onDismiss: () => {
+                  dismissVersionMismatch(versionMismatchDismissKey);
+                  setDismissedVersionMismatchKey(versionMismatchDismissKey);
+                },
+                dismissLabel: "Dismiss update notice",
+              }
+            : {}),
+        });
+      }
     }
-    return items;
+    return issues;
   }, [
     activeEnvironmentUnavailableState,
-    reconnectWarningGraceElapsed,
+    reconnectingThroughVersionSkew,
     handleReconnectActiveEnvironment,
     navigate,
     setDismissedVersionMismatchKey,
@@ -2655,22 +2501,136 @@ function ChatViewContent(props: ChatViewProps) {
     const defaultInstanceId = defaultInstanceIdForDriver(selectedProvider);
     return providerStatuses.find((status) => status.instanceId === defaultInstanceId) ?? null;
   }, [activeProviderInstanceId, providerStatuses, selectedProvider]);
-  const providerStatusBannerKey = getProviderStatusBannerKey(activeProviderStatus);
-  const [dismissedProviderStatusBannerKey, setDismissedProviderStatusBannerKey] = useState<
-    string | null
-  >(null);
-  useEffect(() => {
-    if (providerStatusBannerKey === null && dismissedProviderStatusBannerKey !== null) {
-      setDismissedProviderStatusBannerKey(null);
+  const providerIssueStatus =
+    activeProviderStatus !== null &&
+    activeProviderStatus.status !== "ready" &&
+    activeProviderStatus.status !== "disabled"
+      ? activeProviderStatus
+      : null;
+  const providerIssue = useMemo<ChatSystemStatusIssue | null>(() => {
+    if (providerIssueStatus === null) {
+      return null;
     }
-  }, [dismissedProviderStatusBannerKey, providerStatusBannerKey]);
-  const visibleProviderStatus = shouldShowProviderStatusBanner(
-    activeProviderStatus,
-    dismissedProviderStatusBannerKey,
-  )
-    ? activeProviderStatus
-    : null;
-  const hasTimelineTopBanner = Boolean(visibleThreadError) || visibleProviderStatus !== null;
+    const providerName =
+      providerIssueStatus.displayName?.trim() ||
+      formatProviderDriverKindLabel(providerIssueStatus.driver);
+    const isUnauthenticated =
+      providerIssueStatus.status === "error" &&
+      providerIssueStatus.auth.status === "unauthenticated";
+    return {
+      key: [
+        providerIssueStatus.instanceId,
+        providerIssueStatus.status,
+        providerIssueStatus.auth.status,
+        providerIssueStatus.message ?? "",
+      ].join("\u0000"),
+      tone: providerIssueStatus.status === "warning" ? "warning" : "destructive",
+      pulse: false,
+      title: isUnauthenticated
+        ? `${providerName} is unauthenticated`
+        : `${providerName} provider ${providerIssueStatus.status}`,
+      detail: isUnauthenticated
+        ? "Sign in via the CLI to authenticate again."
+        : (providerIssueStatus.message ??
+          (providerIssueStatus.status === "error"
+            ? `${providerName} provider is unavailable.`
+            : `${providerName} provider has limited availability.`)),
+      action: (
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() => void navigate({ to: "/settings/providers" })}
+        >
+          Review
+        </Button>
+      ),
+    };
+  }, [navigate, providerIssueStatus]);
+  const chatSystemIssues = useMemo<ChatSystemStatusIssue[]>(
+    () =>
+      providerIssue === null
+        ? environmentAndUpdateIssues
+        : [...environmentAndUpdateIssues, providerIssue],
+    [environmentAndUpdateIssues, providerIssue],
+  );
+  const lastEnvOfflineToastKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const unavailableState = activeEnvironmentUnavailableState;
+    if (!unavailableState || unavailableState.connection.phase !== "error") {
+      lastEnvOfflineToastKeyRef.current = null;
+      return;
+    }
+    const toastKey = `${unavailableState.environmentId}\u0000${unavailableState.connection.error ?? ""}`;
+    if (lastEnvOfflineToastKeyRef.current === toastKey) {
+      return;
+    }
+    lastEnvOfflineToastKeyRef.current = toastKey;
+    toastManager.add(
+      stackedThreadToast({
+        type: "warning",
+        timeout: 8,
+        title: `${unavailableState.label}: ${connectionStatusTitle(unavailableState.connection)}`,
+        description: "Retrying in the background.",
+        actionProps: {
+          children: "Retry",
+          onClick: () => void handleReconnectActiveEnvironment(unavailableState.environmentId),
+        },
+      }),
+    );
+  }, [activeEnvironmentUnavailableState, handleReconnectActiveEnvironment]);
+  const lastUpdateAvailableToastKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      serverUpdateEnvironmentId === null ||
+      serverUpdateState.status !== "idle" ||
+      !showVersionMismatchBanner ||
+      versionMismatch === null ||
+      versionMismatchDismissKey === null
+    ) {
+      lastUpdateAvailableToastKeyRef.current = null;
+      return;
+    }
+    const toastKey = `${serverUpdateEnvironmentId}\u0000${versionMismatch.clientVersion}`;
+    if (lastUpdateAvailableToastKeyRef.current === toastKey) {
+      return;
+    }
+    lastUpdateAvailableToastKeyRef.current = toastKey;
+    toastManager.add(
+      stackedThreadToast({
+        type: "info",
+        timeout: 12,
+        title: "Server update available",
+        description: `${versionMismatchServerLabel} ${versionMismatch.serverVersion} → ${versionMismatch.clientVersion}.`,
+      }),
+    );
+  }, [
+    serverUpdateEnvironmentId,
+    serverUpdateState,
+    showVersionMismatchBanner,
+    versionMismatch,
+    versionMismatchDismissKey,
+    versionMismatchServerLabel,
+  ]);
+  const lastProviderToastKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (providerIssue === null) {
+      lastProviderToastKeyRef.current = null;
+      return;
+    }
+    if (lastProviderToastKeyRef.current === providerIssue.key) {
+      return;
+    }
+    lastProviderToastKeyRef.current = providerIssue.key;
+    toastManager.add(
+      stackedThreadToast({
+        type: providerIssue.tone === "warning" ? "warning" : "error",
+        timeout: 10,
+        title: providerIssue.title,
+        description: typeof providerIssue.detail === "string" ? providerIssue.detail : undefined,
+      }),
+    );
+  }, [providerIssue]);
+  const hasTimelineTopBanner = Boolean(visibleThreadError);
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
   const projectEntries = useProjectEntriesQuery(environmentId, activeProjectCwd ?? "");
   const activeThreadWorktreePath = activeThread?.worktreePath ?? null;
@@ -2695,15 +2655,6 @@ function ChatViewContent(props: ChatViewProps) {
       },
     }),
     [terminalUiState.terminalOpen],
-  );
-  const splitTerminalShortcutLabel = useMemo(
-    () => shortcutLabelForCommand(keybindings, "terminal.split", terminalShortcutLabelOptions),
-    [keybindings, terminalShortcutLabelOptions],
-  );
-  const splitTerminalVerticalShortcutLabel = useMemo(
-    () =>
-      shortcutLabelForCommand(keybindings, "terminal.splitVertical", terminalShortcutLabelOptions),
-    [keybindings, terminalShortcutLabelOptions],
   );
   const newTerminalShortcutLabel = useMemo(
     () => shortcutLabelForCommand(keybindings, "terminal.new", terminalShortcutLabelOptions),
@@ -2748,16 +2699,6 @@ function ChatViewContent(props: ChatViewProps) {
     [draftId, envLocked, logicalProjectEnvironments, setDraftThreadContext],
   );
 
-  const activeTerminalGroup =
-    terminalUiState.terminalGroups.find(
-      (group) => group.id === terminalUiState.activeTerminalGroupId,
-    ) ??
-    terminalUiState.terminalGroups.find((group) =>
-      group.terminalIds.includes(terminalUiState.activeTerminalId),
-    ) ??
-    null;
-  const hasReachedSplitLimit =
-    (activeTerminalGroup?.terminalIds.length ?? 0) >= MAX_TERMINALS_PER_GROUP;
   const setThreadError = useCallback(
     (targetThreadId: ThreadId | null, error: string | null) => {
       if (!targetThreadId) return;
@@ -2859,50 +2800,6 @@ function ChatViewContent(props: ChatViewProps) {
     terminalUiState.terminalIds.length,
     terminalUiState.terminalOpen,
   ]);
-  const splitTerminal = useCallback(
-    (direction: "horizontal" | "vertical" = "horizontal") => {
-      if (!activeThreadRef || hasReachedSplitLimit || !activeThreadId || !activeProject) {
-        return;
-      }
-      const cwdForOpen = gitCwd ?? activeProject.workspaceRoot;
-      if (!cwdForOpen) {
-        return;
-      }
-      const terminalId = nextTerminalId(allocatableActiveTerminalIds);
-      if (direction === "vertical") {
-        storeSplitTerminalVertical(activeThreadRef, terminalId);
-      } else {
-        storeSplitTerminal(activeThreadRef, terminalId);
-      }
-      setTerminalFocusRequestId((value) => value + 1);
-      void openTerminal({
-        environmentId,
-        input: {
-          threadId: activeThreadId,
-          terminalId,
-          cwd: cwdForOpen,
-          ...(activeThreadWorktreePath != null ? { worktreePath: activeThreadWorktreePath } : {}),
-          env: projectScriptRuntimeEnv({
-            project: { cwd: activeProject.workspaceRoot },
-            worktreePath: activeThreadWorktreePath,
-          }),
-        },
-      });
-    },
-    [
-      activeProject,
-      activeThreadId,
-      allocatableActiveTerminalIds,
-      activeThreadRef,
-      openTerminal,
-      activeThreadWorktreePath,
-      environmentId,
-      gitCwd,
-      hasReachedSplitLimit,
-      storeSplitTerminal,
-      storeSplitTerminalVertical,
-    ],
-  );
   const createNewTerminal = useCallback(() => {
     if (!activeThreadRef || !activeThreadId || !activeProject) {
       return;
@@ -2979,16 +2876,9 @@ function ChatViewContent(props: ChatViewProps) {
         env?: Record<string, string>;
         worktreePath?: string | null;
         preferNewTerminal?: boolean;
-        rememberAsLastInvoked?: boolean;
       },
     ) => {
       if (!activeThreadId || !activeProject || !activeThread) return;
-      if (options?.rememberAsLastInvoked !== false) {
-        setLastInvokedScriptByProjectId((current) => {
-          if (current[activeProject.id] === script.id) return current;
-          return { ...current, [activeProject.id]: script.id };
-        });
-      }
       const targetCwd = options?.cwd ?? gitCwd ?? activeProject.workspaceRoot;
       const baseTerminalId =
         terminalUiState.activeTerminalId || activeKnownTerminalIds[0] || DEFAULT_THREAD_TERMINAL_ID;
@@ -3080,7 +2970,6 @@ function ChatViewContent(props: ChatViewProps) {
       setThreadError,
       storeNewTerminal,
       storeSetActiveTerminal,
-      setLastInvokedScriptByProjectId,
       environmentId,
       openTerminal,
       activeKnownTerminalIds,
@@ -3499,51 +3388,6 @@ function ChatViewContent(props: ChatViewProps) {
     gitCwd,
     openTerminal,
   ]);
-  const splitPanelTerminal = useCallback(
-    (direction: "horizontal" | "vertical" = "horizontal") => {
-      if (
-        !activeThreadRef ||
-        !activeThreadId ||
-        !activeProject ||
-        activeRightPanelSurface?.kind !== "terminal" ||
-        activeRightPanelSurface.terminalIds.length >= MAX_TERMINALS_PER_GROUP
-      ) {
-        return;
-      }
-      const terminalId = nextTerminalId(allocatableActiveTerminalIds);
-      const cwd = gitCwd ?? activeProject.workspaceRoot;
-      useRightPanelStore
-        .getState()
-        .splitTerminal(activeThreadRef, activeRightPanelSurface.id, terminalId, direction);
-      setTerminalFocusRequestId((value) => value + 1);
-      void openTerminal({
-        environmentId: activeThreadRef.environmentId,
-        input: {
-          threadId: activeThreadId,
-          terminalId,
-          cwd,
-          ...(activeThreadWorktreePath != null ? { worktreePath: activeThreadWorktreePath } : {}),
-          env: projectScriptRuntimeEnv({
-            project: { cwd: activeProject.workspaceRoot },
-            worktreePath: activeThreadWorktreePath,
-          }),
-        },
-      });
-    },
-    [
-      activeProject,
-      activeRightPanelSurface,
-      activeThreadId,
-      activeThreadRef,
-      activeThreadWorktreePath,
-      allocatableActiveTerminalIds,
-      gitCwd,
-      openTerminal,
-    ],
-  );
-  const splitPanelTerminalVertical = useCallback(() => {
-    splitPanelTerminal("vertical");
-  }, [splitPanelTerminal]);
   const activatePanelTerminal = useCallback(
     (terminalId: string) => {
       if (!activeThreadRef || activeRightPanelSurface?.kind !== "terminal") return;
@@ -4658,27 +4502,15 @@ function ChatViewContent(props: ChatViewProps) {
     void handleSwitchCheckoutToThread();
   }, [gitStatusQuery.data?.hasWorkingTreeChanges, handleSwitchCheckoutToThread]);
   const composerBannerItems = useMemo<ComposerBannerStackItem[]>(() => {
-    const isUrgentSystemItem = (item: ComposerBannerStackItem) =>
-      item.urgent === true || item.variant === "error" || item.variant === "warning";
-    const urgentSystemItems = systemComposerBannerItems.filter(isUrgentSystemItem);
-    const calmSystemItems = systemComposerBannerItems.filter((item) => !isUrgentSystemItem(item));
     const backgroundLivenessItems =
       backgroundLivenessBannerItem === null ? [] : [backgroundLivenessBannerItem];
     const wokeThreadItems = wokeThreadBannerItem === null ? [] : [wokeThreadBannerItem];
     const parkedThreadItems = parkedThreadBannerItem === null ? [] : [parkedThreadBannerItem];
     if (!localCheckoutBranchMismatch || !showBranchMismatchBanner || !activeBranchMismatchKey) {
-      return [
-        ...urgentSystemItems,
-        ...backgroundLivenessItems,
-        ...calmSystemItems,
-        ...wokeThreadItems,
-        ...parkedThreadItems,
-      ];
+      return [...backgroundLivenessItems, ...wokeThreadItems, ...parkedThreadItems];
     }
     return [
-      ...urgentSystemItems,
       ...backgroundLivenessItems,
-      ...calmSystemItems,
       ...wokeThreadItems,
       {
         id: `branch-mismatch:${activeBranchMismatchKey}`,
@@ -4729,7 +4561,6 @@ function ChatViewContent(props: ChatViewProps) {
     localCheckoutBranchMismatch,
     parkedThreadBannerItem,
     showBranchMismatchBanner,
-    systemComposerBannerItems,
     wokeThreadBannerItem,
   ]);
 
@@ -4861,34 +4692,6 @@ function ChatViewContent(props: ChatViewProps) {
         return;
       }
 
-      if (command === "terminal.split") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (terminalFocusOwner === "right-panel") {
-          splitPanelTerminal();
-          return;
-        }
-        if (!terminalUiState.terminalOpen) {
-          setTerminalOpen(true);
-        }
-        splitTerminal();
-        return;
-      }
-
-      if (command === "terminal.splitVertical") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (terminalFocusOwner === "right-panel") {
-          splitPanelTerminal("vertical");
-          return;
-        }
-        if (!terminalUiState.terminalOpen) {
-          setTerminalOpen(true);
-        }
-        splitTerminal("vertical");
-        return;
-      }
-
       if (command === "terminal.close") {
         event.preventDefault();
         event.stopPropagation();
@@ -4951,8 +4754,6 @@ function ChatViewContent(props: ChatViewProps) {
     createNewTerminal,
     setTerminalOpen,
     runProjectScript,
-    splitTerminal,
-    splitPanelTerminal,
     keybindings,
     onToggleDiff,
     toggleRightPanel,
@@ -6206,13 +6007,9 @@ function ChatViewContent(props: ChatViewProps) {
         focusRequestId={terminalFocusRequestId}
         keybindings={keybindings}
         onAddTerminalContext={addTerminalContextToDraft}
-        onSplitTerminal={splitPanelTerminal}
-        onSplitTerminalVertical={splitPanelTerminalVertical}
         onNewTerminal={addTerminalSurface}
         onActiveTerminalChange={activatePanelTerminal}
         onCloseTerminal={closePanelTerminal}
-        splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
-        splitVerticalShortcutLabel={splitTerminalVerticalShortcutLabel ?? undefined}
         newShortcutLabel={newTerminalShortcutLabel ?? undefined}
         closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
       />
@@ -6330,6 +6127,7 @@ function ChatViewContent(props: ChatViewProps) {
             {...(!supportsPullRequests || threadRepository === null
               ? {}
               : { onOpenPullRequest: openThreadPullRequest })}
+            statusIndicator={<ChatStatusIndicator issues={chatSystemIssues} />}
             activeThreadEnvironmentId={activeThread.environmentId}
             activeThreadId={activeThread.id}
             {...(routeKind === "draft" && draftId ? { draftId } : {})}
@@ -6341,9 +6139,6 @@ function ChatViewContent(props: ChatViewProps) {
             activeProjectFaviconPath={activeProject?.faviconPath ?? null}
             openInCwd={gitCwd}
             activeProjectScripts={activeProject?.scripts}
-            preferredScriptId={
-              activeProject ? (lastInvokedScriptByProjectId[activeProject.id] ?? null) : null
-            }
             keybindings={keybindings}
             availableEditors={availableEditors}
             rightPanelOpen={rightPanelOpen}
@@ -6369,13 +6164,6 @@ function ChatViewContent(props: ChatViewProps) {
         <div className="flex min-h-0 min-w-0 flex-1">
           {/* Chat column */}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            {/* Provider status overlays the timeline without changing its content height. */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
-              <ProviderStatusBanner
-                status={visibleProviderStatus}
-                onDismiss={() => setDismissedProviderStatusBannerKey(providerStatusBannerKey)}
-              />
-            </div>
             {/* Messages Wrapper */}
             <div className="relative flex min-h-0 flex-1 flex-col">
               {/* Messages — LegendList handles virtualization and scrolling internally */}
@@ -6687,10 +6475,9 @@ function ChatViewContent(props: ChatViewProps) {
               mountedThreadKey === activeThreadKey ? (activeTerminalLaunchContext ?? null) : null
             }
             focusRequestId={mountedThreadKey === activeThreadKey ? terminalFocusRequestId : 0}
-            splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
-            splitVerticalShortcutLabel={splitTerminalVerticalShortcutLabel ?? undefined}
             newShortcutLabel={newTerminalShortcutLabel ?? undefined}
             closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
+            onCloseDrawer={() => setTerminalOpen(false)}
             keybindings={keybindings}
             onAddTerminalContext={addTerminalContextToDraft}
           />

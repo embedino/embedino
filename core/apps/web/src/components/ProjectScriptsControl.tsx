@@ -7,10 +7,10 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@embedino/client-runtime/state/runtime";
-import { ChevronDownIcon, DownloadIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import { DownloadIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-import { commandForProjectScript, primaryProjectScript } from "~/projectScripts";
+import { commandForProjectScript } from "~/projectScripts";
 import { shortcutLabelForCommand } from "~/keybindings";
 import {
   EMPTY_PROJECT_SCRIPT_INPUT,
@@ -22,7 +22,6 @@ import {
   type ProjectScriptEditorRequest,
 } from "./projectScriptEditor";
 import { Button } from "./ui/button";
-import { Group, GroupSeparator } from "./ui/group";
 import {
   Menu,
   MenuGroup,
@@ -33,7 +32,6 @@ import {
   MenuShortcut,
   MenuTrigger,
 } from "./ui/menu";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 export type { NewProjectScriptInput, ProjectScriptActionResult };
 
@@ -44,7 +42,6 @@ interface ProjectScriptsControlProps {
   /** Scripts declared in the project's checked-in embedino.json, offered for import. */
   fileScripts?: ReadonlyArray<EmbedinoProjectFileScript>;
   keybindings: ResolvedKeybindingsConfig;
-  preferredScriptId?: string | null;
   onRunScript: (script: ProjectScript) => void;
   onAddScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
   onUpdateScript: (
@@ -58,25 +55,13 @@ export default function ProjectScriptsControl({
   scripts,
   fileScripts = NO_FILE_SCRIPTS,
   keybindings,
-  preferredScriptId = null,
   onRunScript,
   onAddScript,
   onUpdateScript,
   onDeleteScript,
 }: ProjectScriptsControlProps) {
-  const [actionsMenuOpen, setActionsMenuOpen] = useState({
-    scripts: false,
-    imports: false,
-  });
   const [editorRequest, setEditorRequest] = useState<ProjectScriptEditorRequest | null>(null);
 
-  const primaryScript = useMemo(() => {
-    if (preferredScriptId) {
-      const preferred = scripts.find((script) => script.id === preferredScriptId);
-      if (preferred) return preferred;
-    }
-    return primaryProjectScript(scripts);
-  }, [preferredScriptId, scripts]);
   const importableScripts = useMemo(
     () =>
       fileScripts.filter(
@@ -97,7 +82,6 @@ export default function ProjectScriptsControl({
   };
 
   const openEditDialog = (script: ProjectScript) => {
-    setActionsMenuOpen({ scripts: false, imports: false });
     setEditorRequest(editorRequestForScript(script, keybindings));
   };
 
@@ -132,7 +116,7 @@ export default function ProjectScriptsControl({
 
   const importMenuItems = importableScripts.length > 0 && (
     <>
-      {primaryScript && <MenuSeparator />}
+      {scripts.length > 0 && <MenuSeparator />}
       <MenuGroup>
         <MenuGroupLabel>From embedino.json</MenuGroupLabel>
         {importableScripts.map((fileScript) => (
@@ -154,42 +138,27 @@ export default function ProjectScriptsControl({
 
   return (
     <>
-      {primaryScript ? (
-        <Group aria-label="Project scripts">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="xs"
-                  variant="outline"
-                  className="w-7 px-0 sm:w-6 @3xl/header-actions:w-auto! @3xl/header-actions:px-[calc(--spacing(2)-1px)]"
-                  aria-label={`Run ${primaryScript.name}`}
-                  // The tooltip wrapper replaces data-slot="button", so themed
-                  // toolbar styling needs its own hook.
-                  data-toolbar-control=""
-                  onClick={() => onRunScript(primaryScript)}
-                />
-              }
-            >
-              <ScriptIcon icon={primaryScript.icon} />
-              <span className="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5">
-                {primaryScript.name}
-              </span>
-            </TooltipTrigger>
-            <TooltipPopup side="top">Run {primaryScript.name}</TooltipPopup>
-          </Tooltip>
-          <GroupSeparator className="hidden @3xl/header-actions:block" />
-          <Menu
-            highlightItemOnHover={false}
-            open={actionsMenuOpen.scripts}
-            onOpenChange={(open) => setActionsMenuOpen({ scripts: open, imports: false })}
-          >
-            <MenuTrigger
-              render={<Button size="icon-xs" variant="outline" aria-label="Script actions" />}
-            >
-              <ChevronDownIcon className="size-4" />
-            </MenuTrigger>
-            <MenuPopup align="end">
+      <Menu highlightItemOnHover={false}>
+        <MenuTrigger
+          render={
+            <Button
+              size="xs"
+              variant="outline"
+              className="w-7 px-0 sm:w-6"
+              aria-label="Project actions"
+              // The tooltip wrapper replaces data-slot="button", so themed
+              // toolbar styling needs its own hook.
+              data-toolbar-control=""
+            />
+          }
+        >
+          <PlusIcon className="size-3.5" />
+          <span className="sr-only">Add action</span>
+        </MenuTrigger>
+        <MenuPopup align="end">
+          {scripts.length > 0 && (
+            <MenuGroup>
+              <MenuGroupLabel>Actions</MenuGroupLabel>
               {scripts.map((script) => {
                 const shortcutLabel = shortcutLabelForCommand(
                   keybindings,
@@ -233,59 +202,15 @@ export default function ProjectScriptsControl({
                   </MenuItem>
                 );
               })}
-              {importMenuItems}
-              <MenuItem className={dropdownItemClassName} onClick={openAddDialog}>
-                <PlusIcon className="size-4" />
-                Add action
-              </MenuItem>
-            </MenuPopup>
-          </Menu>
-        </Group>
-      ) : importableScripts.length > 0 ? (
-        <Menu
-          highlightItemOnHover={false}
-          open={actionsMenuOpen.imports}
-          onOpenChange={(open) => setActionsMenuOpen({ scripts: false, imports: open })}
-        >
-          <MenuTrigger render={<Button size="xs" variant="outline" aria-label="Project actions" />}>
-            <PlusIcon className="size-3.5" />
-            <span className="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5">
-              Add action
-            </span>
-            <ChevronDownIcon className="size-3.5" />
-          </MenuTrigger>
-          <MenuPopup align="end">
-            {importMenuItems}
-            <MenuItem className={dropdownItemClassName} onClick={openAddDialog}>
-              <PlusIcon className="size-4" />
-              Add action
-            </MenuItem>
-          </MenuPopup>
-        </Menu>
-      ) : (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="xs"
-                variant="outline"
-                className="w-7 px-0 sm:w-6 @3xl/header-actions:w-auto! @3xl/header-actions:px-[calc(--spacing(2)-1px)]"
-                aria-label="Add action"
-                // The tooltip wrapper replaces data-slot="button", so themed
-                // toolbar styling needs its own hook.
-                data-toolbar-control=""
-                onClick={openAddDialog}
-              />
-            }
-          >
-            <PlusIcon className="size-3.5" />
-            <span className="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5">
-              Add action
-            </span>
-          </TooltipTrigger>
-          <TooltipPopup side="top">Add action</TooltipPopup>
-        </Tooltip>
-      )}
+            </MenuGroup>
+          )}
+          {importMenuItems}
+          <MenuItem className={dropdownItemClassName} onClick={openAddDialog}>
+            <PlusIcon className="size-4" />
+            Add action
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
 
       <ProjectScriptEditorDialog
         request={editorRequest}

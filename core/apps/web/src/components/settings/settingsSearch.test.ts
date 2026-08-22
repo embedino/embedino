@@ -79,10 +79,9 @@ describe("searchSettings", () => {
       id: "word-wrap",
       to: "/settings/appearance",
     });
-    expect(searchSettings("environment identification")[0]).toMatchObject({
-      id: "environment-identification",
+    expect(searchSettings("glass opacity")[0]).toMatchObject({
+      id: "setting-glass-opacity",
       to: "/settings/appearance",
-      targetId: "appearance",
     });
   });
 });

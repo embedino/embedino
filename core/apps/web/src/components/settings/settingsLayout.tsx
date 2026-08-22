@@ -136,16 +136,19 @@ export function SettingsSection({
       {...sectionProps}
       ref={targetRef}
       tabIndex={sectionProps.id ? -1 : sectionProps.tabIndex}
-      className={cn("space-y-3", className)}
+      className={cn(
+        "overflow-hidden rounded-xl border border-border/60 bg-card shadow-xs",
+        className,
+      )}
     >
-      <div className="flex min-h-8 items-center justify-between gap-4 px-3 sm:px-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-[-0.025em] text-foreground">
+      <div className="flex min-h-11 items-center justify-between gap-4 border-b border-border/40 px-3 sm:px-4">
+        <h2 className="flex items-center gap-2 text-[13px] font-semibold tracking-[-0.01em] text-foreground">
           {icon}
           {title}
         </h2>
         <div className="flex min-h-7 min-w-7 items-center justify-end">{headerAction}</div>
       </div>
-      <div className="relative space-y-1 overflow-visible text-foreground">{children}</div>
+      <div className="relative divide-y divide-border/40 text-foreground">{children}</div>
     </section>
   );
 }
@@ -174,20 +177,18 @@ export function SettingsRow({
       {...rowProps}
       ref={targetRef}
       tabIndex={rowProps.id ? -1 : rowProps.tabIndex}
-      className={cn("rounded-xl px-3 sm:px-4", children ? "pt-3 pb-1" : "py-3", className)}
+      className={cn("px-3 sm:px-4", children ? "pt-3 pb-3" : "py-3", className)}
     >
       <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(10rem,auto)] sm:items-center sm:gap-8">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex min-h-5 items-center gap-1.5">
-            <h3 className="text-sm font-medium tracking-[-0.005em] text-foreground">{title}</h3>
+            <h3 className="text-[13px] font-medium tracking-[-0.005em] text-foreground">{title}</h3>
             <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">
               {resetAction}
             </span>
           </div>
           {description ? (
-            <p className="max-w-xl text-[13px] leading-[1.45] text-muted-foreground/80">
-              {description}
-            </p>
+            <p className="max-w-xl text-xs leading-[1.45] text-muted-foreground">{description}</p>
           ) : null}
           {status ? <div className="pt-0.5 text-xs text-muted-foreground">{status}</div> : null}
         </div>
@@ -252,7 +253,7 @@ export function SettingsPageContainer({
   return (
     <SettingsSearchTargetProvider targetId={targetId} onTargetHandled={clearTargetHash}>
       <div className="settings-page-scroll-fade scrollbar-gutter-both flex-1 overflow-y-auto px-4 pt-10 pb-7 sm:px-8 sm:pt-12 sm:pb-10">
-        <div className={cn("mx-auto flex w-full max-w-4xl flex-col gap-12", className)}>
+        <div className={cn("mx-auto flex w-full max-w-4xl flex-col gap-8", className)}>
           {children}
         </div>
       </div>

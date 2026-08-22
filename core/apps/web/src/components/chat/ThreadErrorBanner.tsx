@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { Alert, AlertAction, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CircleAlertIcon, XIcon } from "lucide-react";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -42,25 +41,25 @@ export const ThreadErrorBanner = memo(function ThreadErrorBanner({
 }) {
   if (!error) return null;
   return (
-    <div className="mx-auto w-fit max-w-[min(48rem,calc(100%-2rem))] pt-3">
-      <Alert variant="error" controlAlignment="first-line">
-        <CircleAlertIcon />
-        <AlertDescription>
+    <div className="mx-auto w-fit max-w-[min(48rem,calc(100%-2rem))] pt-3" role="alert">
+      <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/[0.06] py-2 ps-3 pe-2 text-[13px]">
+        <CircleAlertIcon aria-hidden className="mt-[3px] size-3.5 shrink-0 text-destructive/80" />
+        <div className="min-w-0 flex-1">
           <Tooltip>
-            <TooltipTrigger render={<div className="line-clamp-3" />}>{error}</TooltipTrigger>
+            <TooltipTrigger render={<div className="line-clamp-3 text-foreground/90" />}>
+              {error}
+            </TooltipTrigger>
             <TooltipPopup side="top" className="max-w-96 whitespace-pre-wrap">
               {error}
             </TooltipPopup>
           </Tooltip>
-        </AlertDescription>
+        </div>
         {onDismiss && (
-          <AlertAction>
-            <Button variant="ghost" size="icon-xs" aria-label="Dismiss error" onClick={onDismiss}>
-              <XIcon className="text-destructive" />
-            </Button>
-          </AlertAction>
+          <Button variant="ghost" size="icon-xs" aria-label="Dismiss error" onClick={onDismiss}>
+            <XIcon />
+          </Button>
         )}
-      </Alert>
+      </div>
     </div>
   );
 });

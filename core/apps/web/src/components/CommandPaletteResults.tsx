@@ -71,7 +71,7 @@ function ThreadContentMatch(props: {
   const isUser = props.match.source === "user";
   return (
     <span className="truncate text-xs text-muted-foreground/85">
-      <span className={isUser ? "text-blue-400" : "text-emerald-400"}>
+      <span className={isUser ? "text-zinc-400" : "text-emerald-400"}>
         {isUser ? "You:" : "Agent:"}
       </span>{" "}
       <HighlightedSearchText text={props.match.snippet} query={props.match.query} />

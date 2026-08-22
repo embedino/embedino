@@ -12,18 +12,13 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { isElectron } from "../env";
 import { getLocalStorageItem, removeLocalStorageItem } from "../hooks/useLocalStorage";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
-import { cn, isMacPlatform } from "../lib/utils";
+import { isMacPlatform } from "../lib/utils";
 import { primaryServerKeybindingsAtom } from "../state/server";
-import { useEnvironmentIdentificationMode, useLegacySidebarEnabled } from "../hooks/useSettings";
+import { useLegacySidebarEnabled } from "../hooks/useSettings";
 import LegacyThreadSidebar from "./LegacySidebar";
 import ThreadSidebar from "./Sidebar";
 import { SettingsSidebarNav } from "./settings/SettingsSidebarNav";
 import { SidebarChromeHeader } from "./sidebar/SidebarChrome";
-import {
-  resolveSidebarStageFocusRingOffsetClass,
-  useSidebarStageBackdropVariant,
-} from "./SidebarStageBackdrop";
-import { useProjects } from "../state/entities";
 import {
   resolveInitialThreadSidebarWidth,
   resolveThreadSidebarMaximumWidth,
@@ -31,14 +26,7 @@ import {
   THREAD_SIDEBAR_MIN_WIDTH,
   THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
 } from "./threadSidebarWidth";
-import {
-  Sidebar,
-  SidebarProvider,
-  SidebarRail,
-  SidebarTrigger,
-  useSidebar,
-  useSidebarVisibility,
-} from "./ui/sidebar";
+import { Sidebar, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar } from "./ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 const MACOS_TRAFFIC_LIGHTS_LEFT_INSET = "90px";
@@ -67,11 +55,6 @@ function readInitialThreadSidebarWidth(): number {
 function SidebarControl() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const { toggleSidebar } = useSidebar();
-  const isSidebarVisible = useSidebarVisibility();
-  const environmentIdentificationMode = useEnvironmentIdentificationMode();
-  const stageBackdropVariant = useSidebarStageBackdropVariant(
-    environmentIdentificationMode === "artwork",
-  );
   const shortcutLabel = shortcutLabelForCommand(keybindings, "sidebar.toggle");
 
   useEffect(() => {
@@ -106,18 +89,7 @@ function SidebarControl() {
       <Tooltip>
         <TooltipTrigger
           render={
-            <SidebarTrigger
-              className={cn(
-                "pointer-events-auto",
-                isSidebarVisible &&
-                  stageBackdropVariant &&
-                  "focus-visible:ring-white/90 [&_svg]:stroke-white/90! [&_svg]:opacity-100! [&_svg]:hover:stroke-white! [:hover,[data-pressed]]:bg-white/15",
-                isSidebarVisible &&
-                  stageBackdropVariant &&
-                  resolveSidebarStageFocusRingOffsetClass(stageBackdropVariant),
-              )}
-              aria-label="Toggle main sidebar"
-            />
+            <SidebarTrigger className="pointer-events-auto" aria-label="Toggle main sidebar" />
           }
         />
         <TooltipPopup side="bottom">
@@ -128,12 +100,16 @@ function SidebarControl() {
   );
 }
 
-// Settings swaps the thread sidebar out of the tree. Keep the lightweight
-// project projection subscribed so returning to a draft never renders the
-// zero-project state while the environment snapshot reconnects.
-function ProjectProjectionRetention() {
-  useProjects();
-  return null;
+// Settings used to swap the thread sidebar out of the tree, which cold-started
+// the whole component on every chat↔settings round trip: subscriptions
+// reconnected, the settled partition recomputed from scratch, and every row's
+// entrance animation replayed — the lag and the rows-jumping report. Both
+// bodies now stay mounted; `display: none` parks the inactive one so returning
+// is a paint, not a rebuild. The wrappers themselves are display:contents so
+// each body's header/content/footer fragments keep participating in the
+// sidebar's flex column exactly as before.
+function sidebarBodyVisibility(hidden: boolean): string {
+  return hidden ? "hidden" : "contents";
 }
 
 export function AppSidebarLayout({ children }: { children: ReactNode }) {
@@ -210,7 +186,6 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider className="h-dvh! min-h-0!" defaultOpen style={sidebarProviderStyle}>
-      <ProjectProjectionRetention />
       <Sidebar
         side="left"
         collapsible="offcanvas"
@@ -226,16 +201,25 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           onResize: setSidebarWidth,
         }}
       >
-        {isOnSettings ? (
-          <>
-            <SidebarChromeHeader isElectron={isElectron} />
-            <SettingsSidebarNav pathname={pathname} />
-          </>
-        ) : legacySidebarEnabled ? (
-          <LegacyThreadSidebar />
-        ) : (
-          <ThreadSidebar />
-        )}
+        {/* Both sidebar bodies stay mounted (see sidebarBodyVisibility): the
+            thread sidebar must not cold-rebuild after a settings visit. The
+            thread sidebars carry their own chrome header internally; the
+            settings nav does not, so only that body gets one here. */}
+        <div
+          className={sidebarBodyVisibility(isOnSettings)}
+          data-slot="thread-sidebar-body"
+          aria-hidden={isOnSettings || undefined}
+        >
+          {legacySidebarEnabled ? <LegacyThreadSidebar /> : <ThreadSidebar />}
+        </div>
+        <div
+          className={sidebarBodyVisibility(!isOnSettings)}
+          data-slot="settings-sidebar-body"
+          aria-hidden={!isOnSettings || undefined}
+        >
+          <SidebarChromeHeader isElectron={isElectron} />
+          <SettingsSidebarNav pathname={pathname} />
+        </div>
         <SidebarRail onDoubleClick={resetSidebarWidth} />
       </Sidebar>
       {children}

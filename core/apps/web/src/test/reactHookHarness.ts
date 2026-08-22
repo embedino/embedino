@@ -51,6 +51,16 @@ export function createReactHookHarness() {
       nextIndex();
       return callback;
     },
+    /**
+     * Runs the effect body immediately: these tests invoke components as
+     * plain functions, so there is no commit phase to schedule against.
+     * Returned cleanups are dropped — effects used here must tolerate being
+     * observed rather than lifecycle-driven.
+     */
+    useEffect(effect: () => void | (() => void)): void {
+      nextIndex();
+      effect();
+    },
     useMemo<T>(factory: () => T): T {
       nextIndex();
       return factory();

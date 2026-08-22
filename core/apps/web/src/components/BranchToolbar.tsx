@@ -12,7 +12,7 @@ import {
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useComposerDraftStore, type DraftId } from "../composerDraftStore";
-import { useProject, useThread, useThreadShellsForProjectRefs } from "../state/entities";
+import { useProject, useThread } from "../state/entities";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import {
   type EnvMode,
@@ -21,10 +21,9 @@ import {
   resolveEnvModeLabel,
   resolveEffectiveEnvMode,
   resolveLockedWorkspaceLabel,
-  resolvePreviousWorktreeLabel,
-  resolvePreviousWorktreeSeed,
   shouldShowEnvironmentIndicator,
 } from "./BranchToolbar.logic";
+import { usePreviousWorktreeOption } from "./usePreviousWorktreeOption";
 import { BranchToolbarBranchSelector } from "./BranchToolbarBranchSelector";
 import { BranchToolbarEnvironmentSelector } from "./BranchToolbarEnvironmentSelector";
 import { BranchToolbarEnvModeSelector } from "./BranchToolbarEnvModeSelector";
@@ -71,7 +70,7 @@ interface MobileRunContextSelectorProps {
   activeWorktreePath: string | null;
   onEnvModeChange: (mode: EnvMode) => void;
   previousWorktreeLabel: string | null;
-  onUsePreviousWorktree: () => void;
+  onUsePreviousWorktree?: () => void;
 }
 
 const MobileRunContextSelector = memo(function MobileRunContextSelector({
@@ -176,7 +175,7 @@ const MobileRunContextSelector = memo(function MobileRunContextSelector({
             value={effectiveEnvMode}
             onValueChange={(value) => {
               if (value === "previous-worktree") {
-                onUsePreviousWorktree();
+                onUsePreviousWorktree?.();
                 return;
               }
               onEnvModeChange(value as EnvMode);
@@ -398,7 +397,6 @@ export const BranchToolbar = memo(function BranchToolbar({
     draftId ? store.getDraftSession(draftId) : store.getDraftThreadByRef(threadRef),
   );
   const serverThread = useThread(threadRef, { waitForShell: draftThread !== null });
-  const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
   const activeProjectRef = serverThread
     ? scopeProjectRef(serverThread.environmentId, serverThread.projectId)
     : draftThread
@@ -416,39 +414,16 @@ export const BranchToolbar = memo(function BranchToolbar({
     });
   const envModeLocked = envLocked || (serverThread !== null && activeWorktreePath !== null);
 
-  // "Previous worktree" hops a draft into the most recently active worktree
-  // of this project — the "keep going where I just was" follow-up flow. Only
-  // drafts can hop; started server threads have their workspace pinned.
-  const canUsePreviousWorktree = draftThread !== null && serverThread === null && !envModeLocked;
-  const projectRefsForWorktreeLookup = useMemo(
-    () => (canUsePreviousWorktree && activeProjectRef ? [activeProjectRef] : []),
-    [canUsePreviousWorktree, activeProjectRef],
-  );
-  const projectThreads = useThreadShellsForProjectRefs(projectRefsForWorktreeLookup);
-  const previousWorktreeSeed = useMemo(
-    () =>
-      canUsePreviousWorktree
-        ? resolvePreviousWorktreeSeed({
-            threads: projectThreads,
-            currentWorktreePath: activeWorktreePath,
-          })
-        : null,
-    [activeWorktreePath, canUsePreviousWorktree, projectThreads],
-  );
-  const previousWorktreeLabel = previousWorktreeSeed
-    ? resolvePreviousWorktreeLabel(previousWorktreeSeed)
-    : null;
-  const onUsePreviousWorktree = useCallback(() => {
-    if (!previousWorktreeSeed || !activeProjectRef) return;
-    // Same shape the branch selector writes when picking a branch that
-    // already lives in a worktree: point the draft at the existing tree.
-    setDraftThreadContext(draftId ?? threadRef, {
-      branch: previousWorktreeSeed.branch,
-      worktreePath: previousWorktreeSeed.worktreePath,
-      envMode: "worktree",
-      projectRef: activeProjectRef,
-    });
-  }, [activeProjectRef, draftId, previousWorktreeSeed, setDraftThreadContext, threadRef]);
+  // Only drafts can hop; started server threads have their workspace pinned.
+  const previousWorktree = usePreviousWorktreeOption({
+    enabled: draftThread !== null && serverThread === null && !envModeLocked,
+    activeProjectRef,
+    currentWorktreePath: activeWorktreePath,
+    ...(draftId ? { draftId } : {}),
+    threadRef,
+  });
+  const previousWorktreeLabel = previousWorktree?.label ?? null;
+  const onUsePreviousWorktree = previousWorktree?.onUse;
 
   const showEnvironmentPicker = Boolean(
     availableEnvironments && availableEnvironments.length > 1 && onEnvironmentChange,
@@ -484,7 +459,7 @@ export const BranchToolbar = memo(function BranchToolbar({
           activeWorktreePath={activeWorktreePath}
           onEnvModeChange={onEnvModeChange}
           previousWorktreeLabel={previousWorktreeLabel}
-          onUsePreviousWorktree={onUsePreviousWorktree}
+          {...(onUsePreviousWorktree ? { onUsePreviousWorktree } : {})}
         />
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -511,8 +486,12 @@ export const BranchToolbar = memo(function BranchToolbar({
               effectiveEnvMode={effectiveEnvMode}
               activeWorktreePath={activeWorktreePath}
               onEnvModeChange={onEnvModeChange}
-              previousWorktreeLabel={previousWorktreeLabel}
-              onUsePreviousWorktree={onUsePreviousWorktree}
+              {...(previousWorktreeLabel !== null && onUsePreviousWorktree
+                ? {
+                    previousWorktreeLabel,
+                    onUsePreviousWorktree,
+                  }
+                : {})}
             />
           ) : null}
         </div>

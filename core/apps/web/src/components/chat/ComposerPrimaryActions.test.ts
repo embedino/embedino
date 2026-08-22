@@ -1,19 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-
-const stageArtworkState = vi.hoisted(() => ({
-  mode: "none" as "artwork" | "none",
-  variant: null as "nightly" | "dev" | null,
-}));
-
-vi.mock("~/hooks/useSettings", () => ({
-  useEnvironmentIdentificationMode: () => stageArtworkState.mode,
-}));
-vi.mock("../SidebarStageBackdrop", () => ({
-  StageBackdropButtonArt: ({ variant }: { variant: string }) => `stage-${variant}`,
-  useSidebarStageBackdropVariant: (enabled = true) => (enabled ? stageArtworkState.variant : null),
-}));
+import { describe, expect, it } from "vite-plus/test";
 
 import { ComposerPrimaryActions, formatPendingPrimaryActionLabel } from "./ComposerPrimaryActions";
 
@@ -85,11 +72,6 @@ function renderSendButton() {
     }),
   );
 }
-
-afterEach(() => {
-  stageArtworkState.mode = "none";
-  stageArtworkState.variant = null;
-});
 
 describe("formatPendingPrimaryActionLabel", () => {
   it("returns 'Submitting...' while responding", () => {
@@ -192,27 +174,14 @@ describe("ComposerPrimaryActions", () => {
 
   it("matches the small pending action size without changing the standalone size", () => {
     expect(renderPendingActions(true)).toContain("size-8 sm:size-7");
-    expect(renderStandaloneStop()).toContain("size-8 sm:h-8 sm:w-8");
+    expect(renderStandaloneStop()).toContain("sm:size-8");
     expect(renderStandaloneStop()).not.toContain("sm:size-7");
   });
 
-  it("renders stage artwork inside the send button when artwork identification is active", () => {
-    stageArtworkState.mode = "artwork";
-    stageArtworkState.variant = "nightly";
-
-    const markup = renderSendButton();
-
-    expect(markup).toContain("stage-nightly");
-    expect(markup).toContain("bg-transparent text-white");
-    expect(markup).not.toContain("bg-message-action text-message-action-foreground");
-  });
-
-  it("keeps the normal send-button fill when artwork identification is inactive", () => {
-    stageArtworkState.variant = "nightly";
-
+  it("keeps the standard send-button fill without stage artwork", () => {
     const markup = renderSendButton();
 
     expect(markup).not.toContain("stage-nightly");
-    expect(markup).toContain("bg-message-action text-message-action-foreground");
+    expect(markup).toContain("bg-foreground text-background");
   });
 });

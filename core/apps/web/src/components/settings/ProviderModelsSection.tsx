@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  EyeIcon,
-  EyeOffIcon,
-  InfoIcon,
-  PlusIcon,
-  StarIcon,
-  XIcon,
-} from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, InfoIcon, PlusIcon, StarIcon, XIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import {
   ProviderDriverKind,
@@ -23,6 +14,7 @@ import { sortModelsForProviderInstance } from "../../modelOrdering";
 import { MAX_CUSTOM_MODEL_LENGTH } from "../../modelSelection";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Switch } from "../ui/switch";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 /**
@@ -190,7 +182,10 @@ export function ProviderModelsSection({
       <div className="mt-1 text-xs text-muted-foreground">
         {models.length} model{models.length === 1 ? "" : "s"} available.
       </div>
-      <div ref={listRef} className="mt-2 max-h-40 overflow-y-auto pb-1">
+      <div
+        ref={listRef}
+        className="mt-2 max-h-40 divide-y divide-border/40 overflow-y-auto rounded-lg border border-border/50"
+      >
         {orderedModels.map((model, index) => {
           const caps = model.capabilities;
           const capLabels: string[] = [];
@@ -227,14 +222,14 @@ export function ProviderModelsSection({
             <div
               key={`${instanceId}:${model.slug}`}
               className={cn(
-                "grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-1",
+                "group flex h-9 items-center justify-between gap-2 px-2.5 transition-colors hover:bg-accent/40",
                 isHidden && "text-muted-foreground",
               )}
             >
-              <div className="flex min-w-0 items-center gap-1">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <span
                   className={cn(
-                    "min-w-0 truncate text-xs",
+                    "min-w-0 truncate text-[13px]",
                     isHidden ? "text-muted-foreground line-through" : "text-foreground/90",
                   )}
                 >
@@ -277,89 +272,31 @@ export function ProviderModelsSection({
                   <span className="text-[10px] text-muted-foreground">custom</span>
                 ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-0.5">
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className={cn(
-                          "size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground",
-                          isFavorite && "text-yellow-500 hover:text-yellow-600",
-                        )}
-                        onClick={() => handleToggleFavorite(model.slug)}
-                        aria-label={`${isFavorite ? "Remove" : "Add"} ${model.name} ${
-                          isFavorite ? "from" : "to"
-                        } favorites`}
-                      />
-                    }
-                  >
-                    <StarIcon className={cn("size-3", isFavorite && "fill-current")} />
-                  </TooltipTrigger>
-                  <TooltipPopup side="top">
-                    {isFavorite ? "Remove from favorites" : "Add to favorites"}
-                  </TooltipPopup>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
-                        disabled={!canMoveUp}
-                        onClick={() => handleMove(model.slug, -1)}
-                        aria-label={`Move ${model.name} up`}
-                      />
-                    }
-                  >
-                    <ArrowUpIcon className="size-3" />
-                  </TooltipTrigger>
-                  <TooltipPopup side="top">Move up</TooltipPopup>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
-                        disabled={!canMoveDown}
-                        onClick={() => handleMove(model.slug, 1)}
-                        aria-label={`Move ${model.name} down`}
-                      />
-                    }
-                  >
-                    <ArrowDownIcon className="size-3" />
-                  </TooltipTrigger>
-                  <TooltipPopup side="top">Move down</TooltipPopup>
-                </Tooltip>
-                {!model.isCustom ? (
+              <div className="flex shrink-0 items-center gap-1">
+                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
                   <Tooltip>
                     <TooltipTrigger
                       render={
                         <Button
                           size="icon-xs"
                           variant="ghost"
-                          className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
-                          onClick={() => handleToggleHidden(model.slug)}
-                          aria-label={`${isHidden ? "Show" : "Hide"} ${model.name}`}
+                          className={cn(
+                            "size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground",
+                            isFavorite && "text-yellow-500 hover:text-yellow-600",
+                          )}
+                          onClick={() => handleToggleFavorite(model.slug)}
+                          aria-label={`${isFavorite ? "Remove" : "Add"} ${model.name} ${
+                            isFavorite ? "from" : "to"
+                          } favorites`}
                         />
                       }
                     >
-                      {isHidden ? (
-                        <EyeIcon className="size-3" />
-                      ) : (
-                        <EyeOffIcon className="size-3" />
-                      )}
+                      <StarIcon className={cn("size-3", isFavorite && "fill-current")} />
                     </TooltipTrigger>
                     <TooltipPopup side="top">
-                      {isHidden ? "Show in picker" : "Hide from picker"}
+                      {isFavorite ? "Remove from favorites" : "Add to favorites"}
                     </TooltipPopup>
                   </Tooltip>
-                ) : null}
-                {model.isCustom ? (
                   <Tooltip>
                     <TooltipTrigger
                       render={
@@ -367,15 +304,59 @@ export function ProviderModelsSection({
                           size="icon-xs"
                           variant="ghost"
                           className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
-                          aria-label={`Remove ${model.slug}`}
-                          onClick={() => handleRemove(model.slug)}
+                          disabled={!canMoveUp}
+                          onClick={() => handleMove(model.slug, -1)}
+                          aria-label={`Move ${model.name} up`}
                         />
                       }
                     >
-                      <XIcon className="size-3" />
+                      <ArrowUpIcon className="size-3" />
                     </TooltipTrigger>
-                    <TooltipPopup side="top">Remove custom model</TooltipPopup>
+                    <TooltipPopup side="top">Move up</TooltipPopup>
                   </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+                          disabled={!canMoveDown}
+                          onClick={() => handleMove(model.slug, 1)}
+                          aria-label={`Move ${model.name} down`}
+                        />
+                      }
+                    >
+                      <ArrowDownIcon className="size-3" />
+                    </TooltipTrigger>
+                    <TooltipPopup side="top">Move down</TooltipPopup>
+                  </Tooltip>
+                  {model.isCustom ? (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+                            aria-label={`Remove ${model.slug}`}
+                            onClick={() => handleRemove(model.slug)}
+                          />
+                        }
+                      >
+                        <XIcon className="size-3" />
+                      </TooltipTrigger>
+                      <TooltipPopup side="top">Remove custom model</TooltipPopup>
+                    </Tooltip>
+                  ) : null}
+                </div>
+                {!model.isCustom ? (
+                  <Switch
+                    checked={!isHidden}
+                    onCheckedChange={() => handleToggleHidden(model.slug)}
+                    aria-label={`${isHidden ? "Show" : "Hide"} ${model.name} in the model picker`}
+                    className="[--thumb-size:--spacing(3)]"
+                  />
                 ) : null}
               </div>
             </div>

@@ -46,6 +46,10 @@ type TraitsRenderInput = {
   modelOptions: ReadonlyArray<ProviderOptionSelection> | undefined;
   prompt: string;
   onPromptChange: (prompt: string) => void;
+  /** Extra classes for the TraitsPicker trigger button (ignored by the menu content). */
+  triggerClassName?: string;
+  /** Extra classes for the popup surface. */
+  contentClassName?: string;
 };
 
 export function getComposerPromptInjectionState(prompt: string): ComposerPromptInjectionState {
@@ -84,35 +88,49 @@ function renderTraitsControl(
   Component: typeof TraitsMenuContent | typeof TraitsPicker,
   input: TraitsRenderInput,
 ): ReactNode {
-  const {
-    provider,
-    instanceId,
-    threadRef,
-    draftId,
-    model,
-    models,
-    modelOptions,
-    prompt,
-    onPromptChange,
-  } = input;
+  const { triggerClassName, ...traitsInput } = input;
+  const { provider, instanceId, threadRef, draftId } = traitsInput;
   const hasTarget = threadRef !== undefined || draftId !== undefined;
   if (
     !hasTarget ||
-    !shouldRenderTraitsControls({ provider, models, model, modelOptions, prompt })
+    !shouldRenderTraitsControls({
+      provider,
+      models: traitsInput.models,
+      model: traitsInput.model,
+      modelOptions: traitsInput.modelOptions,
+      prompt: traitsInput.prompt,
+    })
   ) {
     return null;
   }
+  if (Component === TraitsPicker) {
+    return (
+      <TraitsPicker
+        provider={provider}
+        {...(instanceId ? { instanceId } : {})}
+        models={traitsInput.models}
+        {...(threadRef ? { threadRef } : {})}
+        {...(draftId ? { draftId } : {})}
+        model={traitsInput.model}
+        modelOptions={traitsInput.modelOptions}
+        prompt={traitsInput.prompt}
+        onPromptChange={traitsInput.onPromptChange}
+        {...(triggerClassName ? { triggerClassName } : {})}
+        {...(input.contentClassName ? { contentClassName: input.contentClassName } : {})}
+      />
+    );
+  }
   return (
-    <Component
+    <TraitsMenuContent
       provider={provider}
       {...(instanceId ? { instanceId } : {})}
-      models={models}
+      models={traitsInput.models}
       {...(threadRef ? { threadRef } : {})}
       {...(draftId ? { draftId } : {})}
-      model={model}
-      modelOptions={modelOptions}
-      prompt={prompt}
-      onPromptChange={onPromptChange}
+      model={traitsInput.model}
+      modelOptions={traitsInput.modelOptions}
+      prompt={traitsInput.prompt}
+      onPromptChange={traitsInput.onPromptChange}
     />
   );
 }

@@ -91,6 +91,63 @@ function renderTabs(first: DesktopPreviewFavicon | null, second?: DesktopPreview
   );
 }
 
+function renderLauncher(availability?: {
+  browser?: boolean;
+  terminal?: boolean;
+  files?: boolean;
+  diff?: boolean;
+}) {
+  return renderToStaticMarkup(
+    <RightPanelTabs
+      mode="inline"
+      surfaces={[]}
+      activeSurfaceId={null}
+      pendingSurfaceIds={new Set()}
+      previewSessions={{}}
+      desktopByTabId={{}}
+      terminalLabelsById={new Map()}
+      onActivate={() => undefined}
+      onCloseSurface={() => undefined}
+      onCloseOtherSurfaces={() => undefined}
+      onCloseSurfacesToRight={() => undefined}
+      onCloseAllSurfaces={() => undefined}
+      onCopyFilePath={() => undefined}
+      onAddBrowser={() => undefined}
+      onAddTerminal={() => undefined}
+      onAddDiff={() => undefined}
+      onAddFiles={() => undefined}
+      browserAvailable={availability?.browser ?? true}
+      terminalAvailable={availability?.terminal ?? true}
+      diffAvailable={availability?.diff ?? true}
+      filesAvailable={availability?.files ?? true}
+    >
+      <div>content</div>
+    </RightPanelTabs>,
+  );
+}
+
+describe("RightPanelTabs surface launcher", () => {
+  it("offers exactly four hardware-relevant actions with B/T/F/D shortcuts", () => {
+    const html = renderLauncher();
+    expect(html).toContain('data-surface-launcher-keys="BTFD"');
+    expect((html.match(/<button/g) ?? []).length).toBe(4);
+    expect(html).toContain(">Browser</span>");
+    expect(html).toContain(">Terminal</span>");
+    expect(html).toContain(">Files</span>");
+    expect(html).toContain(">Diff</span>");
+    expect(html).not.toContain("Pull request");
+    expect(html).not.toContain("Agents");
+    expect(html).not.toContain("Follow subagents and workflows");
+    expect(html).not.toContain("No pull request on this branch yet");
+  });
+
+  it("drops a shortcut letter when its surface is unavailable", () => {
+    const html = renderLauncher({ terminal: false });
+    expect(html).toContain('data-surface-launcher-keys="BFD"');
+    expect(html).toContain("Available when a project is open.");
+  });
+});
+
 describe("RightPanelTabs preview favicon", () => {
   it("prefers a live capture and never asks Google about a private hostname", () => {
     const captured = renderTabs(favicon("data:image/png;base64,AAAA", "http://24x.xf.local/"));

@@ -191,8 +191,8 @@ const GITHUB_ALERT_PRESENTATIONS: Record<
   note: {
     label: "Note",
     Icon: InfoIcon,
-    borderClassName: "border-blue-500/70",
-    titleClassName: "text-blue-600 dark:text-blue-400",
+    borderClassName: "border-zinc-500/70",
+    titleClassName: "text-zinc-600 dark:text-zinc-300",
   },
   tip: {
     label: "Tip",

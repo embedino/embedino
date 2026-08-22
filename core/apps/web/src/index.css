@@ -147,6 +147,10 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
   --animate-status-pulse: status-pulse 2s infinite;
   --animate-ghost-pulse: ghost-pulse 2.4s infinite;
   --animate-status-ping: status-ping 2s infinite;
+  /* Sequential three-dot wave for live agent work (sidebar rows): each dot
+     fades up and back with a third-cycle phase offset, so activity reads as a
+     smooth left-to-right sweep rather than a blinking block. */
+  --animate-working-dot: working-dot 1.2s ease-in-out infinite;
   --color-warning-foreground: var(--warning-foreground);
   --color-warning: var(--warning);
   --color-warning-surface: var(--warning-surface);
@@ -262,44 +266,23 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
       scale: 2;
     }
   }
+  @keyframes working-dot {
+    /* One dot at a time carries the wave: a smooth ease up to full strength,
+       then back to rest, with sibling dots lagging by a third of the cycle.
+       Opacity-only on a three-element layer, so the sweep stays cheap even in
+       a sidebar full of live rows. */
+    0%,
+    75%,
+    100% {
+      opacity: 0.25;
+    }
+    35% {
+      opacity: 1;
+    }
+  }
 }
 
 @layer base {
-  :root {
-    /* Keep the original Embedino artwork palettes as the defaults. Built-in
-       themes override them with their own pigments in the components layer. */
-    --stage-art-top: oklch(0.782169 0.123386 240.226);
-    --stage-art-mid: oklch(0.616111 0.195824 259.735);
-    --stage-art-bottom: oklch(0.441553 0.232394 265.474);
-    --stage-art-highlight: oklch(0.951597 0.037289 215.482);
-    --stage-art-secondary: oklch(0.794668 0.12136 235.46);
-    --stage-art-tertiary: oklch(0.678991 0.170261 275.365);
-    --stage-art-line: oklch(0.959666 0.029238 218.179);
-    --stage-art-celeste-highlight: oklch(0.968763 0.045822 196.42);
-    --stage-art-celeste-secondary: oklch(0.827395 0.126071 211.26);
-    --stage-art-violet-highlight: oklch(0.895381 0.053248 286.447);
-    --stage-art-grid-line: oklch(0.966822 0.01757 239.99);
-    --stage-night-base-top: oklch(0.283792 0.117327 297.201);
-    --stage-night-base-mid: oklch(0.227147 0.086086 277.99);
-    --stage-night-base-bottom: oklch(0.200528 0.055699 261.216);
-    --stage-night-top: var(--stage-night-base-top);
-    --stage-night-mid: var(--stage-night-base-mid);
-    --stage-night-bottom: var(--stage-night-base-bottom);
-    --stage-night-highlight: oklch(0.707246 0.157418 252.091);
-    --stage-night-secondary: oklch(0.600473 0.182225 277.296);
-    --stage-night-tertiary: oklch(0.62583 0.210886 305.994);
-    --stage-night-line: oklch(0.938794 0.029114 273.103);
-    --stage-night-glow-highlight: oklch(0.553749 0.176543 271.958);
-    --stage-night-glow-secondary: oklch(0.345571 0.117466 273.568);
-    --stage-night-sparkle: oklch(0.880867 0.057747 269.011);
-  }
-
-  .dark {
-    --stage-art-top: oklch(0.581473 0.149124 256.9);
-    --stage-art-mid: oklch(0.456509 0.159377 261.945);
-    --stage-art-bottom: oklch(0.291327 0.136578 267.649);
-  }
-
   * {
     @apply border-border outline-ring/50;
   }
@@ -325,223 +308,11 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
     display: none;
   }
 
-  .sidebar-brand-stage {
-    display: none;
-  }
-
   @media (min-width: 48rem) {
     .sidebar-brand {
       display: flex;
     }
-
-    @container sidebar-header (min-width: 15.75rem) {
-      .sidebar-brand-stage {
-        display: inline-flex;
-      }
-    }
   }
-
-  /* Stage-channel sidebar art; ::after ramps to the sidebar bg color and the
-     mask lets the surface grain show through at the boundary. Panels whose
-     background differs from the app chrome (e.g. sidebar v2) override
-     --sidebar-stage-fade so the art fades into their own surface color. */
-  .sidebar-stage-backdrop {
-    --stage-fade: var(--sidebar-stage-fade, var(--app-chrome-background));
-    mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 92%);
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 92%);
-  }
-
-  .sidebar-stage-backdrop::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      to bottom,
-      transparent 0%,
-      transparent 28%,
-      color-mix(in srgb, var(--stage-fade) 10%, transparent) 40%,
-      color-mix(in srgb, var(--stage-fade) 30%, transparent) 52%,
-      color-mix(in srgb, var(--stage-fade) 58%, transparent) 64%,
-      color-mix(in srgb, var(--stage-fade) 82%, transparent) 75%,
-      color-mix(in srgb, var(--stage-fade) 96%, transparent) 85%,
-      var(--stage-fade) 93%
-    );
-  }
-
-  /* Each maintainer palette gives the same line art its own material: rose
-     vellum, forest drafting paper, marine cyanotype, copper, and violet ink.
-     These colors stay deliberately deep at the top edge so the white stage
-     wordmark and controls retain contrast in both appearance modes. */
-  html[data-theme-id="embedino-chat"] {
-    --stage-art-top: oklch(0.760675 0.141361 348.019);
-    --stage-art-mid: oklch(0.588093 0.188832 353.138);
-    --stage-art-bottom: oklch(0.383959 0.135096 348.656);
-    --stage-art-highlight: oklch(0.949689 0.034241 339.171);
-    --stage-art-secondary: oklch(0.763402 0.163836 352.525);
-    --stage-art-tertiary: oklch(0.70819 0.180285 311.949);
-    --stage-art-line: oklch(0.952158 0.034194 336.179);
-  }
-
-  html.dark[data-theme-id="embedino-chat"] {
-    --stage-art-top: oklch(0.540689 0.143665 347.587);
-    --stage-art-mid: oklch(0.396586 0.126592 347.6);
-    --stage-art-bottom: oklch(0.249959 0.079694 340.523);
-    --stage-art-highlight: oklch(0.921297 0.051708 343.229);
-    --stage-art-secondary: oklch(0.667398 0.165674 352.549);
-    --stage-art-tertiary: oklch(0.609315 0.163722 306.315);
-    --stage-art-line: oklch(0.945349 0.036045 341.433);
-  }
-
-  html[data-theme-id="grove"] {
-    --stage-art-top: oklch(0.751465 0.112731 157.313);
-    --stage-art-mid: oklch(0.567105 0.11099 158.859);
-    --stage-art-bottom: oklch(0.367918 0.067635 160.558);
-    --stage-art-highlight: oklch(0.976387 0.034353 161.456);
-    --stage-art-secondary: oklch(0.80968 0.117071 158.817);
-    --stage-art-tertiary: oklch(0.784102 0.108047 88.516);
-    --stage-art-line: oklch(0.981098 0.027812 158.718);
-    --stage-night-top: oklch(0.45805 0.079616 160.092);
-    --stage-night-mid: oklch(0.368483 0.065631 162.719);
-    --stage-night-bottom: oklch(0.264797 0.044397 168.088);
-    --stage-night-highlight: oklch(0.912563 0.055173 158.974);
-    --stage-night-secondary: oklch(0.665652 0.109731 156.599);
-    --stage-night-tertiary: oklch(0.698651 0.103024 89.828);
-    --stage-night-line: oklch(0.945336 0.041923 157.222);
-  }
-
-  html.dark[data-theme-id="grove"] {
-    --stage-art-top: oklch(0.58719 0.09869 157.426);
-    --stage-art-mid: oklch(0.454979 0.079031 159.756);
-    --stage-art-bottom: oklch(0.297856 0.050355 161.167);
-    --stage-art-highlight: oklch(0.952407 0.053872 158.44);
-    --stage-art-secondary: oklch(0.732591 0.120606 155.853);
-    --stage-art-tertiary: oklch(0.716282 0.116547 80.563);
-    --stage-art-line: oklch(0.961577 0.035285 157.03);
-    --stage-night-top: oklch(0.398632 0.065534 158.601);
-    --stage-night-mid: oklch(0.290561 0.049694 160.456);
-    --stage-night-bottom: oklch(0.210147 0.03173 169.818);
-    --stage-night-highlight: oklch(0.866303 0.057526 156.796);
-    --stage-night-secondary: oklch(0.586553 0.093722 157.365);
-    --stage-night-tertiary: oklch(0.6364 0.101769 82.985);
-    --stage-night-line: oklch(0.913292 0.035718 156.976);
-  }
-
-  html[data-theme-id="ocean"] {
-    --stage-art-top: oklch(0.792993 0.088072 220.421);
-    --stage-art-mid: oklch(0.590296 0.116841 243.184);
-    --stage-art-bottom: oklch(0.409123 0.093718 247.98);
-    --stage-art-highlight: oklch(0.971217 0.023008 213.615);
-    --stage-art-secondary: oklch(0.788391 0.090856 215.684);
-    --stage-art-tertiary: oklch(0.76441 0.099607 187.893);
-    --stage-art-line: oklch(0.976025 0.019647 212.543);
-  }
-
-  html.dark[data-theme-id="ocean"] {
-    --stage-art-top: oklch(0.59663 0.089167 233.427);
-    --stage-art-mid: oklch(0.461094 0.084904 243.478);
-    --stage-art-bottom: oklch(0.294818 0.05947 250.526);
-    --stage-art-highlight: oklch(0.952907 0.032224 221.27);
-    --stage-art-secondary: oklch(0.732079 0.09296 224.414);
-    --stage-art-tertiary: oklch(0.720885 0.095495 190.903);
-    --stage-art-line: oklch(0.961039 0.027355 219.756);
-  }
-
-  html[data-theme-id="ember"] {
-    --stage-art-top: oklch(0.782439 0.118806 52.569);
-    --stage-art-mid: oklch(0.62863 0.15922 39.401);
-    --stage-art-bottom: oklch(0.404251 0.117664 30.424);
-    --stage-art-highlight: oklch(0.962469 0.02774 70.95);
-    --stage-art-secondary: oklch(0.815735 0.11904 53.659);
-    --stage-art-tertiary: oklch(0.69361 0.159346 24.787);
-    --stage-art-line: oklch(0.970313 0.02052 67.583);
-    --stage-night-top: oklch(0.470236 0.102322 39.355);
-    --stage-night-mid: oklch(0.345367 0.080697 33.217);
-    --stage-night-bottom: oklch(0.227386 0.056077 27.437);
-    --stage-night-highlight: oklch(0.903891 0.059281 56.181);
-    --stage-night-secondary: oklch(0.641705 0.126508 44.376);
-    --stage-night-tertiary: oklch(0.538694 0.129931 25.865);
-    --stage-night-line: oklch(0.926348 0.046029 58.73);
-  }
-
-  html.dark[data-theme-id="ember"] {
-    --stage-art-top: oklch(0.597533 0.120694 43.455);
-    --stage-art-mid: oklch(0.437763 0.101287 34.86);
-    --stage-art-bottom: oklch(0.264269 0.055858 26.548);
-    --stage-art-highlight: oklch(0.929214 0.042638 55.801);
-    --stage-art-secondary: oklch(0.705592 0.137369 43.176);
-    --stage-art-tertiary: oklch(0.629583 0.158322 24.088);
-    --stage-art-line: oklch(0.945058 0.033906 58.824);
-    --stage-night-top: oklch(0.392352 0.081287 36.444);
-    --stage-night-mid: oklch(0.271305 0.056352 31.135);
-    --stage-night-bottom: oklch(0.182126 0.028154 27.774);
-    --stage-night-highlight: oklch(0.851007 0.061294 53.805);
-    --stage-night-secondary: oklch(0.560789 0.10645 42.953);
-    --stage-night-tertiary: oklch(0.476228 0.106656 24.165);
-    --stage-night-line: oklch(0.884931 0.046607 56.556);
-  }
-
-  html[data-theme-id="iris"] {
-    --stage-art-top: oklch(0.738305 0.113454 298.926);
-    --stage-art-mid: oklch(0.551826 0.159189 294.531);
-    --stage-art-bottom: oklch(0.37147 0.133317 289.999);
-    --stage-art-highlight: oklch(0.949472 0.029204 303.081);
-    --stage-art-secondary: oklch(0.745085 0.125892 298.647);
-    --stage-art-tertiary: oklch(0.73066 0.167815 340.964);
-    --stage-art-line: oklch(0.960278 0.024064 306.969);
-  }
-
-  html.dark[data-theme-id="iris"] {
-    --stage-art-top: oklch(0.57297 0.145973 295.185);
-    --stage-art-mid: oklch(0.419499 0.13752 292.131);
-    --stage-art-bottom: oklch(0.274235 0.095798 286.608);
-    --stage-art-highlight: oklch(0.916698 0.047206 300.224);
-    --stage-art-secondary: oklch(0.670994 0.13095 296.689);
-    --stage-art-tertiary: oklch(0.679357 0.165376 340.439);
-    --stage-art-line: oklch(0.940582 0.032921 299.076);
-  }
-
-  :is(
-    html[data-theme-id="embedino-chat"],
-    html[data-theme-id="ocean"],
-    html[data-theme-id="iris"]
-  ) {
-    --stage-night-top: color-mix(in oklch, var(--stage-art-top) 38%, var(--stage-night-base-top));
-    --stage-night-mid: color-mix(in oklch, var(--stage-art-mid) 38%, var(--stage-night-base-mid));
-    --stage-night-bottom: color-mix(
-      in oklch,
-      var(--stage-art-bottom) 38%,
-      var(--stage-night-base-bottom)
-    );
-    --stage-night-highlight: var(--stage-art-highlight);
-    --stage-night-secondary: color-mix(
-      in oklch,
-      var(--stage-art-secondary) 55%,
-      var(--stage-night-mid)
-    );
-    --stage-night-tertiary: color-mix(
-      in oklch,
-      var(--stage-art-tertiary) 60%,
-      var(--stage-night-top)
-    );
-    --stage-night-line: color-mix(in oklch, var(--stage-art-line) 82%, oklch(1 0 0));
-  }
-
-  :is(
-    html[data-theme-id="embedino-chat"],
-    html[data-theme-id="grove"],
-    html[data-theme-id="ocean"],
-    html[data-theme-id="ember"],
-    html[data-theme-id="iris"]
-  ) {
-    --stage-art-celeste-highlight: var(--stage-art-highlight);
-    --stage-art-celeste-secondary: var(--stage-art-secondary);
-    --stage-art-violet-highlight: var(--stage-art-highlight);
-    --stage-art-grid-line: var(--stage-art-line);
-    --stage-night-glow-highlight: var(--stage-night-highlight);
-    --stage-night-glow-secondary: var(--stage-night-secondary);
-    --stage-night-sparkle: var(--stage-night-line);
-  }
-
   .workspace-topbar {
     display: flex;
     height: var(--workspace-topbar-height);
@@ -1085,8 +856,10 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
   --card-foreground: var(--color-zinc-800);
   --popover: var(--color-white);
   --popover-foreground: var(--color-zinc-800);
-  --primary: oklch(0.488 0.217 264);
-  --primary-foreground: var(--color-white);
+  /* The action color matches the composer: whitish (never stark white) in
+     light mode with dark content, grayish in dark mode with light content. */
+  --primary: var(--color-zinc-100);
+  --primary-foreground: var(--color-zinc-900);
   --secondary: var(--color-zinc-50);
   --secondary-foreground: var(--color-zinc-800);
   --muted: var(--color-zinc-50);
@@ -1107,17 +880,18 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
   --destructive: var(--error);
   --border: var(--color-zinc-200);
   --input: var(--color-zinc-300);
-  --ring: var(--primary);
+  /* The focus outline stays neutral — a quiet gray, never blue. */
+  --ring: var(--color-zinc-400);
   --destructive-foreground: var(--error-foreground);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-700);
+  --info: var(--color-zinc-500);
+  --info-foreground: var(--color-zinc-600);
   --success: var(--color-emerald-500);
   --success-foreground: var(--color-emerald-700);
   --warning: var(--color-amber-500);
   --warning-foreground: var(--color-amber-700);
   --warning-surface: color-mix(in srgb, var(--warning) 8%, transparent);
-  --update: var(--primary);
-  --update-foreground: var(--primary);
+  --update: var(--color-zinc-500);
+  --update-foreground: var(--color-zinc-700);
   --update-surface: color-mix(in srgb, var(--update) 12%, transparent);
   /* Keep every sidebar primitive on the same light surface hierarchy, including
      portaled mobile sheets and settings navigation outside the app sidebar. */
@@ -1129,21 +903,20 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
   --sidebar-row-active: var(--color-white);
   --sidebar-row-selected: var(--color-white);
   --sidebar-border: var(--border);
-  --sidebar-stage-fade: var(--sidebar);
   --code-background: color-mix(in srgb, var(--card) 90%, var(--background));
   --code-foreground: var(--foreground);
   --terminal-background: var(--background);
   --terminal-foreground: var(--foreground);
-  --terminal-cursor: rgb(38 56 78);
-  --terminal-selection-background: rgb(37 63 99 / 20%);
+  --terminal-cursor: rgb(56 56 58);
+  --terminal-selection-background: rgb(0 0 0 / 18%);
   --terminal-scrollbar: rgb(0 0 0 / 15%);
   --terminal-scrollbar-hover: rgb(0 0 0 / 25%);
 
   @variant dark {
     color-scheme: dark;
-    /* Keep the workspace in the same neutral-black family as sidebar v2.
-       Surfaces lift from this base instead of starting from a milky gray. */
-    --background: var(--color-neutral-950);
+    /* Keep the workspace on the neutral #101010 canvas. Surfaces lift from
+       this base instead of starting from a milky gray. */
+    --background: #101010;
     --app-chrome-background: var(--background);
     --surface-raised: var(--secondary);
     --foreground: var(--color-neutral-100);
@@ -1151,7 +924,9 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
     --card-foreground: var(--color-neutral-100);
     --popover: color-mix(in srgb, var(--background) 94%, var(--color-white));
     --popover-foreground: var(--color-neutral-100);
-    --primary: oklch(0.571 0.21 264);
+    /* The action color lifts from the canvas like the composer surface:
+       grayish, never blue. Content on it stays light. */
+    --primary: --alpha(var(--color-white) / 14%);
     --primary-foreground: var(--color-white);
     --secondary: --alpha(var(--color-white) / 4%);
     --secondary-foreground: var(--color-neutral-100);
@@ -1173,19 +948,21 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
     --destructive: var(--error);
     --border: --alpha(var(--color-white) / 6%);
     --input: --alpha(var(--color-white) / 8%);
-    --ring: var(--primary);
+    /* Neutral whitish-gray focus outline; decoupled from the translucent
+       primary so keyboard focus stays clearly visible. */
+    --ring: rgb(255 255 255 / 28%);
     --destructive-foreground: var(--error-foreground);
-    --info: var(--color-blue-500);
-    --info-foreground: var(--color-blue-400);
+    --info: var(--color-neutral-400);
+    --info-foreground: var(--color-neutral-300);
     --success: var(--color-emerald-500);
     --success-foreground: var(--color-emerald-400);
     --warning: var(--color-amber-500);
     --warning-foreground: var(--color-amber-400);
     --warning-surface: color-mix(in srgb, var(--warning) 16%, transparent);
-    --update: var(--primary);
-    --update-foreground: var(--color-blue-400);
+    --update: var(--color-neutral-400);
+    --update-foreground: var(--color-neutral-300);
     --update-surface: color-mix(in srgb, var(--update) 18%, transparent);
-    --sidebar: var(--card);
+    --sidebar: #161616;
     --sidebar-foreground: var(--foreground);
     --sidebar-muted-foreground: var(--muted-foreground);
     --sidebar-control-surface: var(--muted);
@@ -1193,11 +970,10 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
     --sidebar-row-active: var(--accent);
     --sidebar-row-selected: var(--muted);
     --sidebar-border: var(--border);
-    --sidebar-stage-fade: var(--card);
     --terminal-background: var(--background);
     --terminal-foreground: var(--foreground);
-    --terminal-cursor: rgb(180 203 255);
-    --terminal-selection-background: rgb(180 203 255 / 25%);
+    --terminal-cursor: rgb(212 212 216);
+    --terminal-selection-background: rgb(255 255 255 / 22%);
     --terminal-scrollbar: rgb(255 255 255 / 10%);
     --terminal-scrollbar-hover: rgb(255 255 255 / 18%);
   }
@@ -1225,14 +1001,13 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
   --sidebar-row-active: var(--color-white);
   --sidebar-row-selected: var(--color-white);
   --sidebar-border: var(--color-zinc-200);
-  --sidebar-stage-fade: var(--sidebar);
   background-color: var(--sidebar);
 }
 
 .dark [data-app-sidebar] {
-  --background: #000;
+  --background: #101010;
   --foreground: #f1f3f7;
-  --card: #000;
+  --card: #161616;
   --card-foreground: var(--foreground);
   --accent: #191a1d;
   --accent-foreground: #f7f9ff;
@@ -1248,10 +1023,6 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
   --sidebar-row-active: color-mix(in srgb, var(--foreground) 11%, transparent);
   --sidebar-row-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
   --sidebar-border: var(--border);
-  /* The stage-channel header art must ramp to THIS panel's surface, not the
-     global chrome background, or the fade shows a seam (same rule as the
-     light palette above). */
-  --sidebar-stage-fade: var(--card);
 }
 
 /* Theme files are expressed in app color roles and mapped to the existing
@@ -1317,7 +1088,6 @@ html.dark[data-theme-id] {
   --sidebar-row-active: var(--app-theme-sidebar-row-active);
   --sidebar-row-selected: var(--app-theme-sidebar-row-selected);
   --sidebar-border: var(--app-theme-sidebar-border);
-  --sidebar-stage-fade: var(--app-theme-sidebar);
   --code-background: var(--app-theme-code-background);
   --code-foreground: var(--app-theme-code-foreground);
   --terminal-background: var(--app-theme-terminal-background);
@@ -1545,7 +1315,6 @@ html[data-theme-id] [data-app-sidebar] {
   --sidebar-row-active: var(--app-theme-sidebar-row-active);
   --sidebar-row-selected: var(--app-theme-sidebar-row-selected);
   --sidebar-border: var(--app-theme-sidebar-border);
-  --sidebar-stage-fade: var(--app-theme-sidebar);
   background-color: var(--sidebar);
 }
 
@@ -1567,7 +1336,7 @@ html.dark[data-theme-id="embedino-chat"] [data-app-sidebar] {
 }
 
 .theme-json-key {
-  color: var(--app-theme-accent, var(--color-blue-600));
+  color: var(--app-theme-accent, var(--color-zinc-500));
 }
 
 .theme-json-string {
@@ -2327,4 +2096,35 @@ label:has(> select#reasoning-effort) select {
   background-color: Highlight;
   opacity: 0.3;
   pointer-events: none;
+}
+
+/* Prompt-input motion tokens. Both curves only ever animate transform/opacity,
+   so they run on the compositor and stay smooth on low-end machines.
+   --ease-prompt-out mirrors beUI's EASE_OUT [0.16, 1, 0.3, 1].
+   --ease-prompt-spring is a springy overshoot standing in for SPRING_SWAP
+   (stiffness 460 / damping 30 / mass 0.55) without a JS animation library. */
+:root {
+  --ease-prompt-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-prompt-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes prompt-swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.composer-send-swap-enter {
+  animation: prompt-swap-in 260ms var(--ease-prompt-spring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-send-swap-enter {
+    animation: none;
+  }
 }

@@ -446,8 +446,12 @@ export const TraitsPicker = memo(function TraitsPicker({
   allowPromptInjectedEffort = true,
   triggerVariant,
   triggerClassName,
+  contentClassName,
   ...persistence
-}: TraitsMenuContentProps & TraitsPersistence) {
+}: TraitsMenuContentProps & {
+  /** Extra classes for the popup surface (blends with the composer card). */
+  contentClassName?: string;
+} & TraitsPersistence) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { descriptors, primarySelectDescriptor, ultrathinkPromptControlled } =
     getTraitsSectionVisibility({
@@ -526,7 +530,7 @@ export const TraitsPicker = memo(function TraitsPicker({
           </>
         )}
       </MenuTrigger>
-      <MenuPopup align="start">
+      <MenuPopup align="start" className={contentClassName}>
         <TraitsMenuContent
           provider={provider}
           {...(instanceId ? { instanceId } : {})}

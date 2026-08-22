@@ -67,17 +67,16 @@ interface RightPanelTabsProps {
   onAddTerminal: () => void;
   onAddDiff: () => void;
   onAddFiles: () => void;
-  onAddPullRequest: () => void;
-  onAddAgents: () => void;
+  onAddPullRequest?: () => void;
+  onAddAgents?: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
   filesAvailable: boolean;
-  pullRequestAvailable: boolean;
-  agentsAvailable: boolean;
+  pullRequestAvailable?: boolean;
+  agentsAvailable?: boolean;
   pullRequestStatuses?: Readonly<Record<string, PullRequestTabStatus>>;
-  /** Running + waiting subagents; badges the Agents card in the empty state. */
-  liveAgentCount: number;
+  liveAgentCount?: number;
   children: ReactNode;
 }
 
@@ -94,8 +93,6 @@ const SURFACE_DISABLED_REASONS = {
   terminal: "Terminal surfaces are only available from a project thread.",
   files: "Files are only available when a project is open.",
   diff: "Diff is only available for server threads in Git repositories.",
-  pullRequest: "This thread's branch has no pull request yet.",
-  agents: "Agents are only available from a thread.",
 } as const;
 
 /** Overlays that must win over the launcher's letter shortcuts. */
@@ -116,8 +113,6 @@ const SURFACE_UNAVAILABLE_HINTS = {
   terminal: "Available when a project is open.",
   files: "Available when a project is open.",
   diff: "Available for Git repositories.",
-  pullRequest: "No pull request on this branch yet.",
-  agents: "Available from a thread.",
 } as const;
 
 type TabContextMenuAction = "copy-path" | "close" | "close-others" | "close-to-right" | "close-all";
@@ -151,26 +146,22 @@ function SurfaceMenuItem(props: {
 }
 
 /**
- * Card launcher shown when the right panel has no surfaces. Keyboard-first
- * without palette chrome: a surface's letter opens it directly from anywhere
- * outside a typing context, and arrows plus Enter work while the launcher is
- * focused. The highlight only appears on hover or arrow use. Unavailable
- * surfaces stay visible with a one-line reason.
+ * Square-tile launcher shown when the right panel has no surfaces.
+ * Keyboard-first without palette chrome: a surface's letter opens it directly
+ * from anywhere outside a typing context, and arrows plus Enter work while the
+ * launcher is focused. The highlight only appears on hover or arrow use.
+ * Unavailable surfaces stay visible; descriptions and availability reasons
+ * surface as hover tooltips.
  */
 function RightPanelEmptyState(props: {
   onAddBrowser: () => void;
   onAddTerminal: () => void;
   onAddDiff: () => void;
   onAddFiles: () => void;
-  onAddPullRequest: () => void;
-  onAddAgents: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
   filesAvailable: boolean;
-  pullRequestAvailable: boolean;
-  agentsAvailable: boolean;
-  liveAgentCount: number;
 }) {
   // -1 means no highlight: it only appears on hover or arrow use.
   const [highlight, setHighlight] = useState(-1);
@@ -215,26 +206,6 @@ function RightPanelEmptyState(props: {
       disabledReason: SURFACE_UNAVAILABLE_HINTS.diff,
       onClick: props.onAddDiff,
       badgeCount: 0,
-    },
-    {
-      label: "Pull request",
-      description: "Open this branch's pull request.",
-      icon: GitPullRequest,
-      shortcut: "P",
-      available: props.pullRequestAvailable,
-      disabledReason: SURFACE_UNAVAILABLE_HINTS.pullRequest,
-      onClick: props.onAddPullRequest,
-      badgeCount: 0,
-    },
-    {
-      label: "Agents",
-      description: "Follow subagents and workflows.",
-      icon: Bot,
-      shortcut: "A",
-      available: props.agentsAvailable,
-      disabledReason: SURFACE_UNAVAILABLE_HINTS.agents,
-      onClick: props.onAddAgents,
-      badgeCount: props.liveAgentCount,
     },
   ] as const;
 
@@ -334,6 +305,8 @@ function RightPanelEmptyState(props: {
   const cardShellClass =
     "rounded-lg border border-border/80 bg-card dark:border-transparent dark:shadow-none dark:inset-ring-1 dark:inset-ring-white/5";
   const highlightedCardClass = "bg-accent/60 dark:inset-ring-white/20";
+  const tileShellClass =
+    "relative flex size-32 flex-col items-center justify-center gap-3 transition";
 
   return (
     <div
@@ -356,11 +329,17 @@ function RightPanelEmptyState(props: {
             Choose what to show in the right panel.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {actions.map((action) =>
-            action.available ? (
+        <div className="mx-auto grid w-fit grid-cols-2 gap-3">
+          {actions.map((action) => {
+            const tileContent = (
+              <>
+                <Kbd className="absolute top-2.5 right-2.5">{action.shortcut}</Kbd>
+                {actionIcon(action, "size-7")}
+                <span className="font-medium text-sm">{action.label}</span>
+              </>
+            );
+            const tile = action.available ? (
               <button
-                key={action.label}
                 type="button"
                 onClick={action.onClick}
                 onMouseEnter={() => setHighlight(availableActions.indexOf(action))}
@@ -370,39 +349,32 @@ function RightPanelEmptyState(props: {
                   )
                 }
                 className={cn(
-                  "relative flex w-full cursor-pointer flex-col items-start p-4 text-left transition hover:border-border hover:bg-accent/60",
+                  tileShellClass,
+                  "cursor-pointer hover:border-border hover:bg-accent/60",
                   cardShellClass,
                   isHighlighted(action) && highlightedCardClass,
                 )}
               >
-                <Kbd className="absolute top-3 right-3">{action.shortcut}</Kbd>
-                <span className="flex items-center gap-2 pe-8">
-                  {actionIcon(action)}
-                  <span className="font-medium text-sm">{action.label}</span>
-                </span>
-                <span className="mt-1.5 text-muted-foreground text-xs leading-relaxed">
-                  {action.description}
-                </span>
+                {tileContent}
               </button>
             ) : (
               <div
-                key={action.label}
-                className={cn(
-                  "relative flex w-full flex-col items-start p-4 opacity-40",
-                  cardShellClass,
-                )}
+                className={cn(tileShellClass, "opacity-40", cardShellClass)}
+                aria-disabled
+                aria-label={action.disabledReason}
               >
-                <Kbd className="absolute top-3 right-3">{action.shortcut}</Kbd>
-                <span className="flex items-center gap-2 pe-8">
-                  {actionIcon(action)}
-                  <span className="font-medium text-sm">{action.label}</span>
-                </span>
-                <span className="mt-1.5 text-muted-foreground text-xs leading-relaxed">
-                  {action.disabledReason}
-                </span>
+                {tileContent}
               </div>
-            ),
-          )}
+            );
+            return (
+              <Tooltip key={action.label}>
+                <TooltipTrigger render={tile} />
+                <TooltipPopup side="bottom">
+                  {action.available ? action.description : action.disabledReason}
+                </TooltipPopup>
+              </Tooltip>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -729,22 +701,6 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                     <FileDiff />
                     Diff
                   </SurfaceMenuItem>
-                  <SurfaceMenuItem
-                    available={props.pullRequestAvailable}
-                    disabledReason={SURFACE_DISABLED_REASONS.pullRequest}
-                    onClick={props.onAddPullRequest}
-                  >
-                    <GitPullRequest />
-                    Pull request
-                  </SurfaceMenuItem>
-                  <SurfaceMenuItem
-                    available={props.agentsAvailable}
-                    disabledReason={SURFACE_DISABLED_REASONS.agents}
-                    onClick={props.onAddAgents}
-                  >
-                    <Bot />
-                    Agents
-                  </SurfaceMenuItem>
                 </MenuPopup>
               </Menu>
             ) : null}
@@ -759,15 +715,10 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddTerminal={props.onAddTerminal}
             onAddDiff={props.onAddDiff}
             onAddFiles={props.onAddFiles}
-            onAddPullRequest={props.onAddPullRequest}
-            onAddAgents={props.onAddAgents}
             browserAvailable={props.browserAvailable}
             terminalAvailable={props.terminalAvailable}
             diffAvailable={props.diffAvailable}
             filesAvailable={props.filesAvailable}
-            pullRequestAvailable={props.pullRequestAvailable}
-            agentsAvailable={props.agentsAvailable}
-            liveAgentCount={props.liveAgentCount}
           />
         ) : (
           props.children

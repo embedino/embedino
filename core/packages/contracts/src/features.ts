@@ -12,10 +12,13 @@
  * - `telemetryExport`: shipping analytics/traces off the user's machine
  *   (PostHog events, OTLP trace export). Local diagnostics stay available.
  * - `gitForge*`: source-control provider integrations for PR views.
+ * - `remoteEnvironments`: SSH/remote-link environments ("Run on Remote").
+ *   Hardware-first local workflows never need it; flip on for power users.
  */
 export const EmbedinoFeatures = {
   connectCloud: false,
   telemetryExport: false,
+  remoteEnvironments: false,
   gitForgeGitLab: false,
   gitForgeBitbucket: false,
   gitForgeAzureDevOps: false,

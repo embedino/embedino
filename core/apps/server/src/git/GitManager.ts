@@ -30,6 +30,7 @@ import {
   VcsStatusResult,
   ModelSelection,
   SourceControlProviderError,
+  type SourceControlAttributionSettings,
   type SourceControlWritingStyleSettings,
 } from "@embedino/contracts";
 import {
@@ -74,6 +75,7 @@ export interface GitRunStackedActionOptions {
 interface SourceControlTextGenerationSettings {
   readonly modelSelection: ModelSelection;
   readonly style: SourceControlWritingStyleSettings;
+  readonly attribution: SourceControlAttributionSettings;
 }
 
 export class GitManager extends Context.Service<
@@ -502,6 +504,35 @@ function formatCommitMessage(subject: string, body: string): string {
     return subject;
   }
   return `${subject}\n\n${trimmedBody}`;
+}
+
+export const COMMIT_ATTRIBUTION_TRAILER = "Co-authored-by: Embedino <noreply@embedino.app>";
+const PR_ATTRIBUTION_FOOTER = "Created with [Embedino](https://embedino.app)";
+
+/**
+ * Appends the attribution trailer to a commit message body when enabled.
+ * The trailer goes after any existing body, separated by a blank line, so
+ * git renders it as a proper trailer paragraph.
+ */
+function applyCommitAttribution(body: string, attribution: SourceControlAttributionSettings) {
+  if (!attribution.commitAttribution) return body;
+  const trimmedBody = body.trim();
+  return trimmedBody.length === 0
+    ? COMMIT_ATTRIBUTION_TRAILER
+    : `${trimmedBody}\n\n${COMMIT_ATTRIBUTION_TRAILER}`;
+}
+
+/**
+ * Appends the attribution footer to a generated change request description
+ * when enabled. A horizontal rule keeps it visually separate from user or
+ * template content above.
+ */
+export function applyChangeRequestAttribution(
+  body: string,
+  attribution: SourceControlAttributionSettings,
+): string {
+  if (!attribution.prAttribution) return body;
+  return `${body.trimEnd()}\n\n---\n\n${PR_ATTRIBUTION_FOOTER}`;
 }
 
 function parseCustomCommitMessage(raw: string): { subject: string; body: string } | null {
@@ -1496,7 +1527,10 @@ export const make = Effect.gen(function* () {
           ...(input.includeBranch
             ? { branch: sanitizeFeatureBranchName(customCommit.subject) }
             : {}),
-          commitMessage: formatCommitMessage(customCommit.subject, customCommit.body),
+          commitMessage: formatCommitMessage(
+            customCommit.subject,
+            applyCommitAttribution(customCommit.body, input.settings.attribution),
+          ),
         };
       }
 
@@ -1518,7 +1552,10 @@ export const make = Effect.gen(function* () {
         subject: generated.subject,
         body: generated.body,
         ...(generated.branch !== undefined ? { branch: generated.branch } : {}),
-        commitMessage: formatCommitMessage(generated.subject, generated.body),
+        commitMessage: formatCommitMessage(
+          generated.subject,
+          applyCommitAttribution(generated.body, input.settings.attribution),
+        ),
       };
     },
   );
@@ -1708,17 +1745,22 @@ export const make = Effect.gen(function* () {
       tempDir,
       `embedino-pr-body-${process.pid}-${yield* randomUUIDv4(cwd)}.md`,
     );
-    yield* fileSystem.writeFileString(bodyFile, generated.body).pipe(
-      Effect.mapError(
-        (cause) =>
-          new GitManagerError({
-            operation: "runPrStep",
-            cwd,
-            detail: "Failed to write pull request body temp file.",
-            cause,
-          }),
-      ),
-    );
+    yield* fileSystem
+      .writeFileString(
+        bodyFile,
+        applyChangeRequestAttribution(generated.body, settings.attribution),
+      )
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new GitManagerError({
+              operation: "runPrStep",
+              cwd,
+              detail: "Failed to write pull request body temp file.",
+              cause,
+            }),
+        ),
+      );
     yield* emit({
       kind: "phase_started",
       phase: "pr",
@@ -2182,6 +2224,7 @@ export const make = Effect.gen(function* () {
               ? Effect.succeed({
                   modelSelection: settings.textGenerationModelSelection,
                   style: settings.sourceControlWritingStyle,
+                  attribution: settings.sourceControlAttribution,
                 })
               : providerRegistry.getProviders.pipe(
                   Effect.map((providers) => ({
@@ -2190,6 +2233,7 @@ export const make = Effect.gen(function* () {
                       providers,
                     ),
                     style: settings.sourceControlWritingStyle,
+                    attribution: settings.sourceControlAttribution,
                   })),
                 ),
           ),

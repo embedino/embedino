@@ -13,7 +13,6 @@ import { resolveStorage } from "./lib/storage";
 import {
   DEFAULT_THREAD_TERMINAL_HEIGHT,
   DEFAULT_THREAD_TERMINAL_ID,
-  MAX_TERMINALS_PER_GROUP,
   type ThreadTerminalGroup,
 } from "./types";
 
@@ -254,11 +253,8 @@ function copyTerminalGroups(groups: ThreadTerminalGroup[]): ThreadTerminalGroup[
 function upsertTerminalIntoGroups(
   state: ThreadTerminalUiState,
   terminalId: string,
-  mode: "split" | "new",
-  splitDirection: "horizontal" | "vertical" = "horizontal",
 ): ThreadTerminalUiState {
   const normalized = normalizeThreadTerminalUiState(state);
-  const effectiveMode: "split" | "new" = normalized.terminalIds.length === 0 ? "new" : mode;
   if (!isValidTerminalId(terminalId)) {
     return normalized;
   }
@@ -279,78 +275,23 @@ function upsertTerminalIntoGroups(
     }
   }
 
-  if (effectiveMode === "new") {
-    const usedGroupIds = new Set(terminalGroups.map((group) => group.id));
-    const nextGroupId = assignUniqueGroupId(fallbackGroupId(terminalId), usedGroupIds);
-    terminalGroups.push({ id: nextGroupId, terminalIds: [terminalId] });
-    return normalizeThreadTerminalUiState({
-      ...normalized,
-      terminalOpen: true,
-      terminalIds,
-      activeTerminalId: terminalId,
-      terminalGroups,
-      activeTerminalGroupId: nextGroupId,
-    });
-  }
-
-  let activeGroupIndex = terminalGroups.findIndex(
-    (group) => group.id === normalized.activeTerminalGroupId,
-  );
-  if (activeGroupIndex < 0) {
-    activeGroupIndex = findGroupIndexByTerminalId(terminalGroups, normalized.activeTerminalId);
-  }
-  if (activeGroupIndex < 0) {
-    const usedGroupIds = new Set(terminalGroups.map((group) => group.id));
-    const nextGroupId = assignUniqueGroupId(
-      fallbackGroupId(normalized.activeTerminalId),
-      usedGroupIds,
-    );
-    terminalGroups.push({ id: nextGroupId, terminalIds: [normalized.activeTerminalId] });
-    activeGroupIndex = terminalGroups.length - 1;
-  }
-
-  const destinationGroup = terminalGroups[activeGroupIndex];
-  if (!destinationGroup) {
-    return normalized;
-  }
-  const destinationTerminalIdSet = new Set(destinationGroup.terminalIds);
-
-  if (
-    isNewTerminal &&
-    !destinationTerminalIdSet.has(terminalId) &&
-    destinationGroup.terminalIds.length >= MAX_TERMINALS_PER_GROUP
-  ) {
-    return normalized;
-  }
-
-  if (!destinationTerminalIdSet.has(terminalId)) {
-    const anchorIndex = destinationGroup.terminalIds.indexOf(normalized.activeTerminalId);
-    if (anchorIndex >= 0) {
-      destinationGroup.terminalIds.splice(anchorIndex + 1, 0, terminalId);
-    } else {
-      destinationGroup.terminalIds.push(terminalId);
-    }
-  }
-  if (splitDirection === "vertical") {
-    destinationGroup.splitDirection = "vertical";
-  } else {
-    delete destinationGroup.splitDirection;
-  }
-
+  const usedGroupIds = new Set(terminalGroups.map((group) => group.id));
+  const nextGroupId = assignUniqueGroupId(fallbackGroupId(terminalId), usedGroupIds);
+  terminalGroups.push({ id: nextGroupId, terminalIds: [terminalId] });
   return normalizeThreadTerminalUiState({
     ...normalized,
     terminalOpen: true,
     terminalIds,
     activeTerminalId: terminalId,
     terminalGroups,
-    activeTerminalGroupId: destinationGroup.id,
+    activeTerminalGroupId: nextGroupId,
   });
 }
 
 function setThreadTerminalOpen(state: ThreadTerminalUiState, open: boolean): ThreadTerminalUiState {
   const normalized = normalizeThreadTerminalUiState(state);
   if (open && normalized.terminalIds.length === 0) {
-    return upsertTerminalIntoGroups(normalized, DEFAULT_THREAD_TERMINAL_ID, "new");
+    return upsertTerminalIntoGroups(normalized, DEFAULT_THREAD_TERMINAL_ID);
   }
   if (normalized.terminalOpen === open) return normalized;
   return { ...normalized, terminalOpen: open };
@@ -367,19 +308,11 @@ function setThreadTerminalHeight(
   return { ...normalized, terminalHeight: height };
 }
 
-function splitThreadTerminal(
-  state: ThreadTerminalUiState,
-  terminalId: string,
-  direction: "horizontal" | "vertical" = "horizontal",
-): ThreadTerminalUiState {
-  return upsertTerminalIntoGroups(state, terminalId, "split", direction);
-}
-
 function newThreadTerminal(
   state: ThreadTerminalUiState,
   terminalId: string,
 ): ThreadTerminalUiState {
-  return upsertTerminalIntoGroups(state, terminalId, "new");
+  return upsertTerminalIntoGroups(state, terminalId);
 }
 
 function setThreadActiveTerminal(
@@ -566,8 +499,6 @@ interface TerminalUiStateStoreState {
   suppressedTerminalIdsByThreadKey: Record<string, string[]>;
   setTerminalOpen: (threadRef: ScopedThreadRef, open: boolean) => void;
   setTerminalHeight: (threadRef: ScopedThreadRef, height: number) => void;
-  splitTerminal: (threadRef: ScopedThreadRef, terminalId: string) => void;
-  splitTerminalVertical: (threadRef: ScopedThreadRef, terminalId: string) => void;
   newTerminal: (threadRef: ScopedThreadRef, terminalId: string) => void;
   ensureTerminal: (
     threadRef: ScopedThreadRef,
@@ -640,16 +571,6 @@ export const useTerminalUiStateStore = create<TerminalUiStateStoreState>()(
         },
         setTerminalHeight: (threadRef, height) =>
           updateTerminal(threadRef, (state) => setThreadTerminalHeight(state, height)),
-        splitTerminal: (threadRef, terminalId) =>
-          updateTerminal(threadRef, (state) => splitThreadTerminal(state, terminalId), {
-            terminalId,
-            suppressed: false,
-          }),
-        splitTerminalVertical: (threadRef, terminalId) =>
-          updateTerminal(threadRef, (state) => splitThreadTerminal(state, terminalId, "vertical"), {
-            terminalId,
-            suppressed: false,
-          }),
         newTerminal: (threadRef, terminalId) =>
           updateTerminal(threadRef, (state) => newThreadTerminal(state, terminalId), {
             terminalId,
