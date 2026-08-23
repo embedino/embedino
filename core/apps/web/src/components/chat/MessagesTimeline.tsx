@@ -60,6 +60,7 @@ import {
   PaintbrushIcon,
   MinusIcon,
   SquarePenIcon,
+  SparklesIcon,
   TerminalIcon,
   Undo2Icon,
   WrenchIcon,
@@ -1942,6 +1943,7 @@ type WorkEntryIconName =
   | "globe"
   | "hammer"
   | "message-circle"
+  | "sparkles"
   | "square-pen"
   | "terminal"
   | "wrench"
@@ -1964,6 +1966,8 @@ function WorkEntryIconSvg({ name, className }: { name: WorkEntryIconName; classN
       return <HammerIcon className={className} aria-hidden />;
     case "message-circle":
       return <MessageCircleIcon className={className} aria-hidden />;
+    case "sparkles":
+      return <SparklesIcon className={className} aria-hidden />;
     case "square-pen":
       return <SquarePenIcon className={className} aria-hidden />;
     case "terminal":
@@ -1989,7 +1993,7 @@ function workToneIcon(tone: TimelineWorkEntry["tone"]): {
   }
   if (tone === "thinking") {
     return {
-      iconName: "bot",
+      iconName: "sparkles",
       className: "text-foreground",
     };
   }
@@ -2261,8 +2265,12 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
   const expanded = userExpanded || autoExpand;
 
   const rawPreview = workEntryPreview(workEntry, workspaceRoot);
-  // During live execution, show the live status line as the preview instead
+  // During live execution, show the live status line as the preview instead.
+  // Reasoning rows keep only their heading plus the live status line: the
+  // settled detail tail belongs in the expanded body, never in a one-line
+  // preview or aria label.
   const preview = (() => {
+    if (workEntry.isReasoning) return liveStatusLine;
     if (liveStatusLine && isToolRunning) return liveStatusLine;
     if (
       rawPreview &&
@@ -2433,14 +2441,14 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
       </div>
       {expanded && canExpand && expandedBody ? (
         <div
-          className="mt-1 ms-7 cursor-default border-s border-border/45 ps-3 pt-0.5"
+          className="mt-1 ms-5 cursor-default"
           onClick={stopRowToggle}
           onPointerDown={stopRowToggle}
         >
           <pre
             ref={isToolRunning ? liveBodyRef : undefined}
             className={cn(
-              "max-h-64 cursor-text overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed select-text",
+              "max-h-64 cursor-text overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 font-mono text-[11px] leading-relaxed select-text",
               isToolRunning ? "text-foreground/80" : "text-secondary-label",
             )}
           >

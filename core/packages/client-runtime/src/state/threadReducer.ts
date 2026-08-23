@@ -258,17 +258,35 @@ export function applyThreadDetailEvent(
       };
 
     case "thread.turn-interrupt-requested": {
-      if (event.payload.turnId === undefined) {
-        return { kind: "unchanged" };
-      }
+      // The interrupt targets the thread's live turn: when the event carries
+      // no turn id (the client could not see an active turn id) it still
+      // settles the latest turn instead of silently no-oping.
       const latestTurn = thread.latestTurn;
-      if (latestTurn === null || latestTurn.turnId !== event.payload.turnId) {
+      const requestedTurnId = event.payload.turnId;
+      if (
+        latestTurn === null ||
+        (requestedTurnId !== undefined && latestTurn.turnId !== requestedTurnId)
+      ) {
         return { kind: "unchanged" };
       }
       return {
         kind: "updated",
         thread: {
           ...thread,
+          // Optimistically leave the "running" lifecycle so the working
+          // indicator and Stop button react immediately; the authoritative
+          // thread.session-set from provider ingestion settles the rest.
+          // If the provider keeps streaming (failed abort), the next
+          // lifecycle event restores "running".
+          session:
+            thread.session?.status === "running"
+              ? {
+                  ...thread.session,
+                  status: "interrupted",
+                  activeTurnId: null,
+                  updatedAt: event.payload.createdAt,
+                }
+              : thread.session,
           latestTurn: {
             ...latestTurn,
             state: "interrupted",
@@ -426,22 +444,39 @@ export function applyThreadDetailEvent(
       };
     }
 
-    case "thread.session-stop-requested":
-      return thread.session === null
-        ? { kind: "unchanged" }
-        : {
-            kind: "updated",
-            thread: {
-              ...thread,
-              session: {
-                ...thread.session,
-                status: "stopped",
-                activeTurnId: null,
-                updatedAt: event.payload.createdAt,
-              },
-              updatedAt: event.occurredAt,
-            },
-          };
+    case "thread.session-stop-requested": {
+      if (thread.session === null) {
+        return { kind: "unchanged" };
+      }
+      // Settle the running turn optimistically, mirroring the interrupt
+      // handling above: session-stop and turn-interrupt are the same "make
+      // it stop now" round-trip, and rendering them differently leaves the
+      // working indicator spinning on stop until the authoritative
+      // thread.session-set lands.
+      const stoppedLatestTurn =
+        thread.latestTurn !== null && thread.latestTurn.state === "running"
+          ? {
+              ...thread.latestTurn,
+              state: "interrupted" as const,
+              startedAt: thread.latestTurn.startedAt ?? event.payload.createdAt,
+              completedAt: thread.latestTurn.completedAt ?? event.payload.createdAt,
+            }
+          : thread.latestTurn;
+      return {
+        kind: "updated",
+        thread: {
+          ...thread,
+          session: {
+            ...thread.session,
+            status: "stopped",
+            activeTurnId: null,
+            updatedAt: event.payload.createdAt,
+          },
+          latestTurn: stoppedLatestTurn,
+          updatedAt: event.occurredAt,
+        },
+      };
+    }
 
     // ── Proposed plans ──────────────────────────────────────────────
     case "thread.proposed-plan-upserted": {
@@ -522,7 +557,11 @@ export function applyThreadDetailEvent(
       );
 
       const retainedTurnIds = new Set(Arr.map(checkpoints, (entry) => entry.turnId));
-      const messages = retainMessagesAfterRevert(thread.messages, retainedTurnIds);
+      const messages = retainMessagesAfterRevert(
+        thread.messages,
+        retainedTurnIds,
+        event.payload.turnCount,
+      );
       const proposedPlans = pipe(
         thread.proposedPlans,
         Arr.filter((plan) => plan.turnId === null || retainedTurnIds.has(plan.turnId)),
@@ -654,16 +693,68 @@ function rebindCheckpointAssistantMessage(
 function retainMessagesAfterRevert(
   messages: ReadonlyArray<OrchestrationMessage>,
   retainedTurnIds: ReadonlySet<string>,
+  turnCount: number,
 ): OrchestrationMessage[] {
-  // Keep messages that belong to a retained turn, plus system messages and
-  // messages without a turn binding (pre-turn-0 user messages).
-  return Arr.filter(messages, (message) => {
+  // Mirror of the server projector's retainThreadMessagesAfterRevert so the
+  // client view after thread.reverted matches the persisted projection:
+  // system messages and checkpoint-retained turns always survive, and user
+  // messages without a turn binding are retained oldest-first until
+  // `turnCount` user messages survive. Without the fallback the client drops
+  // user messages the server keeps, and the lists diverge until the next
+  // full snapshot.
+  const retainedMessageIds = new Set<string>();
+  for (const message of messages) {
     if (message.role === "system") {
-      return true;
+      retainedMessageIds.add(message.id);
+      continue;
     }
-    if (message.turnId === null) {
-      return true;
+    if (message.turnId !== null && retainedTurnIds.has(message.turnId)) {
+      retainedMessageIds.add(message.id);
     }
-    return retainedTurnIds.has(message.turnId);
-  });
+  }
+
+  const retainedUserCount = messages.filter(
+    (message) => message.role === "user" && retainedMessageIds.has(message.id),
+  ).length;
+  const missingUserCount = Math.max(0, turnCount - retainedUserCount);
+  if (missingUserCount > 0) {
+    const fallbackUserMessages = messages
+      .filter(
+        (message) =>
+          message.role === "user" &&
+          !retainedMessageIds.has(message.id) &&
+          (message.turnId === null || retainedTurnIds.has(message.turnId)),
+      )
+      .toSorted(
+        (left, right) =>
+          left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+      )
+      .slice(0, missingUserCount);
+    for (const message of fallbackUserMessages) {
+      retainedMessageIds.add(message.id);
+    }
+  }
+
+  const retainedAssistantCount = messages.filter(
+    (message) => message.role === "assistant" && retainedMessageIds.has(message.id),
+  ).length;
+  const missingAssistantCount = Math.max(0, turnCount - retainedAssistantCount);
+  if (missingAssistantCount > 0) {
+    const fallbackAssistantMessages = messages
+      .filter(
+        (message) =>
+          message.role === "assistant" &&
+          !retainedMessageIds.has(message.id) &&
+          (message.turnId === null || retainedTurnIds.has(message.turnId)),
+      )
+      .toSorted(
+        (left, right) =>
+          left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+      )
+      .slice(0, missingAssistantCount);
+    for (const message of fallbackAssistantMessages) {
+      retainedMessageIds.add(message.id);
+    }
+  }
+  return messages.filter((message) => retainedMessageIds.has(message.id));
 }

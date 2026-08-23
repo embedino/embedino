@@ -1058,20 +1058,29 @@ export function makeOpenCodeAdapter(
             break;
           }
 
-          if (event.properties.status.type === "idle" && turnId) {
+          if (event.properties.status.type === "idle") {
+            // Settle whenever OpenCode reports idle: normally the tracked
+            // turn id attributes the completion, but if local tracking was
+            // lost (context rebuilt mid-turn, reconnect) an untargeted
+            // completion still lets ingestion close a genuinely running
+            // lifecycle instead of stranding the working indicator.
+            const settledTurnId = turnId;
+            const wasRunning = context.session.status === "running";
             context.activeTurnId = undefined;
             yield* updateProviderSession(context, { status: "ready" }, { clearActiveTurnId: true });
-            yield* emit({
-              ...(yield* buildEventBase({
-                threadId: context.session.threadId,
-                turnId,
-                raw: event,
-              })),
-              type: "turn.completed",
-              payload: {
-                state: "completed",
-              },
-            });
+            if (settledTurnId !== undefined || wasRunning) {
+              yield* emit({
+                ...(yield* buildEventBase({
+                  threadId: context.session.threadId,
+                  ...(settledTurnId !== undefined ? { turnId: settledTurnId } : {}),
+                  raw: event,
+                })),
+                type: "turn.completed",
+                payload: {
+                  state: "completed",
+                },
+              });
+            }
           }
           break;
         }

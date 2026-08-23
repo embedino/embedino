@@ -549,12 +549,12 @@ export const BackgroundActivitySettings = Schema.Struct({
 export type BackgroundActivitySettings = typeof BackgroundActivitySettings.Type;
 
 export const ServerSettings = Schema.Struct({
-  // Legacy token-by-token assistant output. Deliberately a fresh key (was
-  // `enableAssistantStreaming`): decoding drops the old key, so everyone,
-  // including prior opt-ins, resets to the buffered default.
-  enableLegacyTokenStreaming: Schema.Boolean.pipe(
-    Schema.withDecodingDefault(Effect.succeed(false)),
-  ),
+  // Live token-by-token assistant output. Deliberately a fresh key (was
+  // `enableAssistantStreaming`): decoding drops the old key, so everyone
+  // resets to the live-streaming default once. The server coalesces deltas
+  // into ~50ms batches before dispatch, so liveness does not cost throughput;
+  // opting out restores whole-chunk buffered delivery.
+  enableLegacyTokenStreaming: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   enableProviderUpdateChecks: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   backgroundActivity: BackgroundActivitySettings,
   // Legacy flat fields retained for old settings files and old clients. New
@@ -778,6 +778,7 @@ export const ClientSettingsPatch = Schema.Struct({
   confirmThreadArchive: Schema.optionalKey(Schema.Boolean),
   confirmThreadDelete: Schema.optionalKey(Schema.Boolean),
   diffIgnoreWhitespace: Schema.optionalKey(Schema.Boolean),
+  dismissedProviderUpdateNotificationKeys: Schema.optionalKey(Schema.Array(TrimmedNonEmptyString)),
   glassOpacity: Schema.optionalKey(GlassOpacity),
   fontSizeInterface: Schema.optionalKey(InterfaceFontSize),
   fontSizePrompt: Schema.optionalKey(PromptFontSize),

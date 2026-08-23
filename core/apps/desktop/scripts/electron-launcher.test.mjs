@@ -1,3 +1,4 @@
+import * as NodePath from "node:path";
 import { assert, describe, it } from "vite-plus/test";
 
 import {
@@ -51,20 +52,18 @@ describe("electron development launcher", () => {
   });
 
   it("keeps the native Electron executable name inside the branded macOS bundle", () => {
-    const paths = resolveMacLauncherPaths(
-      "/repo/apps/desktop/.electron-runtime/Embedino (Dev).app",
-      "Embedino (Dev)",
-    );
+    const appBundlePath = "/repo/apps/desktop/.electron-runtime/Embedino (Dev).app";
+    const paths = resolveMacLauncherPaths(appBundlePath, "Embedino (Dev)");
+    // The implementation joins bundle segments with the host-native path
+    // module (backslashes on Windows); expected values join identically.
+    const bundleExecutableDir = NodePath.join(appBundlePath, "Contents", "MacOS");
 
     assert.equal(paths.launcherExecutableName, "Embedino (Dev) Launcher");
     assert.equal(
       paths.launcherBinaryPath,
-      "/repo/apps/desktop/.electron-runtime/Embedino (Dev).app/Contents/MacOS/Embedino (Dev) Launcher",
+      NodePath.join(bundleExecutableDir, "Embedino (Dev) Launcher"),
     );
-    assert.equal(
-      paths.runtimeElectronBinaryPath,
-      "/repo/apps/desktop/.electron-runtime/Embedino (Dev).app/Contents/MacOS/Electron",
-    );
+    assert.equal(paths.runtimeElectronBinaryPath, NodePath.join(bundleExecutableDir, "Electron"));
 
     const script = makeDevelopmentLauncherScript({
       electronBinaryPath: paths.runtimeElectronBinaryPath,
@@ -72,10 +71,7 @@ describe("electron development launcher", () => {
       desktopRoot: "/repo/apps/desktop",
       environment: {},
     });
-    assert.include(
-      script,
-      "exec '/repo/apps/desktop/.electron-runtime/Embedino (Dev).app/Contents/MacOS/Electron'",
-    );
+    assert.include(script, `exec '${paths.runtimeElectronBinaryPath}'`);
     assert.notInclude(script, "node_modules/electron");
   });
 });

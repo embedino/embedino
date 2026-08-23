@@ -1,4 +1,14 @@
-import { ArrowDownCircle, Check, Info, X, AlertTriangle, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownCircle,
+  Check,
+  ChevronRight,
+  Info,
+  Loader2,
+  Sparkles,
+  Wrench,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import * as Cause from "effect/Cause";
@@ -122,27 +132,29 @@ export function ToolchainSetupPill() {
   // Installing state — full-width progress bar
   if (snap.installing) {
     return (
-      <div className="flex w-full flex-col gap-2 rounded-2xl border border-border bg-background p-3">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-            <Loader2 className="size-4 animate-spin text-primary" />
-            Installing {snap.installing === "platformio" ? "PlatformIO" : "Arduino CLI"}
+      <div className="flex w-full flex-col gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-control-surface p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold tracking-tight text-sidebar-foreground">
+            <Loader2 className="size-4 shrink-0 animate-spin text-sidebar-foreground" />
+            <span className="truncate">
+              Installing {snap.installing === "platformio" ? "PlatformIO" : "Arduino CLI"}
+            </span>
           </span>
           <button
             type="button"
             onClick={() => updateToolchainState({ installing: null, progress: 0 })}
-            className="text-muted-foreground transition-colors hover:text-foreground"
+            className="shrink-0 text-[var(--sidebar-icon-color)] transition-colors hover:text-sidebar-foreground"
             aria-label="Cancel"
           >
             <X className="size-4" />
           </button>
         </div>
-        <div className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-muted py-2">
+        <div className="relative flex h-8 w-full items-center justify-center overflow-hidden rounded-[var(--control-radius)] bg-sidebar ring-1 ring-sidebar-border">
           <div
-            className="absolute left-0 top-0 h-full bg-primary/30 transition-all duration-300 ease-out"
+            className="absolute inset-y-0 left-0 bg-sidebar-foreground/15 transition-all duration-300 ease-out"
             style={{ width: `${snap.progress}%` }}
           />
-          <span className="relative z-10 text-sm font-medium text-foreground">
+          <span className="relative z-10 text-xs font-medium tabular-nums text-sidebar-foreground">
             {snap.progress}% Completed
           </span>
         </div>
@@ -153,22 +165,22 @@ export function ToolchainSetupPill() {
   // Error state — inline error banner
   if (snap.error) {
     return (
-      <div className="flex w-full flex-col gap-2 rounded-2xl border border-destructive/50 bg-destructive/10 p-3">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-[13px] font-semibold text-destructive">
+      <div className="flex w-full flex-col gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold tracking-tight text-destructive">
             <AlertTriangle className="size-4 shrink-0" />
             Installation Error
           </span>
           <button
             type="button"
             onClick={() => updateToolchainState({ error: null })}
-            className="text-destructive/80 transition-colors hover:text-destructive"
+            className="shrink-0 text-destructive/70 transition-colors hover:text-destructive"
             aria-label="Dismiss error"
           >
             <X className="size-4" />
           </button>
         </div>
-        <p className="text-xs leading-relaxed text-destructive/90">{snap.error}</p>
+        <p className="break-words text-xs leading-relaxed text-destructive/90">{snap.error}</p>
       </div>
     );
   }
@@ -187,15 +199,26 @@ export function ToolchainSetupPill() {
         if (val) void fetchStatus();
       }}
     >
-      <div className="flex w-full flex-col gap-2 rounded-2xl border border-border bg-background p-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-foreground">Getting Started</span>
+      <DialogTrigger className="group/toolchain-card flex w-full cursor-pointer flex-col gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-control-surface p-3 text-left outline-hidden ring-ring transition-colors hover:bg-sidebar-row-hover focus-visible:ring-2">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-sidebar shadow-xs ring-1 ring-sidebar-border transition-shadow duration-200 group-hover/toolchain-card:shadow-sm">
+            <Sparkles className="size-3.5 text-[var(--sidebar-icon-color)] transition-colors group-hover/toolchain-card:text-sidebar-foreground" />
+          </span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-[13px] font-semibold tracking-tight text-sidebar-foreground">
+              Getting Started
+            </span>
+            <span className="truncate text-[11px] leading-none text-sidebar-muted-foreground">
+              Set up a build engine
+            </span>
+          </span>
         </div>
-        <DialogTrigger className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-muted py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          <ArrowDownCircle className="size-4" />
+        <span className="flex items-center gap-2 rounded-[var(--control-radius)] bg-sidebar py-2 ps-2.5 pe-2 text-xs font-medium text-sidebar-muted-foreground ring-1 ring-sidebar-border/70 transition-colors group-hover/toolchain-card:text-sidebar-foreground">
+          <Wrench className="size-3.5 shrink-0" />
           <span>Configure Toolchain</span>
-        </DialogTrigger>
-      </div>
+          <ChevronRight className="ms-auto size-3.5 shrink-0 opacity-60 transition-transform duration-200 group-hover/toolchain-card:translate-x-0.5" />
+        </span>
+      </DialogTrigger>
 
       <ToolchainSetupDialog />
     </Dialog>

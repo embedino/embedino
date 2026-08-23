@@ -1,6 +1,8 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import { sha256 } from "@noble/hashes/sha2";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as NodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Encoding from "effect/Encoding";
@@ -18,12 +20,19 @@ import {
   makeCloudflaredRelayClient,
 } from "./relayClient.ts";
 
+// The manager talks to the real host filesystem (NodeServices.layer), so the
+// tests must run against the host's own platform and path conventions:
+// overriding the platform reference to a POSIX value on Windows breaks the
+// exec-bit check (chmod cannot set mode bits on NTFS) and forward-slash path
+// expectations. Expected names/paths are derived from the same host-process
+// references the implementation reads.
+const hostExecutableFileName = Effect.gen(function* () {
+  const platform = yield* HostProcessPlatform;
+  return platform === "win32" ? "cloudflared.exe" : "cloudflared";
+});
+
 const hostRuntimeLayer = (env: Record<string, string> = {}) =>
-  Layer.mergeAll(
-    Layer.succeed(HostProcessPlatform, "linux"),
-    Layer.succeed(HostProcessArchitecture, "x64"),
-    ConfigProvider.layer(ConfigProvider.fromEnv({ env })),
-  );
+  Layer.mergeAll(ConfigProvider.layer(ConfigProvider.fromEnv({ env })));
 
 function makeHandle(exitCode = 0) {
   return ChildProcessSpawner.makeHandle({
@@ -69,7 +78,7 @@ describe("RelayClient", () => {
       const baseDir = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "embedino-cloudflared-test-",
       });
-      const overridePath = `${baseDir}/override-cloudflared`;
+      const overridePath = NodePath.join(baseDir, "override-cloudflared");
       yield* fileSystem.writeFileString(overridePath, "override");
       yield* fileSystem.chmod(overridePath, 0o755);
       const manager = yield* makeCloudflaredRelayClient({
@@ -128,7 +137,16 @@ describe("RelayClient", () => {
           }
         }),
       );
-      const managedPath = `${baseDir}/tools/cloudflared/${CLOUDFLARED_VERSION}/linux-x64/cloudflared`;
+      const hostPlatform = yield* HostProcessPlatform;
+      const hostArch = yield* HostProcessArchitecture;
+      const managedPath = NodePath.join(
+        baseDir,
+        "tools",
+        "cloudflared",
+        CLOUDFLARED_VERSION,
+        `${hostPlatform}-${hostArch}`,
+        yield* hostExecutableFileName,
+      );
       expect(installed).toEqual({
         status: "available",
         executablePath: managedPath,
@@ -234,8 +252,8 @@ describe("RelayClient", () => {
       const baseDir = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "embedino-cloudflared-test-",
       });
-      const binDir = `${baseDir}/bin`;
-      const executablePath = `${binDir}/cloudflared`;
+      const binDir = NodePath.join(baseDir, "bin");
+      const executablePath = NodePath.join(binDir, yield* hostExecutableFileName);
       const manager = yield* makeCloudflaredRelayClient({
         baseDir,
       });

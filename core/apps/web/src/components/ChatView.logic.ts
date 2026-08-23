@@ -142,10 +142,13 @@ export function buildThreadTurnInterruptInput(thread: Pick<Thread, "id" | "sessi
   threadId: ThreadId;
   turnId?: TurnId;
 } {
-  const runningTurnId = thread.session?.status === "running" ? thread.session.activeTurnId : null;
+  // Track the active turn id whenever the session has one — not only while
+  // status is exactly "running" — so a stop issued from a lagging lifecycle
+  // (starting/reconnecting, or an optimistic flip) still targets the turn.
+  const activeTurnId = thread.session?.activeTurnId ?? null;
   return {
     threadId: thread.id,
-    ...(runningTurnId !== null ? { turnId: runningTurnId } : {}),
+    ...(activeTurnId !== null ? { turnId: activeTurnId } : {}),
   };
 }
 
@@ -233,7 +236,7 @@ export interface PullRequestDialogState {
   key: number;
 }
 
-export function readFileAsDataUrl(file: File): Promise<string> {
+export function readFileAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.addEventListener("load", () => {

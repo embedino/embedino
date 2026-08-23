@@ -1,5 +1,9 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it, describe, expect } from "@effect/vitest";
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -11,6 +15,23 @@ import * as VcsProcess from "../vcs/VcsProcess.ts";
 import * as WorkspaceEntries from "./WorkspaceEntries.ts";
 import * as WorkspaceFileSystem from "./WorkspaceFileSystem.ts";
 import * as WorkspacePaths from "./WorkspacePaths.ts";
+
+// Windows denies symlink creation (EPERM) without Developer Mode or an
+// elevated shell; symlink-escape coverage must skip where the OS forbids
+// creating the fixture at all.
+const canCreateSymlinks = (() => {
+  try {
+    const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "embedino-symlink-probe-"));
+    try {
+      NodeFS.symlinkSync(dir, NodePath.join(dir, "dir-link"), "dir");
+      return true;
+    } finally {
+      NodeFS.rmSync(dir, { recursive: true, force: true });
+    }
+  } catch {
+    return false;
+  }
+})();
 
 const ProjectLayer = WorkspaceFileSystem.layer.pipe(
   Layer.provide(WorkspacePaths.layer),
@@ -88,34 +109,36 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
       }),
     );
 
-    it.effect("rejects symlinks that resolve outside the workspace root", () =>
-      Effect.gen(function* () {
-        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
-        const fileSystem = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const cwd = yield* makeTempDir;
-        const outsideDir = yield* makeTempDir;
-        yield* writeTextFile(outsideDir, "secret.txt", "outside\n");
-        yield* fileSystem.symlink(
-          path.join(outsideDir, "secret.txt"),
-          path.join(cwd, "linked-secret.txt"),
-        );
+    it.effect.skipIf(!canCreateSymlinks)(
+      "rejects symlinks that resolve outside the workspace root",
+      () =>
+        Effect.gen(function* () {
+          const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+          const fileSystem = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const cwd = yield* makeTempDir;
+          const outsideDir = yield* makeTempDir;
+          yield* writeTextFile(outsideDir, "secret.txt", "outside\n");
+          yield* fileSystem.symlink(
+            path.join(outsideDir, "secret.txt"),
+            path.join(cwd, "linked-secret.txt"),
+          );
 
-        const error = yield* workspaceFileSystem
-          .readFile({ cwd, relativePath: "linked-secret.txt" })
-          .pipe(Effect.flip);
-        const resolvedWorkspaceRoot = yield* fileSystem.realPath(cwd);
-        const resolvedPath = yield* fileSystem.realPath(path.join(outsideDir, "secret.txt"));
+          const error = yield* workspaceFileSystem
+            .readFile({ cwd, relativePath: "linked-secret.txt" })
+            .pipe(Effect.flip);
+          const resolvedWorkspaceRoot = yield* fileSystem.realPath(cwd);
+          const resolvedPath = yield* fileSystem.realPath(path.join(outsideDir, "secret.txt"));
 
-        expect(error).toBeInstanceOf(WorkspaceFileSystem.WorkspaceFilePathEscapeError);
-        expect(error).toMatchObject({
-          workspaceRoot: cwd,
-          relativePath: "linked-secret.txt",
-          resolvedWorkspaceRoot,
-          resolvedPath,
-        });
-        expect("cause" in error).toBe(false);
-      }),
+          expect(error).toBeInstanceOf(WorkspaceFileSystem.WorkspaceFilePathEscapeError);
+          expect(error).toMatchObject({
+            workspaceRoot: cwd,
+            relativePath: "linked-secret.txt",
+            resolvedWorkspaceRoot,
+            resolvedPath,
+          });
+          expect("cause" in error).toBe(false);
+        }),
     );
 
     it.effect("rejects directories without manufacturing an I/O cause", () =>
@@ -263,6 +286,40 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
           .pipe(Effect.orElseSucceed(() => null));
         expect(escapedStat).toBeNull();
       }),
+    );
+
+    it.effect.skipIf(!canCreateSymlinks)(
+      "rejects writes through symlinks that resolve outside the workspace root",
+      () =>
+        Effect.gen(function* () {
+          const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+          const fileSystem = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const cwd = yield* makeTempDir;
+          const outsideDir = yield* makeTempDir;
+          yield* writeTextFile(outsideDir, "secret.txt", "outside\n");
+          yield* fileSystem.symlink(
+            path.join(outsideDir, "secret.txt"),
+            path.join(cwd, "linked-secret.txt"),
+          );
+
+          const error = yield* workspaceFileSystem
+            .writeFile({ cwd, relativePath: "linked-secret.txt", contents: "overwritten\n" })
+            .pipe(Effect.flip);
+
+          const resolvedWorkspaceRoot = yield* fileSystem.realPath(cwd);
+          const resolvedPath = yield* fileSystem.realPath(path.join(outsideDir, "secret.txt"));
+
+          expect(error).toBeInstanceOf(WorkspaceFileSystem.WorkspaceFilePathEscapeError);
+          expect(error).toMatchObject({
+            workspaceRoot: cwd,
+            relativePath: "linked-secret.txt",
+            resolvedWorkspaceRoot,
+            resolvedPath,
+          });
+          // The target behind the link must not have been touched.
+          expect(yield* fileSystem.readFileString(resolvedPath)).toBe("outside\n");
+        }),
     );
   });
 });

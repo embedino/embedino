@@ -188,7 +188,10 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
         runtimePath: paths.entryPath,
       });
       return { targetVersion, method: "boot-service" as const, updateId };
-    }).pipe(Effect.onError(() => Ref.set(inFlight, false)));
+      // The launcher applies the update on a later boot, so a successful run
+      // keeps the server alive: reset on every exit, not only failures, or
+      // the flag permanently blocks all future update attempts.
+    }).pipe(Effect.onExit(() => Ref.set(inFlight, false)));
   });
 
   return ServerSelfUpdate.of({ update });

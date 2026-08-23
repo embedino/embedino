@@ -7,6 +7,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
+import * as Clock from "effect/Clock";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import * as DesktopBackendPool from "./DesktopBackendPool.ts";
@@ -42,18 +43,27 @@ export class DesktopLocalEnvironmentAuth extends Context.Service<
   }
 >()("@embedino/desktop/backend/DesktopLocalEnvironmentAuth") {}
 
+/** Re-mint this far before the session actually expires. */
+const SESSION_RENEW_MARGIN_MS = 5 * 60 * 1_000;
+
 export const make = Effect.gen(function* () {
   const pool = yield* DesktopBackendPool.DesktopBackendPool;
   const httpClient = yield* HttpClient.HttpClient;
-  const tokenRef = yield* Ref.make(Option.none<string>());
+  // The cached token is only valid until its expiry: a main-process cache
+  // that outlives the server's session TTL would hand every future renderer
+  // a token the server rejects, with no recovery short of an app restart.
+  const tokenRef = yield* Ref.make(
+    Option.none<{ readonly token: string; readonly expiresAtMillis: number }>(),
+  );
   const mutex = yield* Semaphore.make(1);
 
   const getBearerToken = mutex
     .withPermits(1)(
       Effect.gen(function* () {
         const cached = yield* Ref.get(tokenRef);
-        if (Option.isSome(cached)) {
-          return cached.value;
+        const now = yield* Clock.currentTimeMillis;
+        if (Option.isSome(cached) && cached.value.expiresAtMillis - now > SESSION_RENEW_MARGIN_MS) {
+          return cached.value.token;
         }
 
         const instances = yield* pool.list;
@@ -83,7 +93,13 @@ export const make = Effect.gen(function* () {
               }),
           ),
         );
-        yield* Ref.set(tokenRef, Option.some(session.access_token));
+        yield* Ref.set(
+          tokenRef,
+          Option.some({
+            token: session.access_token,
+            expiresAtMillis: now + session.expires_in * 1000,
+          }),
+        );
         return session.access_token;
       }),
     )

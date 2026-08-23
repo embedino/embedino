@@ -427,60 +427,73 @@ async function installArduinoCliAsync(
 
   const fileStream = NodeFS.createWriteStream(tempArchive);
   const reader = response.body.getReader();
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    fileStream.write(Buffer.from(value));
-    receivedBytes += value.length;
-    const progress = Math.min(65, Math.max(10, Math.floor((receivedBytes / contentLength) * 65)));
-    if (progress > lastProgress) {
-      lastProgress = progress;
-      const mb = Math.round((receivedBytes / 1024 / 1024) * 10) / 10;
-      const totalMb = Math.round((contentLength / 1024 / 1024) * 10) / 10;
-      emit({
-        type: "progress",
-        progress,
-        stdout: `Downloading Arduino CLI: ${mb}MB / ${totalMb}MB (${progress}%)\n`,
-      });
-    }
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    fileStream.end((err?: Error | null) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-
-  emit({
-    type: "progress",
-    progress: 70,
-    stdout: `Extracting Arduino CLI package to ${destDir}...\n`,
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    const tarArgs =
-      asset.archiveFormat === "zip"
-        ? ["-xf", tempArchive, "-C", destDir]
-        : ["-xzf", tempArchive, "-C", destDir];
-    const child = NodeChildProcess.spawn("tar", tarArgs, {
-      windowsHide: true,
-      signal,
-    });
-    child.on("error", (err) => {
-      if (err.name === "AbortError") reject(new Error("Installation cancelled."));
-      else reject(new Error(`Failed to extract archive: ${err.message}`));
-    });
-    child.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`Extraction failed with exit code ${code}`));
-    });
-  });
+  let streamEnded = false;
 
   try {
-    if (NodeFS.existsSync(tempArchive)) NodeFS.unlinkSync(tempArchive);
-  } catch {}
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      fileStream.write(Buffer.from(value));
+      receivedBytes += value.length;
+      const progress = Math.min(65, Math.max(10, Math.floor((receivedBytes / contentLength) * 65)));
+      if (progress > lastProgress) {
+        lastProgress = progress;
+        const mb = Math.round((receivedBytes / 1024 / 1024) * 10) / 10;
+        const totalMb = Math.round((contentLength / 1024 / 1024) * 10) / 10;
+        emit({
+          type: "progress",
+          progress,
+          stdout: `Downloading Arduino CLI: ${mb}MB / ${totalMb}MB (${progress}%)\n`,
+        });
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      fileStream.end((err?: Error | null) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    streamEnded = true;
+
+    emit({
+      type: "progress",
+      progress: 70,
+      stdout: `Extracting Arduino CLI package to ${destDir}...\n`,
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const tarArgs =
+        asset.archiveFormat === "zip"
+          ? ["-xf", tempArchive, "-C", destDir]
+          : ["-xzf", tempArchive, "-C", destDir];
+      const child = NodeChildProcess.spawn("tar", tarArgs, {
+        windowsHide: true,
+        signal,
+      });
+      child.on("error", (err) => {
+        if (err.name === "AbortError") reject(new Error("Installation cancelled."));
+        else reject(new Error(`Failed to extract archive: ${err.message}`));
+      });
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`Extraction failed with exit code ${code}`));
+      });
+    });
+  } catch (error) {
+    // Abort mid-download, network drop, or failed extraction: release the
+    // response body and let the finally block reclaim the temp file and the
+    // stream's file handle instead of leaking both until GC/restart.
+    try {
+      await reader.cancel();
+    } catch {}
+    throw error;
+  } finally {
+    if (!streamEnded) fileStream.destroy();
+    try {
+      if (NodeFS.existsSync(tempArchive)) NodeFS.unlinkSync(tempArchive);
+    } catch {}
+  }
 
   if (platform !== "win32") {
     try {
@@ -557,8 +570,19 @@ async function installPlatformioAsync(
     stdout: "Virtual environment initialized. Installing PlatformIO Core via pip...\n",
   });
 
-  const pipExecutable = NodeFS.existsSync(penvPip) ? penvPip : pythonCmd;
-  const pipArgs = NodeFS.existsSync(penvPip)
+  const usePenvPip = NodeFS.existsSync(penvPip);
+  if (!usePenvPip) {
+    // A partially-created venv (failed earlier run, Python without ensurepip)
+    // has no pip inside penv: surface the system-python fallback instead of
+    // silently leaving the isolated-environment design.
+    emit({
+      type: "progress",
+      progress: 32,
+      stdout: `Warning: no pip inside the virtual environment (${penvPip}); falling back to ${pythonCmd}, which may install PlatformIO globally.\n`,
+    });
+  }
+  const pipExecutable = usePenvPip ? penvPip : pythonCmd;
+  const pipArgs = usePenvPip
     ? ["-u", "install", "--upgrade", "platformio"]
     : ["-u", "-m", "pip", "install", "--upgrade", "platformio"];
 
@@ -623,6 +647,13 @@ async function installPlatformioAsync(
   });
 
   const verified = findPio(platform);
+  // Claim success only when the binary is actually discoverable: pip exit 0
+  // (e.g. the system-python fallback) does not guarantee a usable pio.
+  if (!verified.installed && !NodeFS.existsSync(penvPio)) {
+    throw new Error(
+      `PlatformIO installation completed, but the pio binary was not found at ${penvPio}`,
+    );
+  }
   emit({
     type: "progress",
     progress: 100,

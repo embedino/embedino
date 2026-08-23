@@ -1355,9 +1355,11 @@ describe("PreviewManager", () => {
 
         expect(webviewSend).toHaveBeenCalledWith(
           "preview:annotation-theme",
+          // Matches the neutral default theme set by the rebrand (the
+          // branded blue default was replaced with the grayscale palette).
           expect.objectContaining({
             colorScheme: "light",
-            primary: "oklch(0.488 0.217 264)",
+            primary: "oklch(0.967 0 0)",
           }),
         );
 

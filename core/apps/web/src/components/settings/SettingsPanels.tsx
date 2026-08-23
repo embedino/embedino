@@ -1618,27 +1618,14 @@ function LegacyFeaturesSection() {
             />
             <SettingsRow
               {...searchableSetting("legacy-token-streaming")}
-              description="Paints assistant output token by token instead of in complete chunks. Not recommended: it is significantly slower, and long responses become harder to follow. Kept only for compatibility with the old behavior."
+              description="Live output streams assistant responses as they are generated, coalesced into smooth batches. Turning this off restores whole-chunk buffered delivery, where text appears only at tool boundaries and completions."
               control={
                 <Switch
                   checked={settings.enableLegacyTokenStreaming}
-                  onCheckedChange={(checked) => {
-                    if (!checked) {
-                      updateSettings({ enableLegacyTokenStreaming: false });
-                      return;
-                    }
-                    void (async () => {
-                      const api = readLocalApi();
-                      const confirmed = await (api ?? ensureLocalApi()).dialogs.confirm(
-                        [
-                          "Turn on token-by-token output?",
-                          "It is significantly slower than the default buffered output and hurts the reading experience. This switch exists only for backwards compatibility.",
-                        ].join("\n"),
-                      );
-                      if (confirmed) updateSettings({ enableLegacyTokenStreaming: true });
-                    })();
-                  }}
-                  aria-label="Stream token by token (legacy)"
+                  onCheckedChange={(checked) =>
+                    updateSettings({ enableLegacyTokenStreaming: Boolean(checked) })
+                  }
+                  aria-label="Stream assistant output live"
                 />
               }
             />

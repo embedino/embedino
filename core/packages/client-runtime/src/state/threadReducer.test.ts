@@ -527,6 +527,115 @@ describe("applyThreadDetailEvent", () => {
     });
   });
 
+  describe("thread.turn-interrupt-requested", () => {
+    const runningThread: OrchestrationThread = {
+      ...baseThread,
+      session: {
+        threadId: ThreadId.make("thread-1"),
+        status: "running",
+        providerName: "codex",
+        runtimeMode: "full-access",
+        activeTurnId: TurnId.make("turn-1"),
+        lastError: null,
+        updatedAt: "2026-04-01T08:00:00.000Z",
+      },
+      latestTurn: {
+        turnId: TurnId.make("turn-1"),
+        state: "running",
+        requestedAt: "2026-04-01T07:00:00.000Z",
+        startedAt: "2026-04-01T07:00:00.000Z",
+        completedAt: null,
+        assistantMessageId: null,
+      },
+    };
+
+    const interruptEvent = (payload: {
+      turnId?: TurnId | undefined;
+      createdAt: string;
+      occurredAt?: string;
+    }) =>
+      ({
+        ...baseEventFields,
+        sequence: 10,
+        occurredAt: payload.occurredAt ?? payload.createdAt,
+        aggregateKind: "thread",
+        aggregateId: ThreadId.make("thread-1"),
+        type: "thread.turn-interrupt-requested",
+        payload: {
+          threadId: ThreadId.make("thread-1"),
+          ...(payload.turnId !== undefined ? { turnId: payload.turnId } : {}),
+          createdAt: payload.createdAt,
+        },
+      }) as any;
+
+    it("settles the turn and leaves the running lifecycle without a turn id", () => {
+      // The stop was issued from a client that could not see an active turn
+      // id: it must still settle the latest turn and flip the lifecycle so
+      // the working indicator and Stop button react immediately.
+      const result = applyThreadDetailEvent(
+        runningThread,
+        interruptEvent({ createdAt: "2026-04-01T08:30:00.000Z" }),
+      );
+
+      expect(result.kind).toBe("updated");
+      if (result.kind === "updated") {
+        expect(result.thread.latestTurn?.state).toBe("interrupted");
+        expect(result.thread.latestTurn?.completedAt).toBe("2026-04-01T08:30:00.000Z");
+        expect(result.thread.session?.status).toBe("interrupted");
+        expect(result.thread.session?.activeTurnId).toBeNull();
+      }
+    });
+
+    it("settles the turn when the event names the running turn", () => {
+      const result = applyThreadDetailEvent(
+        runningThread,
+        interruptEvent({
+          turnId: TurnId.make("turn-1"),
+          createdAt: "2026-04-01T08:30:00.000Z",
+        }),
+      );
+
+      expect(result.kind).toBe("updated");
+      if (result.kind === "updated") {
+        expect(result.thread.latestTurn?.state).toBe("interrupted");
+        expect(result.thread.session?.status).toBe("interrupted");
+      }
+    });
+
+    it("returns unchanged when the event names another turn", () => {
+      const result = applyThreadDetailEvent(
+        runningThread,
+        interruptEvent({
+          turnId: TurnId.make("turn-other"),
+          createdAt: "2026-04-01T08:30:00.000Z",
+        }),
+      );
+
+      expect(result.kind).toBe("unchanged");
+    });
+
+    it("keeps a settled session untouched while folding the turn", () => {
+      const readyThread: OrchestrationThread = {
+        ...runningThread,
+        session: {
+          ...runningThread.session!,
+          status: "ready",
+          activeTurnId: null,
+        },
+      };
+      const result = applyThreadDetailEvent(
+        readyThread,
+        interruptEvent({ createdAt: "2026-04-01T08:30:00.000Z" }),
+      );
+
+      expect(result.kind).toBe("updated");
+      if (result.kind === "updated") {
+        expect(result.thread.session?.status).toBe("ready");
+        expect(result.thread.latestTurn?.state).toBe("interrupted");
+      }
+    });
+  });
+
   describe("thread.session-stop-requested", () => {
     it("marks session as stopped", () => {
       const threadWithSession: OrchestrationThread = {
@@ -878,6 +987,45 @@ describe("applyThreadDetailEvent", () => {
         // msg-3 (turn-2) is filtered, msg-1 (no turn) and msg-2 (turn-1) remain
         expect(result.thread.messages).toHaveLength(2);
         expect(result.thread.latestTurn?.turnId).toBe("turn-1");
+      }
+    });
+
+    it("retains unbound user messages oldest-first up to turnCount, mirroring the server projector", () => {
+      const unboundUserMessage = (suffix: string, createdAt: string) => ({
+        id: MessageId.make(`msg-${suffix}`),
+        role: "user" as const,
+        text: `Question ${suffix}`,
+        turnId: null,
+        streaming: false,
+        createdAt,
+        updatedAt: createdAt,
+      });
+      const threadWithLegacyMessages: OrchestrationThread = {
+        ...baseThread,
+        messages: [
+          unboundUserMessage("a", "2026-04-01T01:00:00.000Z"),
+          unboundUserMessage("b", "2026-04-01T02:00:00.000Z"),
+          unboundUserMessage("c", "2026-04-01T03:00:00.000Z"),
+        ],
+        checkpoints: [],
+      };
+
+      const result = applyThreadDetailEvent(threadWithLegacyMessages, {
+        ...baseEventFields,
+        sequence: 15,
+        occurredAt: "2026-04-01T04:00:00.000Z",
+        aggregateKind: "thread",
+        aggregateId: ThreadId.make("thread-1"),
+        type: "thread.reverted",
+        payload: {
+          threadId: ThreadId.make("thread-1"),
+          turnCount: 2,
+        },
+      });
+
+      expect(result.kind).toBe("updated");
+      if (result.kind === "updated") {
+        expect(result.thread.messages.map((message) => message.id)).toEqual(["msg-a", "msg-b"]);
       }
     });
   });

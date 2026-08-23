@@ -4930,6 +4930,7 @@ function ChatViewContent(props: ChatViewProps) {
       await onSubmitPlanFollowUp({
         text: followUp.text,
         interactionMode: followUp.interactionMode,
+        draftTextToRestore: trimmed,
       });
       return;
     }
@@ -5266,6 +5267,15 @@ function ChatViewContent(props: ChatViewProps) {
           error instanceof Error ? error.message : "Failed to send message.",
         );
       }
+      // The send-time anchor targeted the optimistic row this failure just
+      // removed; without this reset the streaming-adjust effect keeps
+      // scrolling against a stale anchor index on every timeline change.
+      timelineScrollModeRef.current = "following-end";
+      pendingTimelineAnchorRef.current = null;
+      activeTimelineAnchorIndexRef.current = null;
+      setTimelineAnchor((current) =>
+        current.messageId === null ? current : { ...current, messageId: null },
+      );
     }
     sendInFlightRef.current = false;
     if (!turnStartSucceeded) {
@@ -5457,9 +5467,16 @@ function ChatViewContent(props: ChatViewProps) {
     async ({
       text,
       interactionMode: nextInteractionMode,
+      draftTextToRestore = "",
     }: {
       text: string;
       interactionMode: "default" | "plan";
+      /**
+       * The user's typed draft behind this submission, restored into the
+       * composer when the send fails. The follow-up text itself is a
+       * transformed prompt, so it cannot stand in for what the user typed.
+       */
+      draftTextToRestore?: string;
     }) => {
       if (
         !activeThread ||
@@ -5587,6 +5604,18 @@ function ChatViewContent(props: ChatViewProps) {
         return;
       }
 
+      // The caller cleared the composer before dispatching; put the user's
+      // typed draft back when the send fails and nothing else was typed in
+      // the meantime, mirroring the normal send path's restore.
+      if (draftTextToRestore.length > 0 && promptRef.current.length === 0) {
+        promptRef.current = draftTextToRestore;
+        setComposerDraftPrompt(composerDraftTarget, draftTextToRestore);
+        composerRef.current?.resetCursorState({
+          cursor: collapseExpandedComposerCursor(draftTextToRestore, draftTextToRestore.length),
+          prompt: draftTextToRestore,
+          detectTrigger: true,
+        });
+      }
       setOptimisticUserMessages((existing) =>
         existing.filter((message) => message.id !== messageIdForSend),
       );
@@ -5597,6 +5626,12 @@ function ChatViewContent(props: ChatViewProps) {
           error instanceof Error ? error.message : "Failed to send plan follow-up.",
         );
       }
+      timelineScrollModeRef.current = "following-end";
+      pendingTimelineAnchorRef.current = null;
+      activeTimelineAnchorIndexRef.current = null;
+      setTimelineAnchor((current) =>
+        current.messageId === null ? current : { ...current, messageId: null },
+      );
       sendInFlightRef.current = false;
       resetLocalDispatch();
     },
@@ -5605,6 +5640,7 @@ function ChatViewContent(props: ChatViewProps) {
       activeProposedPlan,
       acknowledgeActiveThreadWoke,
       beginLocalDispatch,
+      composerDraftTarget,
       isConnecting,
       isSendBusy,
       isServerThread,
@@ -5613,12 +5649,218 @@ function ChatViewContent(props: ChatViewProps) {
       resetLocalDispatch,
       runtimeMode,
       setComposerDraftInteractionMode,
+      setComposerDraftPrompt,
       setThreadError,
       startThreadTurn,
       environmentId,
       composerRef,
     ],
   );
+
+  /**
+   * Re-sends the most recent user message after a failed turn (session
+   * error). Reuses the plan-follow-up submission machinery with a fresh
+   * message id so the retried prompt is a normal new turn.
+   */
+  const retryLastFailedTurn = useCallback(async () => {
+    if (
+      !activeThread ||
+      !isServerThread ||
+      isSendBusy ||
+      isConnecting ||
+      threadDetailLoading ||
+      activeEnvironmentUnavailable ||
+      sendInFlightRef.current
+    ) {
+      return;
+    }
+    if (activeLatestTurn?.state !== "error") {
+      return;
+    }
+    let lastUserMessage: (typeof displayServerMessages)[number] | null = null;
+    for (let index = displayServerMessages.length - 1; index >= 0; index -= 1) {
+      const message = displayServerMessages[index];
+      if (message?.role === "user" && message.text.trim().length > 0) {
+        lastUserMessage = message;
+        break;
+      }
+    }
+    if (lastUserMessage === null) {
+      return;
+    }
+    const lastUserText = lastUserMessage.text;
+
+    const sendCtx = composerRef.current?.getSendContext();
+    if (!sendCtx?.providerAvailable) {
+      return;
+    }
+    const { selectedModelSelection: ctxSelectedModelSelection } = sendCtx;
+
+    // Retry must carry the failed message's images, not just its text. The
+    // bytes live server-side behind each attachment's resolved preview URL;
+    // reload them as data URLs for the upload contract. A load failure logs
+    // and skips that image rather than blocking the text retry.
+    const retryImageAttachments = (
+      await Promise.all(
+        (lastUserMessage.attachments ?? [])
+          .filter((attachment) => attachment.type === "image")
+          .map(async (attachment) => {
+            if (!attachment.previewUrl) return null;
+            try {
+              const response = await fetch(attachment.previewUrl);
+              if (!response.ok) return null;
+              const dataUrl = await readFileAsDataUrl(await response.blob());
+              return {
+                type: "image" as const,
+                name: attachment.name,
+                mimeType: attachment.mimeType,
+                sizeBytes: attachment.sizeBytes,
+                dataUrl,
+                previewUrl: attachment.previewUrl,
+              };
+            } catch (error) {
+              console.warn("Could not reload image attachment for retry.", error);
+              return null;
+            }
+          }),
+      )
+    ).filter((attachment): attachment is NonNullable<typeof attachment> => attachment !== null);
+
+    const threadIdForSend = activeThread.id;
+    const messageIdForSend = newMessageId();
+    const messageCreatedAt = new Date().toISOString();
+    const retryInteractionMode = activeThread.interactionMode ?? "default";
+
+    sendInFlightRef.current = true;
+    beginLocalDispatch({ preparingWorktree: false });
+    setThreadError(threadIdForSend, null);
+
+    isAtEndRef.current = true;
+    timelineScrollModeRef.current = "anchoring-new-turn";
+    liveFollowUserScrollGenerationRef.current = anchorUserScrollGenerationRef.current;
+    setTimelineLiveFollowEnabled(true);
+    pendingTimelineAnchorRef.current = messageIdForSend;
+    activeTimelineAnchorIndexRef.current = null;
+    showScrollDebouncer.current.cancel();
+    setShowScrollToBottom(false);
+    setTimelineAnchor({
+      threadKey: scopedThreadKey(scopeThreadRef(activeThread.environmentId, threadIdForSend)),
+      messageId: messageIdForSend,
+    });
+
+    setOptimisticUserMessages((existing) => [
+      ...existing,
+      {
+        id: messageIdForSend,
+        role: "user",
+        text: lastUserText,
+        ...(retryImageAttachments.length > 0
+          ? {
+              attachments: retryImageAttachments.map(
+                ({ name, mimeType, sizeBytes, previewUrl }) => ({
+                  type: "image" as const,
+                  id: newMessageId(),
+                  name,
+                  mimeType,
+                  sizeBytes,
+                  previewUrl,
+                }),
+              ),
+            }
+          : {}),
+        turnId: null,
+        createdAt: messageCreatedAt,
+        updatedAt: messageCreatedAt,
+        streaming: false,
+      },
+    ]);
+
+    const settingsResult = await persistThreadSettingsForNextTurn({
+      threadId: threadIdForSend,
+      createdAt: messageCreatedAt,
+      modelSelection: ctxSelectedModelSelection,
+      ...(localCheckoutBranchMismatch ? { branch: localCheckoutBranchMismatch.currentBranch } : {}),
+      runtimeMode,
+      interactionMode: retryInteractionMode,
+    });
+    let failure: AtomCommandResult<unknown, unknown> | null =
+      settingsResult._tag === "Failure" ? settingsResult : null;
+
+    if (failure === null) {
+      const startResult = await startThreadTurn({
+        environmentId,
+        input: {
+          threadId: threadIdForSend,
+          message: {
+            messageId: messageIdForSend,
+            role: "user",
+            text: lastUserText,
+            attachments: retryImageAttachments.map(({ name, mimeType, sizeBytes, dataUrl }) => ({
+              type: "image" as const,
+              name,
+              mimeType,
+              sizeBytes,
+              dataUrl,
+            })),
+          },
+          modelSelection: ctxSelectedModelSelection,
+          titleSeed: activeThread.title,
+          runtimeMode,
+          interactionMode: retryInteractionMode,
+          activeToolchain: activeToolchain ?? undefined,
+          activeDeviceId: hardwareState.activeDeviceId ?? undefined,
+          createdAt: messageCreatedAt,
+        },
+      });
+      failure = startResult._tag === "Failure" ? startResult : null;
+    }
+
+    if (failure === null) {
+      acknowledgeActiveThreadWoke();
+      sendInFlightRef.current = false;
+      return;
+    }
+
+    setOptimisticUserMessages((existing) =>
+      existing.filter((message) => message.id !== messageIdForSend),
+    );
+    if (!isAtomCommandInterrupted(failure)) {
+      const error = squashAtomCommandFailure(failure);
+      setThreadError(
+        threadIdForSend,
+        error instanceof Error ? error.message : "Failed to resend the previous message.",
+      );
+    }
+    timelineScrollModeRef.current = "following-end";
+    pendingTimelineAnchorRef.current = null;
+    activeTimelineAnchorIndexRef.current = null;
+    setTimelineAnchor((current) =>
+      current.messageId === null ? current : { ...current, messageId: null },
+    );
+    sendInFlightRef.current = false;
+    resetLocalDispatch();
+  }, [
+    activeLatestTurn,
+    activeThread,
+    activeToolchain,
+    acknowledgeActiveThreadWoke,
+    activeEnvironmentUnavailable,
+    beginLocalDispatch,
+    displayServerMessages,
+    hardwareState.activeDeviceId,
+    isConnecting,
+    isSendBusy,
+    isServerThread,
+    localCheckoutBranchMismatch,
+    persistThreadSettingsForNextTurn,
+    resetLocalDispatch,
+    runtimeMode,
+    setThreadError,
+    startThreadTurn,
+    threadDetailLoading,
+    environmentId,
+    composerRef,
+  ]);
 
   const onImplementPlanInNewThread = useCallback(async () => {
     if (
@@ -5683,6 +5925,10 @@ function ChatViewContent(props: ChatViewProps) {
     });
     let failure: AtomCommandResult<unknown, unknown> | null =
       createResult._tag === "Failure" ? createResult : null;
+    // Once the implementation turn is running server-side the thread is a
+    // real, working artifact: a later failure (wait/navigate) must not delete
+    // it out from under the user.
+    let turnStarted = false;
 
     if (failure === null) {
       const startResult = await startThreadTurn({
@@ -5709,6 +5955,7 @@ function ChatViewContent(props: ChatViewProps) {
         },
       });
       failure = startResult._tag === "Failure" ? startResult : null;
+      turnStarted = failure === null;
     }
 
     if (failure === null) {
@@ -5732,26 +5979,33 @@ function ChatViewContent(props: ChatViewProps) {
     }
 
     if (failure !== null) {
-      const cleanupResult = await deleteThread({
-        environmentId,
-        input: {
-          threadId: nextThreadId,
-        },
-      });
-      if (cleanupResult._tag === "Failure" && !isAtomCommandInterrupted(cleanupResult)) {
-        console.warn(
-          "Failed to clean up implementation thread after start failure.",
-          squashAtomCommandFailure(cleanupResult),
-        );
+      if (!turnStarted) {
+        const cleanupResult = await deleteThread({
+          environmentId,
+          input: {
+            threadId: nextThreadId,
+          },
+        });
+        if (cleanupResult._tag === "Failure" && !isAtomCommandInterrupted(cleanupResult)) {
+          console.warn(
+            "Failed to clean up implementation thread after start failure.",
+            squashAtomCommandFailure(cleanupResult),
+          );
+        }
       }
       if (!isAtomCommandInterrupted(failure)) {
         const error = squashAtomCommandFailure(failure);
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Could not start implementation thread",
-            description:
-              error instanceof Error
+            title: turnStarted
+              ? "Implementation thread started"
+              : "Could not start implementation thread",
+            description: turnStarted
+              ? error instanceof Error
+                ? `Opening it failed (${error.message}). Find it in the thread list.`
+                : "Opening it failed. Find it in the thread list."
+              : error instanceof Error
                 ? error.message
                 : "An error occurred while creating the new thread.",
           }),
@@ -6158,6 +6412,9 @@ function ChatViewContent(props: ChatViewProps) {
             dismissThreadErrorBannerForSession(threadErrorBannerKey);
             setThreadErrorBannerDismissTick((tick) => tick + 1);
           }}
+          onRetry={
+            activeLatestTurn?.state === "error" && !isWorking ? retryLastFailedTurn : undefined
+          }
         />
         {/* Main content area with optional plan sidebar */}
         <div className="flex min-h-0 min-w-0 flex-1">

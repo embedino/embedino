@@ -1,4 +1,6 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as NodePath from "node:path";
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -25,7 +27,14 @@ describe("DesktopAssets", () => {
   it.effect("preserves the failed asset candidate and filesystem cause", () =>
     Effect.gen(function* () {
       const fileName = "custom.bin";
-      const candidatePath = "/repo/apps/desktop/resources/custom.bin";
+      // The source builds candidates with the host-native Path service, so
+      // the mocked failure must target the joined form of the same segments.
+      const candidatePath = NodePath.join(
+        "/repo/apps/desktop/dist-electron",
+        "..",
+        "resources",
+        "custom.bin",
+      );
       const cause = PlatformError.systemError({
         _tag: "PermissionDenied",
         module: "FileSystem",

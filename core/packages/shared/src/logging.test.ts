@@ -71,13 +71,19 @@ describe("RotatingFileSink", () => {
 
   it("only treats a missing log file as an empty current size", () => {
     const directory = makeTempDirectory();
-    const filePath = NodePath.join(directory, "a".repeat(300));
+    // A null byte makes statSync fail synchronously with a non-ENOENT error
+    // on every platform (ERR_INVALID_ARG_VALUE). ENAMETOOLONG from an
+    // oversized filename is Linux-only and resolves to ENOENT on Windows,
+    // which would be wrongly swallowed as a missing file.
+    const filePath = NodePath.join(directory, "log\0.ndjson");
 
     const thrown = captureError(() => new RotatingFileSink({ filePath, maxBytes: 1, maxFiles: 1 }));
 
     expect(thrown).toBeInstanceOf(RotatingFileSinkError);
     expect(thrown).toMatchObject({ operation: "read", filePath });
-    expect((thrown as RotatingFileSinkError).cause).toMatchObject({ code: "ENAMETOOLONG" });
+    expect((thrown as RotatingFileSinkError).cause).toMatchObject({
+      code: "ERR_INVALID_ARG_VALUE",
+    });
   });
 
   it("starts an absent log file at zero bytes", () => {

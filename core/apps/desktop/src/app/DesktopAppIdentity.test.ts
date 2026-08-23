@@ -1,5 +1,7 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
+import * as NodePath from "node:path";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -25,6 +27,16 @@ const defaultEnvironmentInput = {
   resourcesPath: "/Applications/Embedino.app/Contents/Resources",
   runningUnderArm64Translation: false,
 } satisfies DesktopEnvironment.MakeDesktopEnvironmentInput;
+
+// The implementation joins path segments with the host-native Path service
+// (backslashes on Windows); expected values must join the same segments the
+// same way instead of hardcoding POSIX separators.
+const legacyUserDataPath = NodePath.join(
+  "/Users/alice",
+  "Library",
+  "Application Support",
+  "Embedino (Alpha)",
+);
 
 type TestEnvironmentInput = Partial<DesktopEnvironment.MakeDesktopEnvironmentInput> & {
   readonly env?: Record<string, string | undefined>;
@@ -149,20 +161,19 @@ describe("DesktopAppIdentity", () => {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
         const userDataPath = yield* identity.resolveUserDataPath;
 
-        assert.equal(userDataPath, "/Users/alice/Library/Application Support/Embedino (Alpha)");
+        assert.equal(userDataPath, legacyUserDataPath);
       }),
       { legacyPathExists: true },
     ),
   );
 
   it.effect("preserves failures while inspecting the legacy userData path", () => {
-    const legacyPath = "/Users/alice/Library/Application Support/Embedino (Alpha)";
     const cause = PlatformError.systemError({
       _tag: "PermissionDenied",
       module: "FileSystem",
       method: "exists",
       description: "permission denied",
-      pathOrDescriptor: legacyPath,
+      pathOrDescriptor: legacyUserDataPath,
     });
 
     return withIdentity(
@@ -171,11 +182,11 @@ describe("DesktopAppIdentity", () => {
         const error = yield* identity.resolveUserDataPath.pipe(Effect.flip);
 
         assert.instanceOf(error, DesktopAppIdentity.DesktopUserDataPathResolutionError);
-        assert.equal(error.legacyPath, legacyPath);
+        assert.equal(error.legacyPath, legacyUserDataPath);
         assert.strictEqual(error.cause, cause);
         assert.equal(
           error.message,
-          `Failed to inspect legacy desktop user-data path at "${legacyPath}".`,
+          `Failed to inspect legacy desktop user-data path at "${legacyUserDataPath}".`,
         );
       }),
       { legacyPathProbeError: cause },

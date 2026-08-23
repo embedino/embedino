@@ -742,6 +742,57 @@ describe("deriveWorkLogEntries", () => {
     expect(entries.map((entry) => entry.id)).toEqual(["tool-complete"]);
   });
 
+  it("surfaces the submitted answer on user-input.resolved rows", () => {
+    const activities: OrchestrationThreadActivity[] = [
+      makeActivity({
+        id: "user-input-resolved",
+        createdAt: "2026-02-23T00:00:03.000Z",
+        kind: "user-input.resolved",
+        summary: "User input submitted",
+        tone: "info",
+        payload: {
+          requestId: "req-user-input-1",
+          answers: {
+            demo_pick: "Ghost Typewriter",
+            extras: ["RGB light rave", "Possessed mouse"],
+          },
+        },
+      }),
+    ];
+
+    const entries = deriveWorkLogEntries(activities);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.label).toBe("User input submitted");
+    expect(entries[0]?.detail).toBe("Ghost Typewriter · RGB light rave, Possessed mouse");
+  });
+
+  it("surfaces the question preview on user-input.requested rows", () => {
+    const activities: OrchestrationThreadActivity[] = [
+      makeActivity({
+        id: "user-input-requested",
+        createdAt: "2026-02-23T00:00:02.000Z",
+        kind: "user-input.requested",
+        summary: "User input requested",
+        tone: "info",
+        payload: {
+          requestId: "req-user-input-2",
+          questions: [
+            {
+              id: "demo_pick",
+              header: "Demo pick",
+              question: "Which 'crazy' demo should we build?",
+              options: [{ label: "Ghost Typewriter" }],
+            },
+          ],
+        },
+      }),
+    ];
+
+    const entries = deriveWorkLogEntries(activities);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.detail).toBe("Which 'crazy' demo should we build?");
+  });
+
   it("omits task.started but shows task.progress and task.completed", () => {
     const activities: OrchestrationThreadActivity[] = [
       makeActivity({

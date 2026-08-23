@@ -968,6 +968,125 @@ describe("ProviderRuntimeIngestion", () => {
     );
   });
 
+  it("settles the lifecycle when a turn aborts without a turn id", async () => {
+    const harness = await createHarness();
+    const now = "2026-01-01T00:00:00.000Z";
+
+    harness.emit({
+      type: "turn.started",
+      eventId: asEventId("evt-turn-started-abort"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-abort-target"),
+    });
+
+    await waitForThread(
+      harness.readModel,
+      (thread) =>
+        thread.session?.status === "running" &&
+        thread.session?.activeTurnId === "turn-abort-target",
+    );
+
+    // Providers commonly abort without echoing a turn id (codex route fields
+    // omit it, opencode synthesizes from local tracking). The lifecycle must
+    // still settle — an unhandled abort strands the session in "running"
+    // forever and the working indicator never stops after a Stop.
+    harness.emit({
+      type: "turn.aborted",
+      eventId: asEventId("evt-turn-aborted-untargeted"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      payload: {
+        reason: "Interrupted by user.",
+      },
+    });
+
+    await waitForThread(
+      harness.readModel,
+      (thread) => thread.session?.status === "ready" && thread.session?.activeTurnId === null,
+    );
+  });
+
+  it("rejects a turn.aborted that names another turn while one is active", async () => {
+    const harness = await createHarness();
+    const now = "2026-01-01T00:00:00.000Z";
+
+    harness.emit({
+      type: "turn.started",
+      eventId: asEventId("evt-turn-started-abort-live"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-abort-live"),
+    });
+
+    await waitForThread(
+      harness.readModel,
+      (thread) =>
+        thread.session?.status === "running" && thread.session?.activeTurnId === "turn-abort-live",
+    );
+
+    harness.emit({
+      type: "turn.aborted",
+      eventId: asEventId("evt-turn-aborted-stale"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-abort-stale"),
+      payload: {
+        reason: "Stale turn aborted",
+      },
+    });
+
+    await harness.drain();
+    const readModel = await harness.readModel();
+    const thread = readModel.threads.find((entry) => entry.id === asThreadId("thread-1"));
+    expect(thread?.session?.status).toBe("running");
+    expect(thread?.session?.activeTurnId).toBe("turn-abort-live");
+  });
+
+  it("accepts an untargeted turn.completed while a turn is actively running", async () => {
+    const harness = await createHarness();
+    const now = "2026-01-01T00:00:00.000Z";
+
+    harness.emit({
+      type: "turn.started",
+      eventId: asEventId("evt-turn-started-untargeted-live"),
+      provider: ProviderDriverKind.make("opencode"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-untargeted-live"),
+    });
+
+    await waitForThread(
+      harness.readModel,
+      (thread) =>
+        thread.session?.status === "running" &&
+        thread.session?.activeTurnId === "turn-untargeted-live",
+    );
+
+    // Adapters that drop the turn id on completion (or lost their per-session
+    // tracking across a reconnect) previously stranded the session in
+    // "running" forever: every tool call settled while the working indicator
+    // kept counting. While a real turn is live, an untargeted completion can
+    // only be its end.
+    harness.emit({
+      type: "turn.completed",
+      eventId: asEventId("evt-turn-completed-untargeted-live"),
+      provider: ProviderDriverKind.make("opencode"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      status: "completed",
+    });
+
+    await waitForThread(
+      harness.readModel,
+      (thread) => thread.session?.status === "ready" && thread.session?.activeTurnId === null,
+    );
+  });
+
   it("maps canonical content delta/item completed into finalized assistant messages", async () => {
     const harness = await createHarness();
     const now = "2026-01-01T00:00:00.000Z";
@@ -1884,8 +2003,140 @@ describe("ProviderRuntimeIngestion", () => {
     expect(proposedPlan?.planMarkdown).toBe("## Buffered plan\n\n- first\n- second");
   });
 
-  it("buffers assistant deltas by default until completion", async () => {
+  it("streams the first assistant delta live by default", async () => {
     const harness = await createHarness();
+    const now = "2026-01-01T00:00:00.000Z";
+
+    harness.emit({
+      type: "turn.started",
+      eventId: asEventId("evt-turn-started-live-default"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-live-default"),
+    });
+    await waitForThread(
+      harness.readModel,
+      (thread) =>
+        thread.session?.status === "running" &&
+        thread.session?.activeTurnId === "turn-live-default",
+    );
+
+    harness.emit({
+      type: "content.delta",
+      eventId: asEventId("evt-message-delta-live-default"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-live-default"),
+      itemId: asItemId("item-live-default"),
+      payload: {
+        streamKind: "assistant_text",
+        delta: "buffer me",
+      },
+    });
+
+    const thread = await waitForThread(harness.readModel, (entry) =>
+      entry.messages.some(
+        (message: ProviderRuntimeTestMessage) =>
+          message.id === "assistant:item-live-default" &&
+          message.streaming &&
+          message.text === "buffer me",
+      ),
+    );
+    const message = thread.messages.find(
+      (entry: ProviderRuntimeTestMessage) => entry.id === "assistant:item-live-default",
+    );
+    expect(message?.streaming).toBe(true);
+  });
+
+  it("coalesces subsequent live deltas until completion finalizes the message", async () => {
+    const harness = await createHarness();
+    const now = "2026-01-01T00:00:00.000Z";
+
+    harness.emit({
+      type: "turn.started",
+      eventId: asEventId("evt-turn-started-live-coalesce"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-live-coalesce"),
+    });
+    await waitForThread(
+      harness.readModel,
+      (thread) =>
+        thread.session?.status === "running" &&
+        thread.session?.activeTurnId === "turn-live-coalesce",
+    );
+
+    // First token streams immediately…
+    harness.emit({
+      type: "content.delta",
+      eventId: asEventId("evt-message-delta-live-coalesce-1"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-live-coalesce"),
+      itemId: asItemId("item-live-coalesce"),
+      payload: { streamKind: "assistant_text", delta: "hello " },
+    });
+    await waitForThread(harness.readModel, (entry) =>
+      entry.messages.some(
+        (message: ProviderRuntimeTestMessage) =>
+          message.id === "assistant:item-live-coalesce" && message.text === "hello ",
+      ),
+    );
+
+    // …a small follow-up delta inside the coalescing window stays buffered.
+    harness.emit({
+      type: "content.delta",
+      eventId: asEventId("evt-message-delta-live-coalesce-2"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-live-coalesce"),
+      itemId: asItemId("item-live-coalesce"),
+      payload: { streamKind: "assistant_text", delta: "world" },
+    });
+    await harness.drain();
+    const midReadModel = await harness.readModel();
+    const midThread = midReadModel.threads.find((entry) => entry.id === ThreadId.make("thread-1"));
+    expect(
+      midThread?.messages.find(
+        (message: ProviderRuntimeTestMessage) => message.id === "assistant:item-live-coalesce",
+      )?.text,
+    ).toBe("hello ");
+
+    // Completion always drains whatever remains.
+    harness.emit({
+      type: "item.completed",
+      eventId: asEventId("evt-message-completed-live-coalesce"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      turnId: asTurnId("turn-live-coalesce"),
+      itemId: asItemId("item-live-coalesce"),
+      payload: { itemType: "assistant_message", status: "completed" },
+    });
+    const thread = await waitForThread(harness.readModel, (entry) =>
+      entry.messages.some(
+        (message: ProviderRuntimeTestMessage) =>
+          message.id === "assistant:item-live-coalesce" &&
+          !message.streaming &&
+          message.text === "hello world",
+      ),
+    );
+    expect(
+      thread.messages.find(
+        (entry: ProviderRuntimeTestMessage) => entry.id === "assistant:item-live-coalesce",
+      )?.streaming,
+    ).toBe(false);
+  });
+
+  it("buffers assistant deltas until completion when live streaming is disabled", async () => {
+    const harness = await createHarness({
+      serverSettings: { enableLegacyTokenStreaming: false },
+    });
     const now = "2026-01-01T00:00:00.000Z";
 
     harness.emit({

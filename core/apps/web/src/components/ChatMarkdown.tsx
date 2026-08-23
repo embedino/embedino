@@ -115,6 +115,105 @@ interface ChatMarkdownProps {
 
 const EMPTY_MARKDOWN_SKILLS: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">> = [];
 
+// ---------------------------------------------------------------------------
+// Incremental streaming render: the accumulated assistant text is split into
+// top-level blocks so completed blocks keep stable React identities and are
+// never re-parsed while the tail grows. Splitting happens only on blank lines
+// outside fenced code; list items separated by blank lines and indented code
+// stay merged with their block. Trade-off: cross-block constructs (reference
+// link definitions spanning blocks) lose their shared scope — acceptable for
+// chat-shaped markdown.
+// ---------------------------------------------------------------------------
+
+interface MarkdownTextBlock {
+  readonly text: string;
+  /** Char offset of this block's first character within the full source. */
+  readonly start: number;
+}
+
+const MARKDOWN_LIST_ITEM_LINE = /^\s{0,3}(?:[-+*]|\d{1,9}[.)])\s+/;
+const MARKDOWN_FENCE_OPEN = /^\s{0,3}(`{3,}|~{3,})/;
+const MARKDOWN_FENCE_CLOSE = /^\s{0,3}[`~]{3,}\s*$/;
+/** Beyond this many blocks a message parses as one unit instead. */
+const MAX_MARKDOWN_BLOCKS = 400;
+
+function splitMarkdownIntoBlocks(source: string): ReadonlyArray<MarkdownTextBlock> {
+  const single: ReadonlyArray<MarkdownTextBlock> = [{ text: source, start: 0 }];
+  if (source.length === 0 || !source.includes("\n\n")) {
+    return single;
+  }
+
+  const lines = source.split("\n");
+  const lineOffsets: number[] = new Array(lines.length + 1);
+  lineOffsets[0] = 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    lineOffsets[index + 1] = lineOffsets[index]! + lines[index]!.length + 1;
+  }
+
+  const blocks: Array<MarkdownTextBlock> = [];
+  let blockStartLine = 0;
+  let fenceChar: string | null = null;
+  let previousLineWasListItem = false;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
+    if (fenceChar !== null) {
+      if (MARKDOWN_FENCE_CLOSE.test(line) && line.trimStart().startsWith(fenceChar)) {
+        fenceChar = null;
+      }
+      previousLineWasListItem = false;
+      continue;
+    }
+    const fenceOpen = line.match(MARKDOWN_FENCE_OPEN);
+    if (fenceOpen?.[1]) {
+      fenceChar = fenceOpen[1].charAt(0);
+      previousLineWasListItem = false;
+      continue;
+    }
+    if (line.trim().length === 0) {
+      let nextIndex = index;
+      while (nextIndex + 1 < lines.length && lines[nextIndex + 1]!.trim().length === 0) {
+        nextIndex += 1;
+      }
+      const followingIndex = nextIndex + 1;
+      if (followingIndex >= lines.length) {
+        break; // trailing blank lines belong to no block
+      }
+      const following = lines[followingIndex]!;
+      const continuesList = previousLineWasListItem && MARKDOWN_LIST_ITEM_LINE.test(following);
+      const continuesIndentedCode = /^ {4,}\S/.test(following);
+      if (!continuesList && !continuesIndentedCode && blocks.length + 1 < MAX_MARKDOWN_BLOCKS) {
+        blocks.push({
+          text: source.slice(lineOffsets[blockStartLine]!, lineOffsets[index]),
+          start: lineOffsets[blockStartLine]!,
+        });
+        blockStartLine = followingIndex;
+        index = nextIndex; // loop increment lands on followingIndex
+        previousLineWasListItem = false;
+      }
+      continue;
+    }
+    previousLineWasListItem = MARKDOWN_LIST_ITEM_LINE.test(line);
+  }
+
+  blocks.push({
+    text: source.slice(lineOffsets[blockStartLine]!),
+    start: lineOffsets[blockStartLine]!,
+  });
+  return blocks.length <= 1 ? single : blocks;
+}
+
+/** Re-emit highlighted content as markdown so copying out of the rendered view keeps links, emphasis, lists, and code fences intact. */
+function handleChatMarkdownCopy(event: ReactClipboardEvent<HTMLDivElement>): void {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || !event.clipboardData) return;
+  const payload = chatMarkdownClipboardPayload(selection);
+  if (!payload) return;
+  event.preventDefault();
+  event.clipboardData.setData("text/plain", payload.text);
+  event.clipboardData.setData("text/html", payload.html);
+}
+
 const CODE_FENCE_LANGUAGE_REGEX = /(?:^|\s)language-([^\s]+)/;
 const MAX_HIGHLIGHT_CACHE_ENTRIES = 500;
 const MAX_HIGHLIGHT_CACHE_MEMORY_BYTES = 50 * 1024 * 1024;
@@ -705,6 +804,17 @@ interface SuspenseShikiCodeBlockProps {
   isStreaming: boolean;
 }
 
+/** Open fences longer than this render un-highlighted until they close. */
+const MAX_STREAMING_HIGHLIGHT_LINES = 1_200;
+
+function countCodeLines(code: string): number {
+  let lines = 1;
+  for (let index = 0; index < code.length; index += 1) {
+    if (code.charCodeAt(index) === 10) lines += 1;
+  }
+  return lines;
+}
+
 function SuspenseShikiCodeBlock({
   className,
   code,
@@ -743,6 +853,13 @@ interface UncachedShikiCodeBlockProps {
   isStreaming: boolean;
 }
 
+/**
+ * While a code block grows under an open fence it would otherwise re-highlight
+ * on every provider chunk — the single most expensive thing in a streaming
+ * chat. Two guards keep that bounded: incoming chunks coalesce to at most one
+ * highlight per animation frame, and oversized in-flight blocks fall back to
+ * plain-text rendering until the fence closes.
+ */
 function UncachedShikiCodeBlock({
   code,
   language,
@@ -751,9 +868,46 @@ function UncachedShikiCodeBlock({
   isStreaming,
 }: UncachedShikiCodeBlockProps) {
   const highlighter = use(getSyntaxHighlighterPromise(language));
+  const [displayCode, setDisplayCode] = useState(code);
+  const latestCodeRef = useRef(code);
+  const frameRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    latestCodeRef.current = code;
+    if (!isStreaming) {
+      setDisplayCode(code);
+      return;
+    }
+    if (frameRef.current !== null) {
+      return;
+    }
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      setDisplayCode(latestCodeRef.current);
+    });
+  }, [code, isStreaming]);
+
+  const oversizeStreaming =
+    isStreaming &&
+    displayCode.length > 0 &&
+    countCodeLines(displayCode) > MAX_STREAMING_HIGHLIGHT_LINES;
   const highlightedHtml = useMemo(() => {
+    const effectiveLanguage = oversizeStreaming ? "text" : language;
     try {
-      return highlighter.codeToHtml(code, { lang: language, theme: themeName });
+      return highlighter.codeToHtml(displayCode, {
+        lang: effectiveLanguage,
+        theme: themeName,
+      });
     } catch (error) {
       // Log highlighting failures for debugging while falling back to plain text
       console.warn(
@@ -761,19 +915,19 @@ function UncachedShikiCodeBlock({
         error instanceof Error ? error.message : error,
       );
       // If highlighting fails for this language, render as plain text
-      return highlighter.codeToHtml(code, { lang: "text", theme: themeName });
+      return highlighter.codeToHtml(displayCode, { lang: "text", theme: themeName });
     }
-  }, [code, highlighter, language, themeName]);
+  }, [displayCode, highlighter, language, oversizeStreaming, themeName]);
 
   useEffect(() => {
-    if (!isStreaming) {
+    if (!isStreaming && !oversizeStreaming) {
       highlightedCodeCache.set(
         cacheKey,
         highlightedHtml,
         estimateHighlightedSize(highlightedHtml, code),
       );
     }
-  }, [cacheKey, code, highlightedHtml, isStreaming]);
+  }, [cacheKey, code, highlightedHtml, isStreaming, oversizeStreaming]);
 
   return (
     <div className="chat-markdown-shiki" dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
@@ -1319,16 +1473,26 @@ function areMarkdownFileLinkPropsEqual(
   );
 }
 
-function ChatMarkdown({
+interface ChatMarkdownBlockProps extends ChatMarkdownProps {
+  /** Offset of `text` within the full accumulated message (task-marker mapping). */
+  baseOffset: number;
+}
+
+/**
+ * Renders ONE markdown block of a message. While a message streams, completed
+ * blocks keep their props identical across chunks, so this component's memo
+ * skips them entirely; only the trailing block re-parses.
+ */
+function ChatMarkdownBlock({
   text,
   cwd,
   threadRef,
   onTaskListChange,
   isStreaming = false,
   skills = EMPTY_MARKDOWN_SKILLS,
-  className,
   lineBreaks = false,
-}: ChatMarkdownProps) {
+  baseOffset,
+}: ChatMarkdownBlockProps) {
   const { resolvedTheme } = useTheme();
   const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
     reportFailure: false,
@@ -1379,17 +1543,6 @@ function ChatMarkdown({
   }, [inlineCodeFileLinkMetaByText, markdownFileLinkMetaByHref]);
   const markdownUrlTransform = useCallback((href: string) => {
     return rewriteMarkdownFileUriHref(href) ?? defaultUrlTransform(href);
-  }, []);
-  // Re-emit highlighted content as markdown so copying out of the rendered
-  // view keeps links, emphasis, lists, and code fences intact.
-  const handleCopy = useCallback((event: ReactClipboardEvent<HTMLDivElement>) => {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !event.clipboardData) return;
-    const payload = chatMarkdownClipboardPayload(selection);
-    if (!payload) return;
-    event.preventDefault();
-    event.clipboardData.setData("text/plain", payload.text);
-    event.clipboardData.setData("text/html", payload.html);
   }, []);
   const openChangeRequestLink = useOpenChangeRequestLink(threadRef);
   const openExternalLinkInPreview = useCallback(
@@ -1506,10 +1659,13 @@ function ChatMarkdown({
       },
       li({ node, children, ...props }) {
         const listItemStart = node?.position?.start.offset;
+        // Block-local offset mapped back into the full message text so task
+        // list toggles address the original markdown.
         const markerOffset =
           typeof listItemStart === "number" ? findTaskListMarkerOffset(text, listItemStart) : null;
+        const absoluteMarkerOffset = markerOffset === null ? null : markerOffset + baseOffset;
         return (
-          <li {...props} data-task-marker-offset={markerOffset ?? undefined}>
+          <li {...props} data-task-marker-offset={absoluteMarkerOffset ?? undefined}>
             {renderSkillInlineMarkdownChildren(children, skills)}
           </li>
         );
@@ -1715,13 +1871,7 @@ function ChatMarkdown({
   /* eslint-enable react/no-unstable-nested-components */
 
   return (
-    <div
-      className={cn(
-        "chat-markdown w-full min-w-0 text-sm leading-relaxed text-foreground/80",
-        className,
-      )}
-      onCopy={handleCopy}
-    >
+    <div className="chat-markdown min-w-0 text-sm leading-relaxed text-foreground">
       <ReactMarkdown
         remarkPlugins={
           lineBreaks ? CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS : CHAT_MARKDOWN_REMARK_PLUGINS
@@ -1732,6 +1882,44 @@ function ChatMarkdown({
       >
         {text}
       </ReactMarkdown>
+    </div>
+  );
+}
+
+const ChatMarkdownBlockMemo = memo(ChatMarkdownBlock);
+
+/**
+ * Message-level markdown renderer. Splits the accumulated text into blocks so
+ * that while a response streams, only the trailing block re-parses and
+ * re-renders; completed blocks keep stable element identities. Copy handling
+ * stays at the container level so selections spanning blocks still serialize
+ * as clean markdown.
+ */
+function ChatMarkdown({ text, isStreaming = false, className, ...blockProps }: ChatMarkdownProps) {
+  const markdownBlocks = useMemo(() => splitMarkdownIntoBlocks(text), [text]);
+  const trailingIndex = markdownBlocks.length - 1;
+
+  return (
+    <div
+      className={cn(
+        "chat-markdown w-full min-w-0 text-sm leading-relaxed text-foreground",
+        className,
+      )}
+      onCopy={handleChatMarkdownCopy}
+    >
+      {markdownBlocks.map((block, index) => {
+        const props: ChatMarkdownBlockProps = {
+          ...blockProps,
+          text: block.text,
+          baseOffset: block.start,
+          isStreaming: isStreaming && index === trailingIndex,
+        };
+        return index === trailingIndex ? (
+          <ChatMarkdownBlock key={`b${block.start}`} {...props} />
+        ) : (
+          <ChatMarkdownBlockMemo key={`b${block.start}`} {...props} />
+        );
+      })}
     </div>
   );
 }

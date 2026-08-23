@@ -100,6 +100,19 @@ const BUFFERED_COMMAND_OUTPUT_BY_ITEM_ID_CACHE_CAPACITY = 10_000;
 const BUFFERED_COMMAND_OUTPUT_BY_ITEM_ID_TTL = Duration.minutes(120);
 const MAX_BUFFERED_COMMAND_OUTPUT_CHARS = 48_000;
 const MAX_BUFFERED_ASSISTANT_CHARS = 24_000;
+// Live-delivery coalescing: assistant deltas accumulate per message and flush
+// once enough text has arrived or the first unflushed character is older than
+// the window — whichever comes first. This caps dispatch frequency (~tens of
+// updates/sec instead of raw token rate) without detached timers, staying
+// deterministic under test clocks and pausing cleanly across tool boundaries.
+const ASSISTANT_DELTA_COALESCE_WINDOW_MS = 50;
+const ASSISTANT_DELTA_COALESCE_MIN_CHARS = 24;
+/** Bound for the first-unflushed-character timestamp map (see its comment). */
+const ASSISTANT_BUFFER_SINCE_MAX_ENTRIES = 10_000;
+const REASONING_TEXT_BY_TURN_CACHE_CAPACITY = 10_000;
+const MAX_BUFFERED_REASONING_CHARS = 16_000;
+/** Reasoning detail shipped per activity update — only the readable tail. */
+const REASONING_ACTIVITY_TAIL_CHARS = 4_000;
 const STRICT_PROVIDER_LIFECYCLE_GUARD =
   process.env.EMBEDINO_STRICT_PROVIDER_LIFECYCLE_GUARD !== "0";
 
@@ -917,6 +930,21 @@ const make = Effect.gen(function* () {
     lookup: () => Effect.succeed(""),
   });
 
+  // Reasoning ("thinking") text accumulates per turn and surfaces as a live
+  // activity row; cleared when the turn settles.
+  const bufferedReasoningTextByTurnKey = yield* Cache.make<string, string>({
+    capacity: REASONING_TEXT_BY_TURN_CACHE_CAPACITY,
+    timeToLive: BUFFERED_MESSAGE_TEXT_BY_MESSAGE_ID_TTL,
+    lookup: () => Effect.succeed(""),
+  });
+
+  /**
+   * First-unflushed-character timestamp (event-clock millis) per message with
+   * buffered live text. Drives the size-or-age coalescing decision; entries
+   * are cleared on flush and on message-state clear.
+   */
+  const assistantBufferSinceByMessageId = new Map<MessageId, number>();
+
   // Task names arrive on task.started/task.progress but not on task.completed,
   // so remember them per task to title the completion activity.
   const taskDescriptionByTaskKey = yield* Cache.make<string, string>({
@@ -1100,8 +1128,74 @@ const make = Effect.gen(function* () {
       ),
     );
 
-  const clearBufferedAssistantText = (messageId: MessageId) =>
-    Cache.invalidate(bufferedAssistantTextByMessageId, messageId);
+  const clearBufferedAssistantText = (messageId: MessageId) => {
+    assistantBufferSinceByMessageId.delete(messageId);
+    return Cache.invalidate(bufferedAssistantTextByMessageId, messageId);
+  };
+
+  const appendBufferedReasoningText = (turnKey: string, delta: string) =>
+    Cache.getOption(bufferedReasoningTextByTurnKey, turnKey).pipe(
+      Effect.flatMap((existingText) => {
+        const nextText = Option.match(existingText, {
+          onNone: () => delta,
+          onSome: (text) => `${text}${delta}`,
+        });
+        // Keep only the tail: reasoning surfaces as a live preview, not an
+        // unbounded transcript, and the cap bounds memory per turn.
+        const boundedText =
+          nextText.length <= MAX_BUFFERED_REASONING_CHARS
+            ? nextText
+            : nextText.slice(nextText.length - MAX_BUFFERED_REASONING_CHARS);
+        return Cache.set(bufferedReasoningTextByTurnKey, turnKey, boundedText).pipe(
+          Effect.as(boundedText),
+        );
+      }),
+    );
+
+  const takeBufferedReasoningText = (turnKey: string) =>
+    Cache.getOption(bufferedReasoningTextByTurnKey, turnKey).pipe(
+      Effect.flatMap((existingText) =>
+        Cache.invalidate(bufferedReasoningTextByTurnKey, turnKey).pipe(
+          Effect.as(Option.getOrElse(existingText, () => "")),
+        ),
+      ),
+    );
+
+  /**
+   * Emits the terminal reasoning activity for a turn ("completed"/"stopped"),
+   * replacing the in-flight row via the same activity id. No-op when the turn
+   * never produced reasoning text.
+   */
+  const finalizeReasoningForTurn = (input: {
+    event: ProviderRuntimeEvent;
+    threadId: ThreadId;
+    turnId: TurnId;
+    createdAt: string;
+    status: "completed" | "stopped" | "failed";
+  }) =>
+    Effect.gen(function* () {
+      const turnKey = providerTurnKey(input.threadId, input.turnId);
+      const text = yield* takeBufferedReasoningText(turnKey);
+      const detail = text.length > 0 ? text.slice(-REASONING_ACTIVITY_TAIL_CHARS) : "";
+      if (detail.length === 0) {
+        return;
+      }
+      yield* orchestrationEngine.dispatch({
+        type: "thread.activity.append",
+        commandId: yield* providerCommandId(input.event, `reasoning-${input.status}`),
+        threadId: input.threadId,
+        activity: {
+          id: EventId.make(`reasoning-updated:${input.threadId}:${turnKey}`),
+          createdAt: input.createdAt,
+          tone: "info",
+          kind: "tool.updated",
+          summary: "Thinking",
+          payload: { itemType: "reasoning", status: input.status, detail },
+          turnId: input.turnId,
+        },
+        createdAt: input.createdAt,
+      });
+    });
 
   const appendBufferedProposedPlan = (planId: string, delta: string, createdAt: string) =>
     Cache.getOption(bufferedProposedPlanById, planId).pipe(
@@ -1526,7 +1620,6 @@ const make = Effect.gen(function* () {
 
       const conflictsWithActiveTurn =
         activeTurnId !== null && eventTurnId !== undefined && !sameId(activeTurnId, eventTurnId);
-      const missingTurnForActiveTurn = activeTurnId !== null && eventTurnId === undefined;
 
       // A turn.started that conflicts with the active turn is legitimate when
       // the server itself has a turn start pending for this thread AND the
@@ -1553,12 +1646,21 @@ const make = Effect.gen(function* () {
           case "turn.started":
             return !conflictsWithActiveTurn || conflictingTurnStartIsPendingTurnStart;
           case "turn.completed":
-            if (conflictsWithActiveTurn || missingTurnForActiveTurn) {
+            if (conflictsWithActiveTurn) {
               return false;
             }
             // Only the active turn may close the lifecycle state.
             if (activeTurnId !== null && eventTurnId !== undefined) {
               return sameId(activeTurnId, eventTurnId);
+            }
+            // An untargeted completion while a real turn is running can only
+            // be that turn's end: several adapters drop the turn id on
+            // completion (or lose their per-session turn tracking across a
+            // reconnect), and rejecting it here strands the session in
+            // "running" forever — every tool call settles while the working
+            // indicator never does.
+            if (activeTurnId !== null) {
+              return thread.session?.status === "running";
             }
             // No active turn tracked: accept only completions that name their
             // turn (covers a real completion whose turn.started was lost). An
@@ -1568,6 +1670,12 @@ const make = Effect.gen(function* () {
             // all — and applying it here stomps the "starting" lifecycle
             // state while a turn start is pending.
             return eventTurnId !== undefined;
+          case "turn.aborted":
+            // Aborts settle the lifecycle even without a turn id — providers
+            // commonly abort without echoing one (codex route fields omit it,
+            // opencode synthesizes it from whatever it tracked). A stale
+            // abort naming another turn must not clobber the live turn.
+            return !conflictsWithActiveTurn;
           default:
             return true;
         }
@@ -1583,7 +1691,8 @@ const make = Effect.gen(function* () {
         event.type === "session.exited" ||
         event.type === "thread.started" ||
         event.type === "turn.started" ||
-        event.type === "turn.completed"
+        event.type === "turn.completed" ||
+        event.type === "turn.aborted"
       ) {
         const status = (() => {
           switch (event.type) {
@@ -1599,6 +1708,15 @@ const make = Effect.gen(function* () {
               return normalizeRuntimeTurnState(event.payload.state) === "failed"
                 ? "error"
                 : "ready";
+            case "turn.aborted":
+              // An aborted turn ends the lifecycle exactly like an
+              // interrupted turn.completed does ("ready"): the working
+              // indicator stops and the composer stays usable. The turn's
+              // own record is folded as interrupted by the clients via the
+              // interrupt-requested event, not by the session status — the
+              // session status must not read "interrupted"/"disconnected"
+              // here or the composer would look dead after a stop.
+              return "ready";
             case "session.started":
             case "thread.started":
               // Provider thread/session start notifications can arrive during an
@@ -1609,7 +1727,9 @@ const make = Effect.gen(function* () {
         const nextActiveTurnId =
           event.type === "turn.started"
             ? (eventTurnId ?? null)
-            : event.type === "turn.completed" || event.type === "session.exited"
+            : event.type === "turn.completed" ||
+                event.type === "turn.aborted" ||
+                event.type === "session.exited"
               ? null
               : event.type === "session.state.changed" &&
                   !sessionStatusAllowsActiveTurn(
@@ -1709,16 +1829,104 @@ const make = Effect.gen(function* () {
             });
           }
         } else {
-          yield* orchestrationEngine.dispatch({
-            type: "thread.message.assistant.delta",
-            commandId: yield* providerCommandId(event, "assistant-delta"),
-            threadId: thread.id,
-            messageId: assistantMessageId,
-            delta: assistantDelta,
-            ...(turnId ? { turnId } : {}),
-            createdAt: now,
-          });
+          // Live delivery: land the delta in the message buffer, then flush
+          // once the buffer is chunky enough or the first unflushed character
+          // has aged past the window. Boundary events (completions, approvals)
+          // always drain the remainder, so nothing waits on a timer.
+          const hadBufferedText = Option.isSome(
+            yield* Cache.getOption(bufferedAssistantTextByMessageId, assistantMessageId),
+          );
+          const hasStreamedBefore = assistantBufferSinceByMessageId.has(assistantMessageId);
+          const eventMillis = Date.parse(now);
+          if (!hadBufferedText) {
+            // Insertion-order bound: messages abandoned without a completion
+            // event (adapter drop, crashed session) otherwise leak an entry
+            // each for the server's lifetime. Matches the text cache's cap.
+            if (assistantBufferSinceByMessageId.size >= ASSISTANT_BUFFER_SINCE_MAX_ENTRIES) {
+              const oldestKey = assistantBufferSinceByMessageId.keys().next().value;
+              if (oldestKey !== undefined) {
+                assistantBufferSinceByMessageId.delete(oldestKey);
+              }
+            }
+            assistantBufferSinceByMessageId.set(assistantMessageId, eventMillis);
+          }
+          const spillChunk = yield* appendBufferedAssistantText(assistantMessageId, assistantDelta);
+          if (spillChunk.length > 0) {
+            yield* orchestrationEngine.dispatch({
+              type: "thread.message.assistant.delta",
+              commandId: yield* providerCommandId(event, "assistant-delta-buffer-spill"),
+              threadId: thread.id,
+              messageId: assistantMessageId,
+              delta: spillChunk,
+              ...(turnId ? { turnId } : {}),
+              createdAt: now,
+            });
+          }
+          const bufferedNow = Option.getOrElse(
+            yield* Cache.getOption(bufferedAssistantTextByMessageId, assistantMessageId),
+            () => "",
+          );
+          if (bufferedNow.length > 0) {
+            if (!hasStreamedBefore) {
+              // First token this message has ever streamed lands immediately —
+              // that is the perceived start of the answer; subsequent deltas
+              // coalesce until chunky or aged past the window.
+              yield* flushBufferedAssistantMessage({
+                event,
+                threadId: thread.id,
+                messageId: assistantMessageId,
+                ...(turnId ? { turnId } : {}),
+                createdAt: now,
+                commandTag: "assistant-delta-live-first",
+              });
+            } else {
+              const since = assistantBufferSinceByMessageId.get(assistantMessageId) ?? eventMillis;
+              const agedPastWindow = eventMillis - since >= ASSISTANT_DELTA_COALESCE_WINDOW_MS;
+              if (bufferedNow.length >= ASSISTANT_DELTA_COALESCE_MIN_CHARS || agedPastWindow) {
+                yield* flushBufferedAssistantMessage({
+                  event,
+                  threadId: thread.id,
+                  messageId: assistantMessageId,
+                  ...(turnId ? { turnId } : {}),
+                  createdAt: now,
+                  commandTag: "assistant-delta-coalesced",
+                });
+              }
+            }
+          }
         }
+      }
+
+      const reasoningDelta =
+        event.type === "content.delta" &&
+        (event.payload.streamKind === "reasoning_text" ||
+          event.payload.streamKind === "reasoning_summary_text")
+          ? event.payload.delta
+          : undefined;
+      const reasoningTurnId =
+        reasoningDelta && reasoningDelta.length > 0 ? toTurnId(event.turnId) : undefined;
+      if (reasoningDelta && reasoningDelta.length > 0 && reasoningTurnId) {
+        const turnKey = providerTurnKey(thread.id, reasoningTurnId);
+        const fullText = yield* appendBufferedReasoningText(turnKey, reasoningDelta);
+        yield* orchestrationEngine.dispatch({
+          type: "thread.activity.append",
+          commandId: yield* providerCommandId(event, "reasoning-delta"),
+          threadId: thread.id,
+          activity: {
+            id: EventId.make(`reasoning-updated:${thread.id}:${turnKey}`),
+            createdAt: now,
+            tone: "info",
+            kind: "tool.updated",
+            summary: "Thinking",
+            payload: {
+              itemType: "reasoning",
+              status: "inProgress",
+              detail: fullText.slice(-REASONING_ACTIVITY_TAIL_CHARS),
+            },
+            turnId: reasoningTurnId,
+          },
+          createdAt: now,
+        });
       }
 
       const pauseForUserTurnId =
@@ -1763,6 +1971,13 @@ const make = Effect.gen(function* () {
               streamingOnly: true,
             }),
           flushedMessageIds,
+        });
+        yield* finalizeReasoningForTurn({
+          event,
+          threadId: thread.id,
+          turnId: pauseForUserTurnId,
+          createdAt: now,
+          status: "completed",
         });
       }
 
@@ -1904,6 +2119,14 @@ const make = Effect.gen(function* () {
           yield* clearAssistantMessageIdsForTurn(thread.id, turnId);
           yield* clearAssistantSegmentStateForTurn(thread.id, turnId);
 
+          yield* finalizeReasoningForTurn({
+            event,
+            threadId: thread.id,
+            turnId,
+            createdAt: now,
+            status: "completed",
+          });
+
           yield* finalizeBufferedProposedPlan({
             event,
             threadId: thread.id,
@@ -1927,6 +2150,15 @@ const make = Effect.gen(function* () {
           : activeTurnId === null || eventTurnId === undefined || sameId(activeTurnId, eventTurnId);
 
         if (shouldApplyRuntimeError) {
+          if (eventTurnId !== undefined) {
+            yield* finalizeReasoningForTurn({
+              event,
+              threadId: thread.id,
+              turnId: eventTurnId,
+              createdAt: now,
+              status: "failed",
+            });
+          }
           yield* orchestrationEngine.dispatch({
             type: "thread.session.set",
             commandId: yield* providerCommandId(event, "runtime-error-session-set"),
@@ -2012,6 +2244,21 @@ const make = Effect.gen(function* () {
           threadPlanProgress.recordPlanProgress(thread.id, event.payload.plan);
         } else if (event.type === "turn.completed" || event.type === "turn.aborted") {
           threadPlanProgress.clearThreadPlanProgress(thread.id);
+        }
+      }
+
+      // Interrupted turns settle their reasoning preview as stopped; the
+      // completed-turn sweep above never runs for aborts.
+      if (event.type === "turn.aborted") {
+        const abortedTurnId = toTurnId(event.turnId);
+        if (abortedTurnId) {
+          yield* finalizeReasoningForTurn({
+            event,
+            threadId: thread.id,
+            turnId: abortedTurnId,
+            createdAt: now,
+            status: "stopped",
+          });
         }
       }
 

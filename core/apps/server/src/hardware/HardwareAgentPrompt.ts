@@ -15,6 +15,9 @@ import type { HardwareDevice } from "@embedino/contracts";
  *   markdown headers inside long system prompts.
  * - Instructions are calm, direct, and phrased positively; a single explicit
  *   contract covers the machine-parsed wiring output.
+ * - Detected devices are only revealed when the user explicitly selects a
+ *   board for the chat; with no selection the hardware section states that
+ *   no board is selected instead of enumerating attached hardware.
  * - Every string originating from the OS (USB descriptors, port names) passes
  *   through `sanitize`, and the hardware section is labelled untrusted, so a
  *   hostile USB device cannot escape the data section and inject instructions.
@@ -24,14 +27,16 @@ export function buildHardwareSystemPrompt(
   activeDeviceId?: string,
 ): Effect.Effect<string> {
   return Effect.gen(function* () {
-    const allDevices: Array<HardwareDevice> = yield* scanDevices();
+    // Privacy: without an explicit board selection the agent must not learn
+    // what hardware is attached, so the USB scan is skipped entirely.
+    const allDevices: Array<HardwareDevice> = activeDeviceId ? yield* scanDevices() : [];
     const binaryPaths = yield* getToolchainBinaryPaths();
     // Sort deterministically: OS enumeration order (WMI/USB) is not stable
     // between scans, and an unstable render would make byte-identical hardware
     // state produce a different prompt every turn.
-    const devices = (
-      activeDeviceId ? allDevices.filter((device) => device.id === activeDeviceId) : [...allDevices]
-    ).sort(compareDevicesForStableRender);
+    const devices = allDevices
+      .filter((device) => device.id === activeDeviceId)
+      .sort(compareDevicesForStableRender);
 
     return [
       ROLE_SECTION,
@@ -160,10 +165,11 @@ function hardwareSection(
   activeDeviceId: string | undefined,
 ): string {
   let state: string;
-  if (devices.length === 0) {
-    state = activeDeviceId
-      ? "- The previously selected device is no longer connected."
-      : "- No devices currently detected.";
+  if (activeDeviceId === undefined) {
+    state =
+      "- No board is selected for this chat. Do not assume, guess, or name any hardware; ask the user which board to target before generating board-specific configuration.";
+  } else if (devices.length === 0) {
+    state = "- The previously selected device is no longer connected.";
   } else {
     state = devices
       .map((device) => {

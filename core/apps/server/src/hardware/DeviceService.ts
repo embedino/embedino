@@ -314,9 +314,15 @@ export const setDeviceAssociation = (input: DeviceAssociationInput) =>
     // Look up the device to get its VID/PID for persistent association
     const devices = yield* scanDevices();
     const device = devices.find((d) => d.id === input.deviceId);
+    // An association row keyed by empty VID/PID can never match a scanned
+    // device (the device vanished mid-association or carries no USB ids):
+    // report the miss instead of persisting dead state as a success.
+    if (!device || !device.vid || !device.pid) {
+      return { success: false as const };
+    }
     const assoc: StoredAssociation = {
-      vid: device?.vid ?? "",
-      pid: device?.pid ?? "",
+      vid: device.vid,
+      pid: device.pid,
       boardName: input.boardName,
       ...(input.fqbn ? { fqbn: input.fqbn } : {}),
       ...(input.pioBoard ? { pioBoard: input.pioBoard } : {}),

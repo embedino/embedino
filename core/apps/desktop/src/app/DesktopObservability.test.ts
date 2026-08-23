@@ -295,37 +295,43 @@ describe("DesktopObservability", () => {
     ),
   );
 
-  it.effect("bounds the number of retained backend child output chunks", () =>
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "embedino-desktop-backend-output-chunks-test-",
-      });
-      const environmentLayer = makeEnvironmentLayer(baseDir, false);
-      const logPath = yield* Effect.gen(function* () {
-        const environment = yield* DesktopEnvironment.DesktopEnvironment;
-        return environment.path.join(environment.logDir, "server-child.log");
-      }).pipe(Effect.provide(environmentLayer));
+  // 300 sequentially-awaited chunks through the output queue can exceed the
+  // default 5s budget on loaded Windows CI machines; this is a throughput
+  // test, not a liveness one.
+  it.effect(
+    "bounds the number of retained backend child output chunks",
+    () =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const baseDir = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "embedino-desktop-backend-output-chunks-test-",
+        });
+        const environmentLayer = makeEnvironmentLayer(baseDir, false);
+        const logPath = yield* Effect.gen(function* () {
+          const environment = yield* DesktopEnvironment.DesktopEnvironment;
+          return environment.path.join(environment.logDir, "server-child.log");
+        }).pipe(Effect.provide(environmentLayer));
 
-      yield* Effect.scoped(
-        Effect.gen(function* () {
-          const factory = yield* DesktopObservability.DesktopBackendOutputLogFactory;
-          const outputLog = yield* factory.forInstance("primary");
-          yield* outputLog.beginSession({ details: "pid=123" });
-          for (let index = 0; index < 300; index += 1) {
-            yield* outputLog.writeOutputChunk("stderr", Uint8Array.of(index % 128));
-          }
-          yield* outputLog.persistFailure({ details: "code=1" });
-        }).pipe(
-          Effect.provide(DesktopObservability.layer.pipe(Layer.provideMerge(environmentLayer))),
-        ),
-      );
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const factory = yield* DesktopObservability.DesktopBackendOutputLogFactory;
+            const outputLog = yield* factory.forInstance("primary");
+            yield* outputLog.beginSession({ details: "pid=123" });
+            for (let index = 0; index < 300; index += 1) {
+              yield* outputLog.writeOutputChunk("stderr", Uint8Array.of(index % 128));
+            }
+            yield* outputLog.persistFailure({ details: "code=1" });
+          }).pipe(
+            Effect.provide(DesktopObservability.layer.pipe(Layer.provideMerge(environmentLayer))),
+          ),
+        );
 
-      const lines = (yield* fileSystem.readFileString(logPath)).trimEnd().split("\n");
-      assert.equal(lines.length, 258);
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(Layer.mergeAll(NodeServices.layer, NodeHttpClient.layerUndici)),
-    ),
+        const lines = (yield* fileSystem.readFileString(logPath)).trimEnd().split("\n");
+        assert.equal(lines.length, 258);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(Layer.mergeAll(NodeServices.layer, NodeHttpClient.layerUndici)),
+      ),
+    30_000,
   );
 });

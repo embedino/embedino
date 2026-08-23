@@ -215,7 +215,23 @@ describe("buildThreadTurnInterruptInput", () => {
     ).toEqual({ threadId, turnId: activeTurnId });
   });
 
-  it("omits a turn id when the session is not running", () => {
+  it("targets the tracked turn id even when the lifecycle lags behind", () => {
+    const activeTurnId = TurnId.make("turn-starting");
+
+    expect(
+      buildThreadTurnInterruptInput(
+        makeThread({
+          session: {
+            ...readySession,
+            status: "starting",
+            activeTurnId,
+          },
+        }),
+      ),
+    ).toEqual({ threadId, turnId: activeTurnId });
+  });
+
+  it("omits a turn id when the session tracks none", () => {
     expect(buildThreadTurnInterruptInput(makeThread({ session: readySession }))).toEqual({
       threadId,
     });

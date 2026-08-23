@@ -79,6 +79,8 @@ export interface WorkLogEntry {
   toolLifecycleStatus?: WorkLogToolLifecycleStatus;
   /** Originating orchestration activity kind (e.g. `user-input.requested`) for row chrome. */
   sourceActivityKind?: OrchestrationThreadActivity["kind"];
+  /** Live reasoning ("thinking") preview streamed by the provider while the turn runs. */
+  isReasoning?: boolean;
   /** Grouping key for subagent lifecycle rows (one row per agent). */
   taskId?: string;
   /** Agent role (subagent_type) for labeled timeline rows. */
@@ -231,6 +233,11 @@ export function workEntryIndicatesToolFailure(entry: WorkLogEntry): boolean {
   const ls = entry.toolLifecycleStatus;
   if (ls === "failed" || ls === "declined") {
     return true;
+  }
+  // Reasoning previews carry prose, not command output: only an explicit
+  // failed/stopped lifecycle status may mark them.
+  if (entry.isReasoning) {
+    return ls === "stopped";
   }
   if (!workLogEntryIsToolLike(entry)) {
     return false;
@@ -847,6 +854,31 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
   };
   const itemType = extractWorkLogItemType(payload);
   const requestKind = extractWorkLogRequestKind(payload);
+  // Show WHAT the user asked/answered on user-input rows instead of a bare
+  // marker: the question preview on "requested", the submitted answer(s) on
+  // "resolved". Static strings from persisted activities — no render cost.
+  const userInputPreview =
+    activity.kind === "user-input.resolved"
+      ? formatUserInputAnswers(payload)
+      : activity.kind === "user-input.requested"
+        ? formatUserInputQuestionPreview(payload)
+        : null;
+  if (userInputPreview && !detail) {
+    entry.detail = userInputPreview;
+  }
+  // Reasoning ("thinking") streams arrive as tool.updated activities with a
+  // reasoning itemType; they render as their own live preview row.
+  const isReasoningActivity =
+    !isTaskActivity &&
+    payload !== null &&
+    payload.itemType === "reasoning" &&
+    (activity.kind === "tool.updated" || activity.kind === "tool.completed");
+  if (isReasoningActivity) {
+    entry.tone = "thinking";
+    entry.label = "Thinking";
+    entry.isReasoning = true;
+    entry.toolLifecycleStatus = extractWorkLogToolLifecycleStatus(payload) ?? "completed";
+  }
   if (detail) {
     entry.detail = detail;
   }
@@ -1308,6 +1340,76 @@ function extractToolCommand(payload: Record<string, unknown> | null): {
     command: null,
     rawCommand: null,
   };
+}
+
+/** Longest sensible inline preview for submitted user input. */
+const USER_INPUT_PREVIEW_MAX_CHARS = 240;
+
+function pushUserInputAnswerPart(parts: Array<string>, value: unknown): void {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      parts.push(trimmed);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    const joined = value
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+      .join(", ");
+    if (joined.length > 0) {
+      parts.push(joined);
+    }
+  }
+}
+
+/**
+ * Human-readable rendering of what the user actually answered, so the
+ * transcript shows the submission instead of a bare "submitted" marker.
+ */
+export function formatUserInputAnswers(payload: Record<string, unknown> | null): string | null {
+  const rawAnswers = payload?.answers;
+  if (!rawAnswers || typeof rawAnswers !== "object" || Array.isArray(rawAnswers)) {
+    return null;
+  }
+  const parts: Array<string> = [];
+  for (const value of Object.values(rawAnswers as Record<string, unknown>)) {
+    pushUserInputAnswerPart(parts, value);
+  }
+  const joined = parts.join(" · ");
+  if (joined.length === 0) {
+    return null;
+  }
+  return joined.length > USER_INPUT_PREVIEW_MAX_CHARS
+    ? `${joined.slice(0, USER_INPUT_PREVIEW_MAX_CHARS - 1).trimEnd()}…`
+    : joined;
+}
+
+/** First pending question text, shown on the "User input requested" row. */
+export function formatUserInputQuestionPreview(
+  payload: Record<string, unknown> | null,
+): string | null {
+  const questions = payload?.questions;
+  if (!Array.isArray(questions)) {
+    return null;
+  }
+  for (const question of questions) {
+    if (
+      question &&
+      typeof question === "object" &&
+      typeof (question as Record<string, unknown>).question === "string"
+    ) {
+      const text = ((question as Record<string, unknown>).question as string).trim();
+      if (text.length > 0) {
+        return text.length > USER_INPUT_PREVIEW_MAX_CHARS
+          ? `${text.slice(0, USER_INPUT_PREVIEW_MAX_CHARS - 1).trimEnd()}…`
+          : text;
+      }
+    }
+  }
+  return null;
 }
 
 function extractToolTitle(payload: Record<string, unknown> | null): string | null {

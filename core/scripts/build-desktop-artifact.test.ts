@@ -1,5 +1,9 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -50,6 +54,23 @@ import {
 } from "./build-desktop-artifact.ts";
 import { BRAND_ASSET_PATHS } from "./lib/brand-assets.ts";
 import { HostProcessArchitecture, HostProcessPlatform } from "@embedino/shared/hostProcess";
+
+// Windows denies symlink creation (EPERM) without Developer Mode or an
+// elevated shell; symlink-dependent tests must skip where the OS forbids
+// them instead of hard-failing every non-elevated run.
+const canCreateSymlinks = (() => {
+  try {
+    const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "embedino-symlink-probe-"));
+    try {
+      NodeFS.symlinkSync(dir, NodePath.join(dir, "dir-link"), "dir");
+      return true;
+    } finally {
+      NodeFS.rmSync(dir, { recursive: true, force: true });
+    }
+  } catch {
+    return false;
+  }
+})();
 
 function mockProcess(exitCode: number) {
   return ChildProcessSpawner.makeHandle({
@@ -802,7 +823,7 @@ it("keeps the prefix of a UNC path instead of going relative", () => {
   assert.deepStrictEqual(paths[0], "\\\\server\\share\\tmp\\node_modules");
 });
 
-it.effect("rebases packaged links into the isolated tree", () =>
+it.effect.skipIf(!canCreateSymlinks)("rebases packaged links into the isolated tree", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;

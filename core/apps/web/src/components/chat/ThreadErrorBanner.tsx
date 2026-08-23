@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Button } from "../ui/button";
-import { CircleAlertIcon, XIcon } from "lucide-react";
+import { CircleAlertIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 export function getThreadErrorBannerKey(threadKey: string, error: string | null): string | null {
@@ -35,9 +35,12 @@ export function isThreadErrorBannerDismissedForSession(bannerKey: string | null)
 export const ThreadErrorBanner = memo(function ThreadErrorBanner({
   error,
   onDismiss,
+  onRetry,
 }: {
   error: string | null;
   onDismiss?: () => void;
+  /** Offered when the failed turn can be retried with its original prompt. */
+  onRetry?: (() => void | Promise<void>) | undefined;
 }) {
   if (!error) return null;
   return (
@@ -53,6 +56,19 @@ export const ThreadErrorBanner = memo(function ThreadErrorBanner({
               {error}
             </TooltipPopup>
           </Tooltip>
+          {onRetry && (
+            <div className="mt-1.5">
+              <Button
+                variant="outline"
+                size="xs"
+                className="h-6 border-destructive/30 px-2 text-xs text-foreground hover:bg-destructive/10"
+                onClick={onRetry}
+              >
+                <RotateCcwIcon aria-hidden />
+                Try again
+              </Button>
+            </div>
+          )}
         </div>
         {onDismiss && (
           <Button variant="ghost" size="icon-xs" aria-label="Dismiss error" onClick={onDismiss}>

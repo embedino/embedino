@@ -1,5 +1,7 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
+import * as NodePath from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -18,6 +20,15 @@ const defaultInput = {
   resourcesPath: "/Applications/Embedino.app/Contents/Resources",
   runningUnderArm64Translation: false,
 } satisfies DesktopEnvironment.MakeDesktopEnvironmentInput;
+
+// The implementation joins every derived path with the host-native Path
+// service (backslashes on Windows); expectations join the same segments the
+// same way instead of hardcoding POSIX separators.
+const appDataDirectory = NodePath.join("/Users/alice", "Library", "Application Support");
+const embeddedinoHomeStateDir = NodePath.join("/tmp/embedino", "userdata");
+const developmentStateDir = NodePath.join("/Users/alice", ".embedino", "dev");
+const productionStateDir = NodePath.join("/Users/alice", ".embedino", "userdata");
+const homeProjectPath = NodePath.join("/Users/alice", "project");
 
 const makeEnvironmentLayer = (
   overrides: Partial<DesktopEnvironment.MakeDesktopEnvironmentInput> = {},
@@ -51,22 +62,38 @@ describe("DesktopEnvironment", () => {
       );
 
       assert.equal(environment.isDevelopment, true);
-      assert.equal(environment.appDataDirectory, "/Users/alice/Library/Application Support");
+      assert.equal(environment.appDataDirectory, appDataDirectory);
       assert.equal(environment.baseDir, "/tmp/embedino");
-      assert.equal(environment.stateDir, "/tmp/embedino/userdata");
-      assert.equal(environment.desktopSettingsPath, "/tmp/embedino/userdata/desktop-settings.json");
-      assert.equal(environment.clientSettingsPath, "/tmp/embedino/userdata/client-settings.json");
+      assert.equal(environment.stateDir, embeddedinoHomeStateDir);
+      assert.equal(
+        environment.desktopSettingsPath,
+        NodePath.join(embeddedinoHomeStateDir, "desktop-settings.json"),
+      );
+      assert.equal(
+        environment.clientSettingsPath,
+        NodePath.join(embeddedinoHomeStateDir, "client-settings.json"),
+      );
       assert.equal(
         environment.savedEnvironmentRegistryPath,
-        "/tmp/embedino/userdata/saved-environments.json",
+        NodePath.join(embeddedinoHomeStateDir, "saved-environments.json"),
       );
-      assert.equal(environment.serverSettingsPath, "/tmp/embedino/userdata/settings.json");
-      assert.equal(environment.logDir, "/tmp/embedino/userdata/logs");
-      assert.equal(environment.browserArtifactsDir, "/tmp/embedino/userdata/browser-artifacts");
-      assert.equal(environment.rootDir, "/repo");
-      assert.equal(environment.appRoot, "/repo");
-      assert.equal(environment.backendEntryPath, "/repo/apps/server/dist/bin.mjs");
-      assert.equal(environment.backendCwd, "/repo");
+      assert.equal(
+        environment.serverSettingsPath,
+        NodePath.join(embeddedinoHomeStateDir, "settings.json"),
+      );
+      assert.equal(environment.logDir, NodePath.join(embeddedinoHomeStateDir, "logs"));
+      assert.equal(
+        environment.browserArtifactsDir,
+        NodePath.join(embeddedinoHomeStateDir, "browser-artifacts"),
+      );
+      const repoRoot = NodePath.resolve("/repo/apps/desktop/dist-electron", "../../..");
+      assert.equal(environment.rootDir, repoRoot);
+      assert.equal(environment.appRoot, repoRoot);
+      assert.equal(
+        environment.backendEntryPath,
+        NodePath.join(repoRoot, "apps", "server", "dist", "bin.mjs"),
+      );
+      assert.equal(environment.backendCwd, repoRoot);
       assert.equal(environment.appUserModelId, "app.embedino.desktop.dev");
       assert.equal(environment.linuxWmClass, "embedino-dev");
       assert.deepEqual(
@@ -94,10 +121,16 @@ describe("DesktopEnvironment", () => {
       );
 
       assert.equal(environment.isDevelopment, false);
-      assert.equal(environment.stateDir, "/tmp/embedino/userdata");
-      assert.equal(environment.logDir, "/tmp/embedino/userdata/logs");
-      assert.equal(environment.browserArtifactsDir, "/tmp/embedino/userdata/browser-artifacts");
-      assert.equal(environment.serverSettingsPath, "/tmp/embedino/userdata/settings.json");
+      assert.equal(environment.stateDir, embeddedinoHomeStateDir);
+      assert.equal(environment.logDir, NodePath.join(embeddedinoHomeStateDir, "logs"));
+      assert.equal(
+        environment.browserArtifactsDir,
+        NodePath.join(embeddedinoHomeStateDir, "browser-artifacts"),
+      );
+      assert.equal(
+        environment.serverSettingsPath,
+        NodePath.join(embeddedinoHomeStateDir, "settings.json"),
+      );
     }),
   );
 
@@ -109,8 +142,8 @@ describe("DesktopEnvironment", () => {
       );
       const production = yield* makeEnvironment();
 
-      assert.equal(development.stateDir, "/Users/alice/.embedino/dev");
-      assert.equal(production.stateDir, "/Users/alice/.embedino/userdata");
+      assert.equal(development.stateDir, developmentStateDir);
+      assert.equal(production.stateDir, productionStateDir);
     }),
   );
 
@@ -143,7 +176,7 @@ describe("DesktopEnvironment", () => {
       );
       assert.deepEqual(
         environment.resolvePickFolderDefaultPath({ initialPath: "~/project" }),
-        Option.some("/Users/alice/project"),
+        Option.some(homeProjectPath),
       );
     }),
   );

@@ -2727,7 +2727,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     >
       <div
         className={cn(
-          "group relative w-full rounded-2xl border border-border/80 bg-background transition-colors duration-200 focus-within:border-foreground/25",
+          "group relative w-full rounded-2xl border border-border/80 bg-background",
           composerProviderState.composerFrameClassName,
         )}
         onDragEnter={onComposerDragEnter}
