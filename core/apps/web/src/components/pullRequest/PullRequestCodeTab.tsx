@@ -6,7 +6,9 @@ import type {
   PullRequestDiffSide,
   PullRequestOmittedFileStat,
   PullRequestRef,
+  PullRequestReviewPosition,
   PullRequestReviewThread,
+  PullRequestThreadCommentsResult,
 } from "@embedino/contracts";
 import {
   ChevronDownIcon,
@@ -43,7 +45,11 @@ import {
 } from "~/lib/diffRendering";
 import { cn } from "~/lib/utils";
 import { createPullRequestDiffFileContentsLoader } from "~/lib/diffFileContents";
-import { buildDiffReviewComment, type ReviewCommentContext } from "~/reviewCommentContext";
+import {
+  buildDiffReviewComment,
+  resolveDiffReviewPosition,
+  type ReviewCommentContext,
+} from "~/reviewCommentContext";
 import { pullRequestEnvironment } from "~/state/pullRequests";
 import { useEnvironmentQuery } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
@@ -129,8 +135,7 @@ interface DraftAnchor {
   readonly path: string;
   /** What the file was called before the change, for the hosts that resolve a position by both. */
   readonly oldPath: string | null;
-  readonly line: number;
-  readonly side: PullRequestDiffSide;
+  readonly position: PullRequestReviewPosition;
   /** The whole selection, which the comment collapses to one line but a question keeps. */
   readonly range: SelectedLineRange;
 }
@@ -148,8 +153,21 @@ function toViewerSide(side: PullRequestDiffSide) {
   return side === "left" ? ("deletions" as const) : ("additions" as const);
 }
 
-function fromViewerSide(side: string | undefined): PullRequestDiffSide {
-  return side === "deletions" ? "left" : "right";
+function getReviewPositionAnchor(position: PullRequestReviewPosition): {
+  line: number;
+  side: PullRequestDiffSide;
+} {
+  switch (position.kind) {
+    case "added":
+      return { line: position.newLine, side: "right" };
+    case "deleted":
+      return { line: position.oldLine, side: "left" };
+    case "context":
+      return {
+        line: position.side === "left" ? position.oldLine : position.newLine,
+        side: position.side,
+      };
+  }
 }
 
 /**
@@ -321,6 +339,9 @@ export function PullRequestCodeTab({
   const updateComment = useAtomCommand(pullRequestEnvironment.updateComment, {
     reportFailure: false,
   });
+  const loadThreadComments = useAtomCommand(pullRequestEnvironment.threadComments, {
+    reportFailure: false,
+  });
   const getDiffFileContents = useAtomCommand(pullRequestEnvironment.diffFileContents);
   const loadDiffFiles = useMemo(
     () =>
@@ -442,10 +463,14 @@ export function PullRequestCodeTab({
         if (commit === null) {
           for (const comment of pendingComments) {
             if (comment.path !== path) continue;
-            groupAt(comment.side, comment.line).pending.push(comment);
+            const anchor = getReviewPositionAnchor(comment.position);
+            groupAt(anchor.side, anchor.line).pending.push(comment);
           }
         }
-        if (draft?.fileKey === fileKey) groupAt(draft.side, draft.line).draft = true;
+        if (draft?.fileKey === fileKey) {
+          const anchor = getReviewPositionAnchor(draft.position);
+          groupAt(anchor.side, anchor.line).draft = true;
+        }
 
         const collapsed = isFileDiffCollapsed(fileKey, foldOverride, toggledFiles);
 
@@ -594,12 +619,13 @@ export function PullRequestCodeTab({
       // that silently lost its first line on the other hosts would be worse than one line.
       const path = resolveFileDiffPath(file);
       const previousPath = resolveFileDiffPreviousPath(file);
+      const position = resolveDiffReviewPosition(file, range.end, range.endSide ?? range.side);
+      if (position === null) return;
       setDraft({
         fileKey: item.id,
         path,
         oldPath: previousPath === path ? null : previousPath,
-        line: range.end,
-        side: fromViewerSide(range.endSide ?? range.side),
+        position,
         range,
       });
     },
@@ -780,6 +806,20 @@ export function PullRequestCodeTab({
         fixPending={pendingFinding === pullRequestFindingKey({ kind: "thread", thread })}
         fixLabel={fixFindingLabel}
         {...(onFixFinding ? { onFix: () => onFixFinding({ kind: "thread", thread }) } : {})}
+        onLoadMore={async (cursor): Promise<PullRequestThreadCommentsResult | null> => {
+          const result = await loadThreadComments({
+            environmentId,
+            input: { ...reference, threadId: thread.id, cursor },
+          });
+          if (result._tag === "Failure") {
+            toastManager.add({
+              type: "error",
+              title: "More comments could not be loaded",
+            });
+            return null;
+          }
+          return result.value;
+        }}
         onReply={(body) =>
           runThreadCommand("Reply could not be posted", () =>
             replyToThread({
@@ -843,7 +883,7 @@ export function PullRequestCodeTab({
         {annotation.metadata.draft && draft ? (
           <DiffCommentAnnotation
             kind="draft"
-            rangeLabel={`${draft.path}:${draft.line}`}
+            rangeLabel={`${draft.path}:${getReviewPositionAnchor(draft.position).line}`}
             text=""
             submitLabel="Add to review"
             {...(onAskAboutSelection
@@ -865,8 +905,7 @@ export function PullRequestCodeTab({
                 id: nextPendingReviewCommentId(),
                 path: draft.path,
                 ...(draft.oldPath === null ? {} : { oldPath: draft.oldPath }),
-                line: draft.line,
-                side: draft.side,
+                position: draft.position,
                 body,
               });
               setDraft(null);

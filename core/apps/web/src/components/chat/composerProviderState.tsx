@@ -23,6 +23,7 @@ export type ComposerProviderStateInput = {
   models: ReadonlyArray<ServerProviderModel>;
   promptInjectionState?: ComposerPromptInjectionState;
   modelOptions: ReadonlyArray<ProviderOptionSelection> | null | undefined;
+  planModeEnabled: boolean;
 };
 
 export type ComposerPromptInjectionState = "none" | "ultrathink";
@@ -50,6 +51,7 @@ type TraitsRenderInput = {
   triggerClassName?: string;
   /** Extra classes for the popup surface. */
   contentClassName?: string;
+  planModeEnabled: boolean;
 };
 
 export function getComposerPromptInjectionState(prompt: string): ComposerPromptInjectionState {
@@ -57,8 +59,15 @@ export function getComposerPromptInjectionState(prompt: string): ComposerPromptI
 }
 
 export function getComposerProviderState(input: ComposerProviderStateInput): ComposerProviderState {
-  const { provider, model, models, modelOptions, promptInjectionState = "none" } = input;
-  const caps = getProviderModelCapabilities(models, model, provider);
+  const {
+    provider,
+    model,
+    models,
+    modelOptions,
+    promptInjectionState = "none",
+    planModeEnabled,
+  } = input;
+  const caps = getProviderModelCapabilities(models, model, provider, planModeEnabled);
   const descriptors = getProviderOptionDescriptors({ caps, selections: modelOptions });
   const primarySelectDescriptor = descriptors.find(
     (descriptor): descriptor is Extract<(typeof descriptors)[number], { type: "select" }> =>
@@ -99,6 +108,7 @@ function renderTraitsControl(
       model: traitsInput.model,
       modelOptions: traitsInput.modelOptions,
       prompt: traitsInput.prompt,
+      planModeEnabled: traitsInput.planModeEnabled,
     })
   ) {
     return null;
@@ -115,6 +125,7 @@ function renderTraitsControl(
         modelOptions={traitsInput.modelOptions}
         prompt={traitsInput.prompt}
         onPromptChange={traitsInput.onPromptChange}
+        planModeEnabled={traitsInput.planModeEnabled}
         {...(triggerClassName ? { triggerClassName } : {})}
         {...(input.contentClassName ? { contentClassName: input.contentClassName } : {})}
       />
@@ -131,6 +142,7 @@ function renderTraitsControl(
       modelOptions={traitsInput.modelOptions}
       prompt={traitsInput.prompt}
       onPromptChange={traitsInput.onPromptChange}
+      planModeEnabled={traitsInput.planModeEnabled}
     />
   );
 }

@@ -9,6 +9,7 @@ import { memo, useLayoutEffect, useMemo, useRef } from "react";
 
 import { type ComposerSlashCommand, type ComposerTriggerKind } from "../../composer-logic";
 import { formatProviderSkillInstallSource } from "~/providerSkillPresentation";
+import { formatProviderSkillDisplayName } from "@embedino/client-runtime/providerSkills";
 import { cn } from "~/lib/utils";
 import {
   Command,
@@ -158,6 +159,7 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
                     <ComposerCommandMenuItem
                       key={item.id}
                       item={item}
+                      triggerKind={props.triggerKind ?? "slash-command"}
                       resolvedTheme={props.resolvedTheme}
                       isActive={props.activeItemId === item.id}
                       onHighlight={props.onHighlightedItemChange}
@@ -201,11 +203,15 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
 
 const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
   item: ComposerCommandItem;
+  triggerKind: ComposerTriggerKind;
   resolvedTheme: "light" | "dark";
   isActive: boolean;
   onHighlight: (itemId: string | null) => void;
   onSelect: (item: ComposerCommandItem) => void;
 }) {
+  // Skills listed from the `/` menu carry their own `/skill:` prefix so they
+  // read as commands; from the `$`-style skill menu they render by name.
+  const isSlashSkill = props.triggerKind === "slash-command" && props.item.type === "skill";
   const skillSourceLabel =
     props.item.type === "skill" ? formatProviderSkillInstallSource(props.item.skill) : null;
 
@@ -248,7 +254,16 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
         </span>
       ) : null}
       <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="shrink-0">{props.item.label}</span>
+        <span className="shrink-0">
+          {isSlashSkill && props.item.type === "skill" ? (
+            <>
+              <span className="text-secondary-label">/skill:</span>
+              {formatProviderSkillDisplayName(props.item.skill)}
+            </>
+          ) : (
+            props.item.label
+          )}
+        </span>
         <span className="min-w-0 flex-1 truncate text-secondary-label text-xs">
           {props.item.description}
         </span>

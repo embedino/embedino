@@ -132,7 +132,7 @@ export function useThreadActionMenu(input: {
               now: `${now.toISOString().slice(0, 16)}:00.000Z`,
               autoSettleAfterDays,
               autoSettleOnMerge,
-              changeRequestState,
+              changeRequest: changeRequestState === null ? null : { state: changeRequestState },
             }),
           isSnoozed: supports.snooze && effectiveSnoozed(thread, { now: now.toISOString() }),
           canSnoozeNow: canSnooze(thread, { now: now.toISOString() }),

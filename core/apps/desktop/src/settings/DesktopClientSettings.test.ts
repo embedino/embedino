@@ -30,6 +30,7 @@ const clientSettings: ClientSettings = {
   glassOpacity: 80,
   modelPickerOpensFavorites: false,
   planModeEnabled: false,
+  showSkillsInSlashMenu: false,
   providerModelPreferences: {},
   sidebarAutoSettleAfterDays: 3,
   sidebarAutoSettleOnMerge: true,

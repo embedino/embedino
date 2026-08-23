@@ -341,6 +341,12 @@ function PullRequestBaseFreshnessWarning({
   );
 }
 
+const MERGE_METHOD_LABELS: Record<PullRequestMergeMethod, string> = {
+  merge: "Merge",
+  squash: "Squash",
+  rebase: "Rebase",
+};
+
 export function PullRequestDetailPanel({
   environmentId,
   reference,
@@ -995,6 +1001,7 @@ export function PullRequestDetailPanel({
   const selectedMergeMethod = allowedMergeMethods.includes(mergeMethod)
     ? mergeMethod
     : (allowedMergeMethods[0] ?? "merge");
+  const selectedMergeMethodLabel = MERGE_METHOD_LABELS[selectedMergeMethod];
   const conflicting = detail?.state === "open" && detail.mergeability === "conflicting";
   // Only an outright yes arms it. A host that reports nothing has not said the merge is already
   // spoken for, and an off switch for something that may not be on says the wrong thing twice.
@@ -1248,7 +1255,9 @@ export function PullRequestDetailPanel({
                                     icon and the label need their own row to share a line. */}
                                 <span className="flex min-w-0 items-center gap-2">
                                   <GitMergeIcon className="size-3.5" />
-                                  <span className="capitalize">{method}</span>
+                                  <span>
+                                    {MERGE_METHOD_LABELS[method as PullRequestMergeMethod]}
+                                  </span>
                                 </span>
                               </MenuRadioItem>
                             ))}
@@ -1371,7 +1380,7 @@ export function PullRequestDetailPanel({
                   disabled={actionPending}
                   onClick={() => setConfirmAction("merge")}
                 >
-                  {pendingAction === "merge" ? "Merging..." : "Merge"}
+                  {pendingAction === "merge" ? "Merging..." : (selectedMergeMethodLabel ?? "Merge")}
                 </Button>
               ) : null}
             </>

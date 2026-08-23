@@ -18,7 +18,7 @@ The initial release strips away unnecessary bloat and focuses entirely on the da
 Embedino is built on top of **[embedino/embedino](https://github.com/embedino/embedino)**.
 - Embedino provides the cross-platform harness (Desktop, Web, Mobile) and the foundational text editor / AI plumbing.
 - Embedino's hardware features will primarily target the **Desktop App**, as hardware interactions (USB/Serial) require deep OS-level access.
-- **Current Upstream Sync**: Synced to commit `038560e` (all upstream PRs through August 14, 2026, pulled and verified).
+- **Current Upstream Sync**: Synced to commit `09df91f` (all upstream PRs through August 23, 2026, pulled and verified; full details in `docs/T3_SYNC_REPORT_2026-08-24.md`).
 
 ## 4. The Sync Strategy: Regraft (CRITICAL CONTEXT)
 To maintain Embedino on top of Embedino without being broken by their upstream updates, we use **[Regraft](https://github.com/treadiehq/regraft)** instead of a traditional Git Fork or Git Subtree.
