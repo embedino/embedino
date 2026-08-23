@@ -35,7 +35,6 @@ import ProjectScriptsControl, {
 } from "../ProjectScriptsControl";
 import { OpenInPicker } from "./OpenInPicker";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { useEmbedinoProjectFileScripts } from "~/hooks/useEmbedinoProjectFileScripts";
 import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -74,7 +73,6 @@ interface ChatHeaderProps {
   statusIndicator?: ReactNode;
   readonly onOpenPullRequest?: ((number: number) => void) | undefined;
   onNewThreadInProject: () => void;
-  onRunProjectScript: (script: ProjectScript) => void;
   onAddProjectScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
   onUpdateProjectScript: (
     scriptId: string,
@@ -129,16 +127,11 @@ export const ChatHeader = memo(function ChatHeader({
   statusIndicator,
   onOpenPullRequest,
   onNewThreadInProject,
-  onRunProjectScript,
   onAddProjectScript,
   onUpdateProjectScript,
   onDeleteProjectScript,
 }: ChatHeaderProps) {
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const fileScripts = useEmbedinoProjectFileScripts(
-    activeThreadEnvironmentId,
-    activeProjectScripts ? activeProjectCwd : null,
-  );
   const showOpenInPicker = shouldShowOpenInPicker({
     activeProjectName,
     activeThreadEnvironmentId,
@@ -323,9 +316,6 @@ export const ChatHeader = memo(function ChatHeader({
         {activeProjectScripts && (
           <ProjectScriptsControl
             scripts={activeProjectScripts}
-            fileScripts={fileScripts}
-            keybindings={keybindings}
-            onRunScript={onRunProjectScript}
             onAddScript={onAddProjectScript}
             onUpdateScript={onUpdateProjectScript}
             onDeleteScript={onDeleteProjectScript}

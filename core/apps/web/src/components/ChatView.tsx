@@ -6144,7 +6144,6 @@ function ChatViewContent(props: ChatViewProps) {
             rightPanelOpen={rightPanelOpen}
             gitCwd={gitCwd}
             onNewThreadInProject={handleNewThreadInActiveProject}
-            onRunProjectScript={runProjectScript}
             onAddProjectScript={saveProjectScript}
             onUpdateProjectScript={updateProjectScript}
             onDeleteProjectScript={deleteProjectScript}
