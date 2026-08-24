@@ -130,6 +130,61 @@ export function resolveTimelineMinimapInteractiveWidth(
   return expanded ? TIMELINE_MINIMAP_EXPANDED_HIT_STRIP_WIDTH : collapsedWidth;
 }
 
+/**
+ * A message counts as "being read" once its top crosses the upper third of
+ * the viewport. A fixed fraction (rather than the hard viewport top) keeps
+ * the active strip stable while short messages scroll through the top band.
+ */
+export const TIMELINE_MINIMAP_READING_LINE_RATIO = 1 / 3;
+
+export interface TimelineMinimapPlacement {
+  readonly id: string;
+  readonly top: number;
+}
+
+/**
+ * Scrollspy for the minimap rail: exactly one strip is ever highlighted. The
+ * winner is the last message whose top sits at or above the reading line —
+ * never every message that merely intersects the viewport, which lit several
+ * strips white at once on long exchanges. Before the first crossing the first
+ * message leads; pinned to the content end the last message wins, so the
+ * newest exchange stays highlighted while a streaming response fills the tail.
+ */
+export function resolveTimelineMinimapActiveItemId(input: {
+  placements: ReadonlyArray<TimelineMinimapPlacement>;
+  scrollTop: number;
+  viewportHeight: number;
+  contentHeight: number;
+}): string | null {
+  const last = input.placements.at(-1);
+  if (!last) {
+    return null;
+  }
+  if (input.placements.length === 1) {
+    return last.id;
+  }
+
+  if (
+    input.viewportHeight > 0 &&
+    input.contentHeight > 0 &&
+    input.contentHeight - input.scrollTop - input.viewportHeight <=
+      TIMELINE_FOLLOW_REARM_THRESHOLD_PX
+  ) {
+    return last.id;
+  }
+
+  const readingLine = input.scrollTop + input.viewportHeight * TIMELINE_MINIMAP_READING_LINE_RATIO;
+  let active = input.placements[0]!;
+  // Placements arrive in document order; stop at the first one below the line.
+  for (const placement of input.placements) {
+    if (placement.top > readingLine) {
+      break;
+    }
+    active = placement;
+  }
+  return active.id;
+}
+
 function computeElapsedMs(startIso: string, endIso: string): number | null {
   const start = Date.parse(startIso);
   const end = Date.parse(endIso);

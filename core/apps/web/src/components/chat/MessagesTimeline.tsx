@@ -28,6 +28,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import { FileDiff } from "@pierre/diffs/react";
@@ -85,6 +86,8 @@ import {
   resolveTimelineMinimapIndexFromPointer,
   resolveTimelineMinimapInteractiveWidth,
   resolveTimelineMinimapTopPercent,
+  resolveTimelineMinimapActiveItemId,
+  type TimelineMinimapPlacement,
   type StableMessagesTimelineRowsState,
   type MessagesTimelineRow,
   TIMELINE_MINIMAP_MIN_ITEMS,
@@ -287,6 +290,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const [expandedWorkGroupIds, setExpandedWorkGroupIds] = useState<ReadonlySet<string>>(new Set());
   const [disclosureToggleSettling, setDisclosureToggleSettling] = useState(false);
   const [minimapStripMap] = useState(() => new Map<string, HTMLSpanElement>());
+  const appliedActiveMinimapIdRef = useRef<string | null>(null);
   const disclosureAnchorKeyRef = useRef<string | null>(null);
   const disclosureSettleFrameRef = useRef<number | null>(null);
   const disclosureSettleSecondFrameRef = useRef<number | null>(null);
@@ -442,35 +446,63 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     return config ? { ...config, onReady: handleAnchorReady } : undefined;
   }, [anchorMessageId, handleAnchorReady, rows]);
 
+  const syncMinimapActiveStrip = useCallback(
+    (activeId: string | null) => {
+      const previousId = appliedActiveMinimapIdRef.current;
+      if (previousId === activeId) {
+        return;
+      }
+      if (previousId !== null) {
+        const previousStrip = minimapStripMap.get(previousId);
+        if (previousStrip) {
+          previousStrip.dataset.active = "false";
+        }
+      }
+      if (activeId !== null) {
+        const activeStrip = minimapStripMap.get(activeId);
+        if (activeStrip) {
+          activeStrip.dataset.active = "true";
+        }
+      }
+      appliedActiveMinimapIdRef.current = activeId;
+    },
+    [minimapStripMap],
+  );
+
   const handleScroll = useCallback(() => {
     const state = listRef.current?.getState?.();
     const isAtEnd = resolveTimelineIsAtEnd(state, contentInsetEndAdjustment);
     if (isAtEnd !== undefined) {
       onIsAtEndChange(isAtEnd);
     }
-    if (!state || minimapItems.length === 0) {
+    if (!state) {
+      return;
+    }
+    if (minimapItems.length === 0) {
+      syncMinimapActiveStrip(null);
       return;
     }
 
-    const scrollTop = state.scroll ?? 0;
-    const scrollBottom = scrollTop + (state.scrollLength ?? 0);
-
+    // Scrollspy: resolve the single message at the reading line, then touch
+    // at most two DOM nodes. Per-tick writes for every strip made the rail
+    // flicker and stutter on long threads.
+    const placements: TimelineMinimapPlacement[] = [];
     for (const item of minimapItems) {
-      const strip = minimapStripMap.get(item.id);
-      if (!strip) {
-        continue;
+      const top = resolveTimelineRowTop(state, item.rowIndex);
+      if (top !== null) {
+        placements.push({ id: item.id, top });
       }
-
-      const rowTop = resolveTimelineRowTop(state, item.rowIndex);
-      const rowHeight = resolveTimelineRowHeight(state, item.rowIndex);
-      const inView =
-        rowTop !== null &&
-        rowTop < scrollBottom &&
-        rowTop + Math.max(1, rowHeight ?? 1) > scrollTop;
-
-      strip.dataset.inView = inView ? "true" : "false";
     }
-  }, [contentInsetEndAdjustment, listRef, minimapItems, minimapStripMap, onIsAtEndChange]);
+
+    syncMinimapActiveStrip(
+      resolveTimelineMinimapActiveItemId({
+        placements,
+        scrollTop: state.scroll ?? 0,
+        viewportHeight: state.scrollLength ?? 0,
+        contentHeight: state.contentLength ?? 0,
+      }),
+    );
+  }, [contentInsetEndAdjustment, listRef, minimapItems, onIsAtEndChange, syncMinimapActiveStrip]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(handleScroll);
@@ -611,6 +643,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
             ListFooterComponent={TIMELINE_LIST_FOOTER}
           />
           <TimelineMinimap
+            activeIdRef={appliedActiveMinimapIdRef}
             items={minimapItems}
             hasPersistentGutter={minimapHasPersistentGutter}
             hitStripWidth={minimapHitStripWidth}
@@ -703,22 +736,19 @@ function resolveTimelineRowTop(state: TimelinePositionState, rowIndex: number) {
   return typeof top === "number" && Number.isFinite(top) ? top : null;
 }
 
-function resolveTimelineRowHeight(state: TimelinePositionState, rowIndex: number) {
-  const height = state.sizeAtIndex?.(rowIndex);
-  return typeof height === "number" && Number.isFinite(height) ? height : null;
-}
-
 function timelineMinimapEventTargetsPreview(target: EventTarget): boolean {
   return target instanceof Element && target.closest("[data-minimap-preview]") !== null;
 }
 
 function TimelineMinimap({
+  activeIdRef,
   hasPersistentGutter,
   hitStripWidth,
   items,
   stripMap,
   onSelect,
 }: {
+  activeIdRef: RefObject<string | null>;
   hasPersistentGutter: boolean;
   hitStripWidth: number;
   items: ReadonlyArray<TimelineMinimapItem>;
@@ -854,7 +884,7 @@ function TimelineMinimap({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "pointer-events-none absolute left-0 h-0.5 -translate-y-1/2 rounded-full bg-muted-foreground/35 transition-[background-color,width] duration-150 data-[in-view=true]:bg-foreground/90",
+                  "pointer-events-none absolute left-0 h-0.5 -translate-y-1/2 rounded-full bg-muted-foreground/35 transition-[background-color,width] duration-200 ease-out",
                   activeDistance === 0
                     ? "w-6 bg-muted-foreground/75"
                     : activeDistance === 1
@@ -862,12 +892,16 @@ function TimelineMinimap({
                       : activeDistance === 2
                         ? "w-2.5"
                         : "w-2",
+                  // The single scrollspy-active strip reads as the current
+                  // position; attribute selector outranks the hover widths.
+                  "data-[active=true]:w-5 data-[active=true]:bg-foreground/90",
                 )}
-                data-in-view="false"
+                data-active="false"
                 data-minimap-strip
                 key={item.id}
                 ref={(node) => {
                   if (node) {
+                    node.dataset.active = item.id === activeIdRef.current ? "true" : "false";
                     stripMap.set(item.id, node);
                   } else {
                     stripMap.delete(item.id);

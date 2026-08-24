@@ -5,6 +5,8 @@ import {
   deriveMessagesTimelineRows,
   normalizeCompactToolLabel,
   resolveAssistantMessageCopyState,
+  resolveTimelineMinimapActiveItemId,
+  type TimelineMinimapPlacement,
 } from "./MessagesTimeline.logic";
 
 describe("computeMessageDurationStart", () => {
@@ -1010,6 +1012,63 @@ describe("deriveMessagesTimelineRows", () => {
     expect(expandedRows.find((row) => row.kind === "work-toggle")).toMatchObject({
       expanded: true,
     });
+  });
+});
+
+describe("resolveTimelineMinimapActiveItemId", () => {
+  // Viewport 800px → reading line sits 266.67px below scrollTop.
+  const placements: TimelineMinimapPlacement[] = [
+    { id: "m1", top: 0 },
+    { id: "m2", top: 600 },
+    { id: "m3", top: 1400 },
+  ];
+  const resolve = (overrides: Partial<Parameters<typeof resolveTimelineMinimapActiveItemId>[0]>) =>
+    resolveTimelineMinimapActiveItemId({
+      placements,
+      scrollTop: 0,
+      viewportHeight: 800,
+      contentHeight: 3000,
+      ...overrides,
+    });
+
+  it("returns null without placements", () => {
+    expect(resolve({ placements: [] })).toBeNull();
+  });
+
+  it("returns the only message for a single placement", () => {
+    expect(resolve({ placements: [{ id: "only", top: 500 }] })).toBe("only");
+  });
+
+  it("highlights exactly one strip — the last message above the reading line", () => {
+    expect(resolve({ scrollTop: 0 })).toBe("m1");
+    expect(resolve({ scrollTop: 400 })).toBe("m2");
+    expect(resolve({ scrollTop: 1200 })).toBe("m3");
+  });
+
+  it("keeps the first strip active before any message crosses the reading line", () => {
+    expect(
+      resolve({
+        placements: [
+          { id: "a", top: 400 },
+          { id: "b", top: 900 },
+        ],
+      }),
+    ).toBe("a");
+  });
+
+  it("clamps to the last message when pinned at the content end", () => {
+    // m2 sits below the reading line, so only the at-bottom clamp can pick it:
+    // the newest exchange stays highlighted while it fills the viewport tail.
+    expect(
+      resolve({
+        placements: [
+          { id: "m1", top: 0 },
+          { id: "m2", top: 1500 },
+        ],
+        scrollTop: 1000,
+        contentHeight: 1800,
+      }),
+    ).toBe("m2");
   });
 });
 
