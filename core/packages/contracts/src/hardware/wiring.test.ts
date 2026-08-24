@@ -237,6 +237,35 @@ describe("Circuit Wiring Contracts & Schemas", () => {
       expect(() => parseCircuitWiringJson("{ not json")).toThrowError(WiringParseError);
     });
 
+    it("repairs raw control characters inside string literals", () => {
+      const withRawNewline =
+        '{"title":"ESP32 Weather","description":"line one\nline two","components":[],"connections":[]}';
+      const result = parseCircuitWiringJson(withRawNewline);
+      expect(result.title).toBe("ESP32 Weather");
+      expect(result.description).toBe("line one\nline two");
+    });
+
+    it("repairs raw tabs and carriage returns inside string literals", () => {
+      const withRawTabs =
+        '{"title":"Tabbed\tTitle","description":"win\r\nline","components":[],"connections":[]}';
+      const result = parseCircuitWiringJson(withRawTabs);
+      expect(result.title).toBe("Tabbed\tTitle");
+      expect(result.description).toBe("win\r\nline");
+    });
+
+    it("does not touch escaped sequences or control characters outside strings", () => {
+      const legit =
+        '{\n  "title": "Escaped \\"quoted\\" \\u00e9",\n  "components": [],\n  "connections": []\n}';
+      const result = parseCircuitWiringJson(legit);
+      expect(result.title).toBe('Escaped "quoted" \u00e9');
+    });
+
+    it("still throws WiringParseError when repair cannot fix the JSON", () => {
+      expect(() => parseCircuitWiringJson('{"title":"broken\nline","components":')).toThrowError(
+        WiringParseError,
+      );
+    });
+
     it("throws WiringValidationError on schema mismatch", () => {
       expect(() => parseCircuitWiringJson(JSON.stringify({ title: 123 }))).toThrowError(
         WiringValidationError,

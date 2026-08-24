@@ -4,13 +4,11 @@ import {
   Check,
   Copy,
   Cpu,
-  Info,
-  Layers,
-  OctagonAlert,
+  Eye,
+  EyeOff,
+  Palette,
   SlidersHorizontal,
   Sparkles,
-  Table as TableIcon,
-  X,
 } from "lucide-react";
 import {
   parseCircuitWiringJson,
@@ -18,7 +16,19 @@ import {
   getCircuitPeripherals,
   formatCircuitWarning,
 } from "@embedino/contracts";
-import { TABLE_COLUMNS, WIRE_COLOR_MAP, type TableColumnKey } from "./wiringTypes";
+import {
+  deriveWireColorName,
+  getSignalVisual,
+  resolveConnectionSignal,
+  type NetColorMode,
+  type SignalVisual,
+} from "./signalColors";
+import {
+  TABLE_COLUMNS,
+  WIRE_COLOR_MAP,
+  WIRE_COLOR_FALLBACK,
+  type TableColumnKey,
+} from "./wiringTypes";
 import { Button } from "~/components/ui/button";
 import {
   Menu,
@@ -40,6 +50,7 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { writeTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { cn } from "~/lib/utils";
+import { useWiringStore } from "~/state/wiring";
 
 export interface InteractiveWiringViewerProps {
   code: string;
@@ -50,6 +61,38 @@ export interface InteractiveWiringViewerProps {
   columnOverrides?: Record<string, boolean> | undefined;
   onColumnOverrideChange?: ((columnKey: string, visible: boolean) => void) | undefined;
 }
+
+const NET_COLOR_MODE_OPTIONS: readonly {
+  value: NetColorMode;
+  label: string;
+  hint: string;
+  preview: readonly string[];
+}[] = [
+  {
+    value: "signal",
+    label: "Signal colors",
+    hint: "One hue per signal class",
+    preview: ["bg-red-500", "bg-blue-500", "bg-emerald-500", "bg-slate-400"],
+  },
+  {
+    value: "vivid",
+    label: "Vivid",
+    hint: "High-saturation hues",
+    preview: ["bg-red-400", "bg-blue-400", "bg-emerald-400", "bg-slate-300"],
+  },
+  {
+    value: "mono",
+    label: "Mono accent",
+    hint: "Single accent color",
+    preview: ["bg-sky-500", "bg-sky-500/70", "bg-sky-500/40", "bg-sky-500/20"],
+  },
+  {
+    value: "neutral",
+    label: "Neutral",
+    hint: "Plain text, no colors",
+    preview: ["bg-zinc-400", "bg-zinc-400/70", "bg-zinc-400/40", "bg-zinc-400/20"],
+  },
+];
 
 export function InteractiveWiringViewer({
   code,
@@ -69,6 +112,12 @@ export function InteractiveWiringViewer({
   );
   const [hidePowerGnd, setHidePowerGnd] = useState<boolean>(false);
   const [copiedJson, setCopiedJson] = useState<boolean>(false);
+
+  // Global appearance preferences (persisted across sessions)
+  const netColorMode = useWiringStore((state) => state.netColorMode);
+  const suggestWireColors = useWiringStore((state) => state.suggestWireColors);
+  const setNetColorMode = useWiringStore((state) => state.setNetColorMode);
+  const setSuggestWireColors = useWiringStore((state) => state.setSuggestWireColors);
 
   const selectedComponentId =
     controlledSelectedComponentId !== undefined
@@ -152,7 +201,10 @@ export function InteractiveWiringViewer({
     let conns = circuit.connections;
 
     if (hidePowerGnd) {
-      conns = conns.filter((c) => c.signalType !== "power" && c.signalType !== "ground");
+      conns = conns.filter((c) => {
+        const signal = resolveConnectionSignal(c, circuit);
+        return signal !== "power" && signal !== "ground";
+      });
     }
 
     if (selectedComponentId) {
@@ -203,6 +255,31 @@ export function InteractiveWiringViewer({
       peripherals.find((p) => p.id === selectedComponentId)?.name ||
       selectedComponentId
     : null;
+  const title = circuit.title || fenceTitle || "Circuit Wiring Diagram";
+
+  const renderEndpointCell = (name: string, pin: string, visual: SignalVisual) => (
+    <TableCell className="font-mono">
+      <div className="flex flex-col items-start gap-1">
+        <span
+          className="max-w-[160px] truncate text-[11px] leading-none text-muted-foreground"
+          title={name}
+        >
+          {name}
+        </span>
+        <span
+          className={cn(
+            "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-semibold leading-none",
+            visual.text,
+            visual.bg,
+            visual.border,
+          )}
+          title={pin}
+        >
+          {pin}
+        </span>
+      </div>
+    </TableCell>
+  );
 
   return (
     <div
@@ -212,34 +289,30 @@ export function InteractiveWiringViewer({
       )}
       data-wiring-viewer="true"
     >
-      {/* Header Toolbar */}
-      <div className="flex flex-col gap-2 border-b border-border/60 bg-muted/30 p-3.5 sm:flex-row sm:items-center sm:justify-between select-none">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            <Cpu className="size-4 text-muted-foreground shrink-0" />
-            <h3 className="text-sm font-semibold text-foreground truncate">
-              {circuit.title || fenceTitle || "Circuit Wiring Diagram"}
-            </h3>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 border-b border-border/60 bg-muted/30 p-3.5 select-none">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Cpu className="size-4" />
           </div>
-          {circuit.description && (
-            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-              {circuit.description}
-            </p>
-          )}
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
-            <span className="font-medium text-foreground">{boards.length}</span> Board
-            {boards.length === 1 ? "" : "s"}
-            <span>•</span>
-            <span className="font-medium text-foreground">{peripherals.length}</span> Peripheral
-            {peripherals.length === 1 ? "" : "s"}
-            <span>•</span>
-            <span className="font-medium text-foreground">{circuit.connections.length}</span> Wire
-            {circuit.connections.length === 1 ? "" : "s"}
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <h3 className="text-sm font-semibold text-foreground truncate">{title}</h3>
+            {circuit.description ? (
+              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-1">
+                {circuit.description}
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                {boards.length} board{boards.length === 1 ? "" : "s"} · {peripherals.length}{" "}
+                peripheral{peripherals.length === 1 ? "" : "s"} · {circuit.connections.length} wire
+                {circuit.connections.length === 1 ? "" : "s"}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Copy Circuit JSON Button */}
           <Tooltip>
             <TooltipTrigger
@@ -305,89 +378,156 @@ export function InteractiveWiringViewer({
         </div>
       </div>
 
-      {/* Main Tab Content */}
-      <div className="w-full">
-        {/* Unified Table Control Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/15 px-3 py-2 text-xs select-none">
-          <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
-            {/* 1. Component Focus Dropdown */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-medium hidden sm:inline-block">Focus:</span>
-              <Menu>
-                <MenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        "h-6.5 gap-1.5 px-2.5 text-[11px] font-medium cursor-pointer transition-colors max-w-[180px] sm:max-w-[240px]",
-                        selectedComponentId
-                          ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {selectedComponentId === null ? (
-                        <Sparkles className="size-3 shrink-0" />
-                      ) : (
-                        <Cpu className="size-3 shrink-0" />
-                      )}
-                      <span className="truncate">
-                        {selectedComponentId === null
-                          ? "All Components"
-                          : (selectedComponentName ?? "Component")}
-                      </span>
-                    </Button>
-                  }
-                />
-                <MenuPopup align="start" className="w-56 max-h-[300px] overflow-y-auto">
-                  <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Select Focus
-                  </div>
-                  <MenuRadioGroup
-                    value={selectedComponentId ?? "all"}
-                    onValueChange={(val) => setSelectedComponentId(val === "all" ? null : val)}
-                  >
-                    <MenuRadioItem value="all">All Components</MenuRadioItem>
-
-                    {boards.length > 0 && <MenuSeparator />}
-                    {boards.map((b) => (
-                      <MenuRadioItem key={b.id} value={b.id} className="truncate">
-                        {b.name}
-                      </MenuRadioItem>
-                    ))}
-
-                    {peripherals.length > 0 && <MenuSeparator />}
-                    {peripherals.map((p) => (
-                      <MenuRadioItem key={p.id} value={p.id} className="truncate">
-                        {p.name}
-                      </MenuRadioItem>
-                    ))}
-                  </MenuRadioGroup>
-                </MenuPopup>
-              </Menu>
-            </div>
-
-            {/* 2. Hide Power/GND Rails Checkbox */}
-            <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-muted-foreground hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={hidePowerGnd}
-                onChange={(e) => setHidePowerGnd(e.target.checked)}
-                className="rounded border-border size-3.5 accent-primary cursor-pointer"
-              />
-              <span>Hide Power/GND</span>
-            </label>
-
-            {/* Divider & Filtered Connection Count */}
-            <div className="hidden sm:flex items-center gap-4">
-              <div className="h-3.5 w-px bg-border/60" />
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-foreground">{filteredConnections.length}</span>
-                <span>Connection{filteredConnections.length === 1 ? "" : "s"}</span>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2 select-none">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {/* Component Focus Dropdown */}
+          <Menu>
+            <MenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-6.5 gap-1.5 px-2.5 text-[11px] font-medium cursor-pointer transition-colors max-w-[150px] sm:max-w-[220px]",
+                    selectedComponentId
+                      ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {selectedComponentId === null ? (
+                    <Sparkles className="size-3 shrink-0" />
+                  ) : (
+                    <Cpu className="size-3 shrink-0" />
+                  )}
+                  <span className="truncate">
+                    {selectedComponentId === null
+                      ? "All Components"
+                      : (selectedComponentName ?? "Component")}
+                  </span>
+                </Button>
+              }
+            />
+            <MenuPopup align="start" className="w-56 max-h-[300px] overflow-y-auto">
+              <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                Focus
               </div>
-            </div>
-          </div>
+              <MenuRadioGroup
+                value={selectedComponentId ?? "all"}
+                onValueChange={(val) => setSelectedComponentId(val === "all" ? null : val)}
+              >
+                <MenuRadioItem value="all">All Components</MenuRadioItem>
+
+                {boards.length > 0 && <MenuSeparator />}
+                {boards.map((b) => (
+                  <MenuRadioItem key={b.id} value={b.id} className="truncate">
+                    {b.name}
+                  </MenuRadioItem>
+                ))}
+
+                {peripherals.length > 0 && <MenuSeparator />}
+                {peripherals.map((p) => (
+                  <MenuRadioItem key={p.id} value={p.id} className="truncate">
+                    {p.name}
+                  </MenuRadioItem>
+                ))}
+              </MenuRadioGroup>
+            </MenuPopup>
+          </Menu>
+
+          {/* Hide Power/GND Rails Toggle */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-6.5 gap-1.5 px-2.5 text-[11px] font-medium cursor-pointer transition-colors",
+                    hidePowerGnd
+                      ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  onClick={() => setHidePowerGnd((prev) => !prev)}
+                >
+                  {hidePowerGnd ? (
+                    <EyeOff className="size-3 shrink-0" />
+                  ) : (
+                    <Eye className="size-3 shrink-0" />
+                  )}
+                  <span className="hidden sm:inline">Power/GND</span>
+                </Button>
+              }
+            />
+            <TooltipPopup side="top">
+              {hidePowerGnd ? "Show power & ground wires" : "Hide power & ground wires"}
+            </TooltipPopup>
+          </Tooltip>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Filtered wire count */}
+          <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+            {filteredConnections.length} wire{filteredConnections.length === 1 ? "" : "s"}
+          </span>
+
+          {/* Appearance / Style Menu */}
+          <Menu>
+            <MenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6.5 gap-1.5 px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                >
+                  <Palette className="size-3 shrink-0" />
+                  <span className="hidden sm:inline">Style</span>
+                </Button>
+              }
+            />
+            <MenuPopup align="end" className="w-60">
+              <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                Net Colors
+              </div>
+              <MenuRadioGroup
+                value={netColorMode}
+                onValueChange={(val) => setNetColorMode(val as NetColorMode)}
+              >
+                {NET_COLOR_MODE_OPTIONS.map((option) => (
+                  <MenuRadioItem key={option.value} value={option.value}>
+                    <div className="flex flex-col gap-0.5 w-full py-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-0.5 shrink-0">
+                          {option.preview.map((dot) => (
+                            <span key={dot} className={cn("size-1.5 rounded-full", dot)} />
+                          ))}
+                        </span>
+                        <span className="text-xs font-medium">{option.label}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground leading-none">
+                        {option.hint}
+                      </span>
+                    </div>
+                  </MenuRadioItem>
+                ))}
+              </MenuRadioGroup>
+              <MenuSeparator />
+              <MenuCheckboxItem
+                checked={suggestWireColors}
+                onCheckedChange={(checked) => setSuggestWireColors(checked === true)}
+              >
+                <div className="flex flex-col gap-0.5 w-full py-0.5">
+                  <span className="text-xs font-medium">Suggest wire colors</span>
+                  <span className="text-[10px] text-muted-foreground leading-tight">
+                    Pick a jumper color from the signal type when the circuit doesn't specify one
+                  </span>
+                </div>
+              </MenuCheckboxItem>
+            </MenuPopup>
+          </Menu>
 
           {/* Column Visibility Menu */}
           <Menu>
@@ -397,13 +537,13 @@ export function InteractiveWiringViewer({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-6.5 gap-1.5 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                  className="h-6.5 gap-1.5 px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
                 >
                   <SlidersHorizontal className="size-3 shrink-0" />
                   <span className="hidden sm:inline">
                     Columns ({visibleColumnCount}/{TABLE_COLUMNS.length})
                   </span>
-                  <span className="sm:hidden">{visibleColumnCount} Col</span>
+                  <span className="sm:hidden">{visibleColumnCount}</span>
                 </Button>
               }
             />
@@ -434,138 +574,153 @@ export function InteractiveWiringViewer({
             </MenuPopup>
           </Menu>
         </div>
+      </div>
 
-        {/* Table Body */}
-        <div className="p-3 max-h-[500px] overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-border/60 hover:bg-transparent">
-                {effectiveColumns.from && (
-                  <TableHead className="w-[180px] text-xs font-semibold text-muted-foreground">
-                    From (Source)
-                  </TableHead>
-                )}
-                {effectiveColumns.wireColor && (
-                  <TableHead className="w-[110px] text-xs font-semibold text-muted-foreground">
-                    Wire Color
-                  </TableHead>
-                )}
-                {effectiveColumns.signal && (
-                  <TableHead className="w-[130px] text-xs font-semibold text-muted-foreground">
-                    Signal / Bus
-                  </TableHead>
-                )}
-                {effectiveColumns.to && (
-                  <TableHead className="w-[180px] text-xs font-semibold text-muted-foreground">
-                    To (Target)
-                  </TableHead>
-                )}
-                {effectiveColumns.voltage && (
-                  <TableHead className="w-[90px] text-xs font-semibold text-muted-foreground">
-                    Voltage
-                  </TableHead>
-                )}
-                {effectiveColumns.notes && (
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Notes
-                  </TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredConnections.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={visibleColumnCount}
-                    className="text-center py-6 text-xs text-muted-foreground"
-                  >
-                    No connections match the current filter.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredConnections.map((conn, idx) => {
-                  const colorHex = conn.wireColor
-                    ? WIRE_COLOR_MAP[conn.wireColor.toLowerCase()]
-                    : undefined;
-                  const rowKey = `${conn.from.componentId}:${conn.from.pin}->${conn.to.componentId}:${conn.to.pin}-${conn.signal ?? conn.signalType ?? ""}-${idx}`;
-
-                  const fromComp =
-                    boards.find((b) => b.id === conn.from.componentId) ||
-                    peripherals.find((p) => p.id === conn.from.componentId);
-                  const toComp =
-                    boards.find((b) => b.id === conn.to.componentId) ||
-                    peripherals.find((p) => p.id === conn.to.componentId);
-
-                  // If the user is focusing on a component, and that component is the TARGET of this connection,
-                  // we swap the left/right display so the focused component is always on the left ("From").
-                  const isReversed = selectedComponentId === conn.to.componentId;
-
-                  const displayFromComp = isReversed ? toComp : fromComp;
-                  const displayToComp = isReversed ? fromComp : toComp;
-                  const displayFromName =
-                    displayFromComp?.name ??
-                    (isReversed ? conn.to.componentId : conn.from.componentId);
-                  const displayToName =
-                    displayToComp?.name ??
-                    (isReversed ? conn.from.componentId : conn.to.componentId);
-                  const displayFromPin = isReversed ? conn.to.pin : conn.from.pin;
-                  const displayToPin = isReversed ? conn.from.pin : conn.to.pin;
-
-                  return (
-                    <TableRow key={rowKey} className="border-b border-border/30 hover:bg-muted/30">
-                      {effectiveColumns.from && (
-                        <TableCell className="font-mono text-xs">
-                          <span className="text-foreground">{displayFromName}</span>
-                          <span className="text-muted-foreground mx-1">:</span>
-                          <span className="text-primary font-medium">{displayFromPin}</span>
-                        </TableCell>
-                      )}
-                      {effectiveColumns.wireColor && (
-                        <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            {colorHex && (
-                              <span
-                                className="size-2.5 rounded-full ring-1 ring-border/50 shrink-0"
-                                style={{ backgroundColor: colorHex }}
-                              />
-                            )}
-                            <span className="capitalize text-xs text-foreground/90">
-                              {conn.wireColor || "—"}
-                            </span>
-                          </div>
-                        </TableCell>
-                      )}
-                      {effectiveColumns.signal && (
-                        <TableCell>
-                          <span className="rounded bg-muted/70 px-1.5 py-0.5 text-[11px] font-mono font-medium text-foreground">
-                            {conn.signal || conn.signalType || "—"}
-                          </span>
-                        </TableCell>
-                      )}
-                      {effectiveColumns.to && (
-                        <TableCell className="font-mono text-xs">
-                          <span className="text-foreground">{displayToName}</span>
-                          <span className="text-muted-foreground mx-1">:</span>
-                          <span className="text-primary font-medium">{displayToPin}</span>
-                        </TableCell>
-                      )}
-                      {effectiveColumns.voltage && (
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {conn.voltage || "—"}
-                        </TableCell>
-                      )}
-                      {effectiveColumns.notes && (
-                        <TableCell className="text-xs text-muted-foreground">
-                          {conn.notes || "—"}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })
+      {/* Connection Table */}
+      <div className="p-3 max-h-[500px] overflow-y-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-b border-border/60 hover:bg-transparent">
+              {effectiveColumns.from && (
+                <TableHead className="w-[170px] text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  From
+                </TableHead>
               )}
-            </TableBody>
-          </Table>
-        </div>
+              {effectiveColumns.wireColor && (
+                <TableHead className="w-[100px] text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Wire
+                </TableHead>
+              )}
+              {effectiveColumns.signal && (
+                <TableHead className="w-[110px] text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Signal
+                </TableHead>
+              )}
+              {effectiveColumns.to && (
+                <TableHead className="w-[170px] text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  To
+                </TableHead>
+              )}
+              {effectiveColumns.voltage && (
+                <TableHead className="w-[80px] text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Voltage
+                </TableHead>
+              )}
+              {effectiveColumns.notes && (
+                <TableHead className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Notes
+                </TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredConnections.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={visibleColumnCount}
+                  className="text-center py-6 text-xs text-muted-foreground"
+                >
+                  No connections match the current filter.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredConnections.map((conn, idx) => {
+                const signal = resolveConnectionSignal(conn, circuit);
+                const visual = getSignalVisual(signal, netColorMode);
+                const wireColorName =
+                  conn.wireColor?.trim() ||
+                  (suggestWireColors ? deriveWireColorName(conn, signal) : undefined);
+                const wireHex = wireColorName
+                  ? (WIRE_COLOR_MAP[wireColorName.toLowerCase()] ?? WIRE_COLOR_FALLBACK)
+                  : undefined;
+                const rowKey = `${conn.from.componentId}:${conn.from.pin}->${conn.to.componentId}:${conn.to.pin}-${conn.signal ?? conn.signalType ?? ""}-${idx}`;
+
+                const fromComp =
+                  boards.find((b) => b.id === conn.from.componentId) ||
+                  peripherals.find((p) => p.id === conn.from.componentId);
+                const toComp =
+                  boards.find((b) => b.id === conn.to.componentId) ||
+                  peripherals.find((p) => p.id === conn.to.componentId);
+
+                // If the user is focusing on a component, and that component is the TARGET of this connection,
+                // we swap the left/right display so the focused component is always on the left ("From").
+                const isReversed = selectedComponentId === conn.to.componentId;
+
+                const displayFromComp = isReversed ? toComp : fromComp;
+                const displayToComp = isReversed ? fromComp : toComp;
+                const displayFromName =
+                  displayFromComp?.name ??
+                  (isReversed ? conn.to.componentId : conn.from.componentId);
+                const displayToName =
+                  displayToComp?.name ?? (isReversed ? conn.from.componentId : conn.to.componentId);
+                const displayFromPin = isReversed ? conn.to.pin : conn.from.pin;
+                const displayToPin = isReversed ? conn.from.pin : conn.to.pin;
+
+                return (
+                  <TableRow key={rowKey} className="border-b border-border/30 hover:bg-muted/30">
+                    {effectiveColumns.from &&
+                      renderEndpointCell(displayFromName, displayFromPin, visual)}
+                    {effectiveColumns.wireColor && (
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {wireHex && (
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <span
+                                    className="h-1.5 w-7 rounded-full ring-1 ring-inset ring-black/15 dark:ring-white/25 shrink-0"
+                                    style={{ backgroundColor: wireHex }}
+                                  />
+                                }
+                              />
+                              <TooltipPopup side="top">
+                                {conn.wireColor?.trim()
+                                  ? "Specified wire color"
+                                  : "Suggested from signal type"}
+                              </TooltipPopup>
+                            </Tooltip>
+                          )}
+                          <span className="text-[11px] capitalize text-muted-foreground">
+                            {wireColorName ?? "—"}
+                          </span>
+                        </div>
+                      </TableCell>
+                    )}
+                    {effectiveColumns.signal && (
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "font-mono text-[11px] font-semibold",
+                            netColorMode === "neutral" ? "text-foreground" : visual.text,
+                          )}
+                          title={conn.notes || conn.signal || conn.signalType || undefined}
+                        >
+                          {conn.signal || conn.signalType || "—"}
+                        </span>
+                      </TableCell>
+                    )}
+                    {effectiveColumns.to && renderEndpointCell(displayToName, displayToPin, visual)}
+                    {effectiveColumns.voltage && (
+                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                        {conn.voltage || "—"}
+                      </TableCell>
+                    )}
+                    {effectiveColumns.notes && (
+                      <TableCell className="max-w-[220px]">
+                        <span
+                          className="text-[11px] text-muted-foreground line-clamp-2"
+                          title={conn.notes || undefined}
+                        >
+                          {conn.notes || "—"}
+                        </span>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

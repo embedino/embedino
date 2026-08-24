@@ -227,15 +227,71 @@ export function parseCircuitWiring(input: unknown): CircuitWiringDiagram {
   return decoded;
 }
 
+/**
+ * Escape raw control characters inside string literals so strict JSON.parse
+ * can accept the document. Models generating wiring JSON sometimes emit
+ * literal newlines/tabs inside string values, which is invalid JSON and
+ * surfaces as "Bad control character in string literal".
+ */
+function escapeRawControlCharactersInStrings(json: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+  for (const ch of json) {
+    if (!inString) {
+      if (ch === '"') {
+        inString = true;
+      }
+      result += ch;
+      continue;
+    }
+    if (escaped) {
+      escaped = false;
+      result += ch;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      result += ch;
+      continue;
+    }
+    if (ch === '"') {
+      inString = false;
+      result += ch;
+      continue;
+    }
+    if (ch < " ") {
+      if (ch === "\n") {
+        result += "\\n";
+      } else if (ch === "\r") {
+        result += "\\r";
+      } else if (ch === "\t") {
+        result += "\\t";
+      } else {
+        result += " ";
+      }
+      continue;
+    }
+    result += ch;
+  }
+  return result;
+}
+
 export function parseCircuitWiringJson(jsonString: string): CircuitWiringDiagram {
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonString);
   } catch (err: any) {
-    throw new WiringParseError({
-      message: `Failed to parse circuit wiring JSON: ${err?.message ?? String(err)}`,
-      rawText: jsonString,
-    });
+    // Lenient retry before failing: repair raw control characters inside
+    // string literals (a common model emission mistake) and parse again.
+    try {
+      parsed = JSON.parse(escapeRawControlCharactersInStrings(jsonString));
+    } catch {
+      throw new WiringParseError({
+        message: `Failed to parse circuit wiring JSON: ${err?.message ?? String(err)}`,
+        rawText: jsonString,
+      });
+    }
   }
   try {
     return parseCircuitWiring(parsed);

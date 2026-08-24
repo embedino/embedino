@@ -13,21 +13,21 @@ export interface TableColumnDef {
 export const TABLE_COLUMNS: readonly TableColumnDef[] = [
   {
     key: "from",
-    label: "From (Source)",
-    minWidth: "w-[180px]",
+    label: "From",
+    minWidth: "w-[170px]",
     defaultRequired: true,
     hasData: () => true,
   },
   {
     key: "wireColor",
-    label: "Wire Color",
-    minWidth: "w-[110px]",
+    label: "Wire",
+    minWidth: "w-[100px]",
     hasData: (conns) => conns.some((c) => Boolean(c.wireColor && c.wireColor.trim().length > 0)),
   },
   {
     key: "signal",
-    label: "Signal / Bus",
-    minWidth: "w-[130px]",
+    label: "Signal",
+    minWidth: "w-[110px]",
     hasData: (conns) =>
       conns.some(
         (c) =>
@@ -37,8 +37,8 @@ export const TABLE_COLUMNS: readonly TableColumnDef[] = [
   },
   {
     key: "to",
-    label: "To (Target)",
-    minWidth: "w-[180px]",
+    label: "To",
+    minWidth: "w-[170px]",
     defaultRequired: true,
     hasData: () => true,
   },
@@ -56,15 +56,24 @@ export const TABLE_COLUMNS: readonly TableColumnDef[] = [
   },
 ] as const;
 
+/**
+ * Swatch colors tuned to stay legible on both light and dark card surfaces —
+ * dark hues (black, brown) are lifted just enough to not vanish into the
+ * dark-theme background, while vivid hues stay recognizable as real wire colors.
+ */
 export const WIRE_COLOR_MAP: Record<string, string> = {
-  red: "#ef4444",
-  black: "#1e293b",
-  yellow: "#eab308",
-  blue: "#3b82f6",
-  green: "#22c55e",
+  red: "#f87171",
+  black: "#52525b",
+  yellow: "#facc15",
+  blue: "#60a5fa",
+  green: "#4ade80",
   white: "#f8fafc",
-  orange: "#f97316",
-  purple: "#a855f7",
-  brown: "#78350f",
-  gray: "#64748b",
+  orange: "#fb923c",
+  purple: "#c084fc",
+  brown: "#b45309",
+  gray: "#94a3b8",
+  custom: "#22d3ee",
 };
+
+/** Neutral fallback for wire colors that are not in the map. */
+export const WIRE_COLOR_FALLBACK = "#71717a";

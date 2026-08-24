@@ -7,6 +7,7 @@ import {
   getCircuitPeripherals,
 } from "@embedino/contracts";
 import { Button } from "~/components/ui/button";
+import { Spinner } from "~/components/ui/spinner";
 import { cn } from "~/lib/utils";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { useWiringStore } from "~/state/wiring";
@@ -15,6 +16,7 @@ export interface WiringLaunchCardProps {
   code: string;
   fenceTitle?: string | undefined;
   threadRef?: ScopedThreadRef | undefined;
+  isStreaming?: boolean | undefined;
   className?: string | undefined;
 }
 
@@ -22,6 +24,7 @@ export function WiringLaunchCard({
   code,
   fenceTitle,
   threadRef,
+  isStreaming,
   className,
 }: WiringLaunchCardProps) {
   // Parse circuit JSON
@@ -45,6 +48,32 @@ export function WiringLaunchCard({
   }, [threadRef, code, fenceTitle]);
 
   if (parseError || !circuit) {
+    // While the assistant is still writing the fence the JSON is necessarily
+    // incomplete, so a parse failure here is expected progress — never surface
+    // it as an error. Only a finished fence that still fails to parse is one.
+    if (isStreaming) {
+      return (
+        <div
+          className={cn(
+            "flex w-full flex-col gap-2 overflow-hidden rounded-xl border border-border/60 bg-card p-4 shadow-xs",
+            className,
+          )}
+          data-wiring-launch-card="generating"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-muted-foreground">
+              <Spinner className="size-4" />
+            </div>
+            <div className="flex flex-col">
+              <h4 className="text-sm font-medium text-foreground">
+                {fenceTitle || "Circuit Wiring Diagram"}
+              </h4>
+              <p className="text-[11px] text-muted-foreground">Generating wiring…</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div
         className={cn(

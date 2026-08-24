@@ -1972,6 +1972,7 @@ function ChatMarkdownBlock({
                 code={codeBlock.code}
                 fenceTitle={fenceTitle ?? undefined}
                 threadRef={threadRef}
+                isStreaming={isStreaming}
               />
             </RenderErrorBoundary>
           );

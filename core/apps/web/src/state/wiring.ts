@@ -4,6 +4,7 @@ import { parseCircuitWiringJson } from "@embedino/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import type { NetColorMode } from "../components/wiring/signalColors";
 import { resolveStorage } from "../lib/storage";
 
 export type WiringViewerTab = "diagram" | "table";
@@ -39,12 +40,18 @@ export function resolveThreadKey(ref?: ScopedThreadRef | undefined): string {
 
 interface WiringStoreState {
   byThreadKey: Record<string, ThreadWiringState>;
+  /** Global appearance preference: how pin names & net labels are colored. */
+  netColorMode: NetColorMode;
+  /** Global appearance preference: derive jumper colors from signal type when unspecified. */
+  suggestWireColors: boolean;
   getThreadState: (ref?: ScopedThreadRef | undefined) => ThreadWiringState;
   setCircuit: (
     ref: ScopedThreadRef | undefined,
     code: string,
     fenceTitle?: string | undefined,
   ) => void;
+  setNetColorMode: (mode: NetColorMode) => void;
+  setSuggestWireColors: (suggest: boolean) => void;
   setSelectedComponent: (ref: ScopedThreadRef | undefined, componentId: string | null) => void;
   setHidePowerGnd: (ref: ScopedThreadRef | undefined, hide: boolean) => void;
   setActiveTab: (ref: ScopedThreadRef | undefined, tab: WiringViewerTab) => void;
@@ -61,6 +68,8 @@ export const useWiringStore = create<WiringStoreState>()(
   persist(
     (set, get) => ({
       byThreadKey: {},
+      netColorMode: "signal",
+      suggestWireColors: true,
 
       getThreadState: (ref) => {
         const key = resolveThreadKey(ref);
@@ -95,6 +104,14 @@ export const useWiringStore = create<WiringStoreState>()(
             },
           };
         });
+      },
+
+      setNetColorMode: (mode) => {
+        set((state) => ({ netColorMode: mode }));
+      },
+
+      setSuggestWireColors: (suggest) => {
+        set((state) => ({ suggestWireColors: suggest }));
       },
 
       setSelectedComponent: (ref, componentId) => {
