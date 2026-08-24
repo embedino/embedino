@@ -1473,6 +1473,8 @@ export function makeOpenCodeAdapter(
       // rendered as chat content. The hardware prompt rides there instead of
       // being glued to the user's message text, so it stays invisible and can
       // refresh every turn without polluting the transcript.
+      if (input.activeToolchain !== undefined) context.activeToolchain = input.activeToolchain;
+      if (input.activeDeviceId !== undefined) context.activeDeviceId = input.activeDeviceId;
       const hardwarePrompt = yield* buildHardwareSystemPrompt(
         context.activeToolchain,
         context.activeDeviceId,

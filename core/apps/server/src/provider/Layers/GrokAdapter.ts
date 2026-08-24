@@ -976,6 +976,8 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
               });
 
               let text = input.input?.trim();
+              if (input.activeToolchain !== undefined) ctx.activeToolchain = input.activeToolchain;
+              if (input.activeDeviceId !== undefined) ctx.activeDeviceId = input.activeDeviceId;
               const hardwarePrompt = yield* buildHardwareSystemPrompt(
                 ctx.activeToolchain,
                 ctx.activeDeviceId,

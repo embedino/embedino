@@ -1063,6 +1063,8 @@ export function makeCursorAdapter(
           // Hardware state changes mid-session are folded into the auto-
           // managed rule file instead of the user's message text, keeping
           // every user-visible prompt exactly what the user typed.
+          if (input.activeToolchain !== undefined) ctx.activeToolchain = input.activeToolchain;
+          if (input.activeDeviceId !== undefined) ctx.activeDeviceId = input.activeDeviceId;
           const hardwarePrompt = yield* buildHardwareSystemPrompt(
             ctx.activeToolchain,
             ctx.activeDeviceId,

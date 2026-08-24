@@ -12,7 +12,7 @@ import {
 } from "~/state/hardware";
 import { usePrimaryEnvironmentId } from "~/state/environments";
 import { Dialog } from "~/components/ui/dialog";
-import { ToolchainSetupDialog } from "~/components/wiring/ToolchainSetup";
+import { ToolchainSwitcherDialog } from "./ToolchainSwitcherDialog";
 import { BoardSelectorPopover } from "./BoardSelectorPopover";
 import { BoardNamingDialog } from "./BoardNamingDialog";
 
@@ -88,7 +88,7 @@ export const BoardSelectorPill = memo(function BoardSelectorPill({
           />
         )}
       </Popover.Root>
-      <ToolchainSetupDialog />
+      <ToolchainSwitcherDialog />
       <BoardNamingDialog device={namingDevice} onClose={() => setNamingDevice(null)} />
     </Dialog>
   );
