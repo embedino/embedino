@@ -36,19 +36,19 @@ jobs:
           working-directory: core
 
       - name: Check Formatting & Linting
-        run: pnpm exec vp check
+        run: vp check
 
       - name: Strict Typecheck
-        run: pnpm run tc
+        run: vp run tc
 
       - name: Verify Release Plumbing
-        run: pnpm run release:smoke
+        run: vp run release:smoke
 
       - name: Build Workspace Packages
-        run: pnpm run build
+        run: vp run build
 
       - name: Build Desktop Production Bundle
-        run: pnpm run build:desktop
+        run: vp run build:desktop
 
   unit_tests:
     name: Unit & Integration Tests
@@ -67,4 +67,4 @@ jobs:
           working-directory: core
 
       - name: Run Test Suite
-        run: pnpm run test
+        run: vp run test
