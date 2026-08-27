@@ -44,6 +44,9 @@ jobs:
       - name: Verify Release Plumbing
         run: vp run release:smoke
 
+      - name: Verify Brand Assets
+        run: vp run icons:check
+
       - name: Build Workspace Packages
         run: vp run build
 

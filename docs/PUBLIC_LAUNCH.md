@@ -21,6 +21,14 @@ Every pull request and protected branch should pass:
 
 The repository workflow is `.github/workflows/ci.yml`. The release workflow additionally builds and publishes the supported platform artifacts.
 
+The repository owner should protect `main` with these required status checks:
+
+- `Quality, Release Smoke & Build`
+- `Unit & Integration Tests`
+
+The owner should also enable GitHub Discussions for tester/community chat. The
+tester feedback issue form is already included in `.github/ISSUE_TEMPLATE/`.
+
 ## Supported desktop artifacts
 
 - macOS arm64 and x64 DMG
