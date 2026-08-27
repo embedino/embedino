@@ -6,8 +6,10 @@ import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import { HostProcessPlatform } from "@embedino/shared/hostProcess";
 
 const repoRoot = NodePath.resolve(NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)), "..");
+const hostPlatform = Effect.runSync(HostProcessPlatform);
 
 const workspaceFiles = [
   "package.json",
@@ -16,13 +18,6 @@ const workspaceFiles = [
   "apps/server/package.json",
   "apps/desktop/package.json",
   "apps/web/package.json",
-  "apps/mobile/package.json",
-  "apps/mobile/deps/react-native-nitro-markdown-0.5.0.tgz",
-  "apps/mobile/modules/embedino-markdown-text/package.json",
-  "apps/mobile/modules/embedino-review-diff/package.json",
-  "apps/mobile/modules/embedino-terminal/package.json",
-  "apps/marketing/package.json",
-  "infra/relay/package.json",
   "oxlint-plugin-embedino/package.json",
   "packages/client-runtime/package.json",
   "packages/contracts/package.json",
@@ -185,6 +180,40 @@ function assertMissing(path: string, message: string): void {
   }
 }
 
+function mergeWindowsManifestFixtures(tempRoot: string, repositoryRoot: string): void {
+  const releaseAssetsDirectory = NodePath.resolve(tempRoot, "release-assets");
+  const x64Manifests = NodeFS.readdirSync(releaseAssetsDirectory).filter(
+    (name) => name.endsWith("-win-x64.yml") && !name.startsWith("builder-debug-"),
+  );
+  if (x64Manifests.length === 0) {
+    throw new Error("No Windows updater manifests found to merge.");
+  }
+
+  for (const x64ManifestName of x64Manifests) {
+    const x64Manifest = NodePath.join(releaseAssetsDirectory, x64ManifestName);
+    const arm64Manifest = x64Manifest.replace("-x64.yml", "-arm64.yml");
+    const outputManifest = x64Manifest.replace("-win-x64.yml", ".yml");
+    if (!NodeFS.existsSync(arm64Manifest)) {
+      throw new Error("Missing matching arm64 Windows manifest for " + x64Manifest + ".");
+    }
+
+    NodeChildProcess.execFileSync(
+      process.execPath,
+      [
+        NodePath.resolve(repositoryRoot, "scripts/merge-update-manifests.ts"),
+        "--platform",
+        "win",
+        arm64Manifest,
+        x64Manifest,
+        outputManifest,
+      ],
+      { cwd: repositoryRoot, stdio: "inherit" },
+    );
+    NodeFS.rmSync(arm64Manifest, { force: true });
+    NodeFS.rmSync(x64Manifest, { force: true });
+  }
+}
+
 const tempRoot = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "embedino-release-smoke-"));
 
 try {
@@ -206,10 +235,15 @@ try {
 
   NodeFS.rmSync(NodePath.resolve(tempRoot, "pnpm-lock.yaml"), { force: true });
 
-  NodeChildProcess.execFileSync("vp", ["install", "--lockfile-only", "--ignore-scripts"], {
-    cwd: tempRoot,
-    stdio: "inherit",
-  });
+  NodeChildProcess.execFileSync(
+    hostPlatform === "win32" ? "vp.cmd" : "vp",
+    ["install", "--lockfile-only", "--ignore-scripts"],
+    {
+      cwd: tempRoot,
+      shell: hostPlatform === "win32",
+      stdio: "inherit",
+    },
+  );
 
   const lockfile = NodeFS.readFileSync(NodePath.resolve(tempRoot, "pnpm-lock.yaml"), "utf8");
   assertContains(lockfile, "lockfileVersion:", "Expected pnpm-lock.yaml to be regenerated.");
@@ -298,11 +332,14 @@ try {
   const mergedPreviewWindowsManifestPath = NodePath.resolve(tempRoot, "release-assets/preview.yml");
   const { arm64Path: winDebugArm64Path, x64Path: winDebugX64Path } =
     writeWindowsBuilderDebugFixtures(tempRoot);
-  NodeChildProcess.execFileSync(
-    "bash",
-    [
-      "-lc",
-      `
+  if (hostPlatform === "win32") {
+    mergeWindowsManifestFixtures(tempRoot, repoRoot);
+  } else {
+    NodeChildProcess.execFileSync(
+      "bash",
+      [
+        "-lc",
+        `
         release_assets_dir=${JSON.stringify(NodePath.resolve(tempRoot, "release-assets"))}
         shopt -s nullglob
         found_windows_manifest=false
@@ -331,12 +368,13 @@ try {
           exit 1
         fi
       `,
-    ],
-    {
-      cwd: repoRoot,
-      stdio: "inherit",
-    },
-  );
+      ],
+      {
+        cwd: repoRoot,
+        stdio: "inherit",
+      },
+    );
+  }
 
   const mergedWindowsManifest = NodeFS.readFileSync(mergedWindowsManifestPath, "utf8");
   assertContains(

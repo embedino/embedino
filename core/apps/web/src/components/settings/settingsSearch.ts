@@ -93,12 +93,12 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "auto-settle-inactive-threads",
-    title: "Auto-settle inactive threads",
+    title: "Auto-pause inactive threads",
     to: "/settings/general",
   },
   {
     id: "auto-settle-merged-threads",
-    title: "Auto-settle merged threads",
+    title: "Auto-pause merged threads",
     to: "/settings/general",
   },
   {

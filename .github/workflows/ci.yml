@@ -15,11 +15,14 @@ defaults:
   run:
     working-directory: ./core
 
+permissions:
+  contents: read
+
 jobs:
   check_and_build:
-    name: Check & Build
+    name: Quality, Release Smoke & Build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,15 +36,24 @@ jobs:
           working-directory: core
 
       - name: Check Formatting & Linting
-        run: vp check
+        run: pnpm exec vp check
+
+      - name: Strict Typecheck
+        run: pnpm run tc
+
+      - name: Verify Release Plumbing
+        run: pnpm run release:smoke
 
       - name: Build Workspace Packages
-        run: vp run build
+        run: pnpm run build
+
+      - name: Build Desktop Production Bundle
+        run: pnpm run build:desktop
 
   unit_tests:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,4 +67,4 @@ jobs:
           working-directory: core
 
       - name: Run Test Suite
-        run: vp run test
+        run: pnpm run test

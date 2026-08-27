@@ -29,6 +29,9 @@ type PackageManifest = typeof PackageManifest.Type;
 
 const decodeManifest = Schema.decodeUnknownSync(Schema.fromJsonString(PackageManifest));
 
+const isRuntimeExternal = (name: string) =>
+  CLI_RUNTIME_EXTERNAL_PREFIXES.some((prefix) => name.startsWith(prefix));
+
 describe("shouldBundleCliDependency", () => {
   it("bundles ordinary runtime dependencies", () => {
     for (const id of ["effect", "@effect/platform", "hono", "@embedino/shared/hostProcess"]) {
@@ -124,6 +127,12 @@ it.layer(NodeServices.layer)("external package dependency closure", (it) => {
     if (!(yield* isPresent(storeDir))) return installed;
 
     for (const entry of yield* fileSystem.readDirectory(storeDir)) {
+      // The pnpm store can contain thousands of packages on a developer
+      // machine. Only external package entries can affect this closure check;
+      // scanning every manifest made the Windows run exceed Vitest's timeout.
+      const packageName = entry.startsWith("@") ? entry.replace("+", "/") : entry;
+      if (!isRuntimeExternal(packageName)) continue;
+
       const modulesDir = path.join(storeDir, entry, "node_modules");
       if (!(yield* isPresent(modulesDir))) continue;
 
@@ -135,6 +144,7 @@ it.layer(NodeServices.layer)("external package dependency closure", (it) => {
           : [owner];
 
         for (const name of names) {
+          if (!isRuntimeExternal(name)) continue;
           if (installed.has(name)) continue;
           const manifestPath = path.join(modulesDir, name, "package.json");
           if (!(yield* isPresent(manifestPath))) continue;
@@ -144,11 +154,6 @@ it.layer(NodeServices.layer)("external package dependency closure", (it) => {
     }
     return installed;
   }).pipe(Effect.cached, Effect.runSync);
-
-  // Runtime-external only. The build-only entries resolve `bun:*` and are never
-  // loaded by Node, so their closure genuinely does not need to be external.
-  const isRuntimeExternal = (name: string) =>
-    CLI_RUNTIME_EXTERNAL_PREFIXES.some((prefix) => name.startsWith(prefix));
 
   it.effect("finds the runtime-external packages on disk", () =>
     Effect.gen(function* () {

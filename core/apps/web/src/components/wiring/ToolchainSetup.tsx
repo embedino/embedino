@@ -199,10 +199,10 @@ export function ToolchainSetupPill() {
         if (val) void fetchStatus();
       }}
     >
-      <DialogTrigger className="group/toolchain-card flex w-full cursor-pointer flex-col gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-control-surface p-3 text-left outline-hidden ring-ring transition-colors hover:bg-sidebar-row-hover focus-visible:ring-2">
+      <DialogTrigger className="group/toolchain-card flex w-full cursor-pointer flex-col gap-2.5 rounded-[var(--control-radius)] border border-sidebar-border bg-sidebar-control-surface p-2.5 text-left outline-hidden ring-ring transition-[background-color,border-color,box-shadow] hover:bg-sidebar-row-hover hover:shadow-xs focus-visible:ring-2">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-sidebar shadow-xs ring-1 ring-sidebar-border transition-shadow duration-200 group-hover/toolchain-card:shadow-sm">
-            <Sparkles className="size-3.5 text-[var(--sidebar-icon-color)] transition-colors group-hover/toolchain-card:text-sidebar-foreground" />
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-[calc(var(--control-radius)-2px)] bg-sidebar text-sidebar-muted-foreground/80 shadow-xs ring-1 ring-sidebar-border transition-[background-color,box-shadow,color] duration-200 group-hover/toolchain-card:bg-sidebar-row-active group-hover/toolchain-card:text-sidebar-foreground group-hover/toolchain-card:shadow-sm">
+            <Sparkles className="size-3.5 transition-colors" />
           </span>
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate text-[13px] font-semibold tracking-tight text-sidebar-foreground">
@@ -213,10 +213,10 @@ export function ToolchainSetupPill() {
             </span>
           </span>
         </div>
-        <span className="flex items-center gap-2 rounded-[var(--control-radius)] bg-sidebar py-2 ps-2.5 pe-2 text-xs font-medium text-sidebar-muted-foreground ring-1 ring-sidebar-border/70 transition-colors group-hover/toolchain-card:text-sidebar-foreground">
-          <Wrench className="size-3.5 shrink-0" />
+        <span className="flex items-center gap-2 rounded-[var(--control-radius)] bg-sidebar py-2 ps-2.5 pe-2 text-xs font-medium text-sidebar-muted-foreground ring-1 ring-sidebar-border/70 transition-[background-color,color,box-shadow] group-hover/toolchain-card:bg-sidebar-row-active group-hover/toolchain-card:text-sidebar-foreground group-hover/toolchain-card:shadow-xs">
+          <Wrench className="size-3.5 shrink-0 transition-colors" />
           <span>Configure Toolchain</span>
-          <ChevronRight className="ms-auto size-3.5 shrink-0 opacity-60 transition-transform duration-200 group-hover/toolchain-card:translate-x-0.5" />
+          <ChevronRight className="ms-auto size-3.5 shrink-0 opacity-60 transition-[color,opacity,transform] duration-200 group-hover/toolchain-card:translate-x-0.5 group-hover/toolchain-card:opacity-100" />
         </span>
       </DialogTrigger>
 

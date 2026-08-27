@@ -2370,6 +2370,10 @@ const make = Effect.gen(function* () {
           worker.enqueue({ source: "runtime", event }),
         ),
       );
+      // Let the forked stream establish its PubSub subscription before
+      // startup returns. This prevents the first provider event from being
+      // lost when a session emits immediately after ingestion starts.
+      yield* Effect.yieldNow;
       yield* forkParked(
         Stream.runForEach(orchestrationEngine.streamDomainEvents, (event) => {
           if (event.type !== "thread.turn-start-requested") {
@@ -2378,6 +2382,7 @@ const make = Effect.gen(function* () {
           return worker.enqueue({ source: "domain", event });
         }),
       );
+      yield* Effect.yieldNow;
     });
 
   return {

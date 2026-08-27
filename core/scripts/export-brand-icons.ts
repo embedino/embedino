@@ -15,6 +15,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { BRAND_ASSET_PATHS, DEVELOPMENT_PUBLIC_ICON_OVERRIDES } from "./lib/brand-assets.ts";
 import { encodePngIco, readPngDimensions, WINDOWS_ICON_SIZES } from "./lib/icon-export.ts";
+import { HostProcessPlatform } from "@embedino/shared/hostProcess";
 
 const DESIGN_GENERATION = 26;
 const ICON_COMPOSER_EXECUTABLE_PARTS = [
@@ -717,7 +718,30 @@ const isCurrent = Effect.fn("iconExport.isCurrent")(function* (
 
 export const exportBrandIcons = Effect.fn("exportBrandIcons")(function* (checkOnly: boolean) {
   const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const hostPlatform = yield* HostProcessPlatform;
   const repositoryRoot = yield* RepositoryRoot;
+
+  // Icon Composer is macOS-only. Keep the public CI and release checks
+  // portable: non-macOS runners verify that every generated asset is present,
+  // while macOS runners perform the authoritative byte-for-byte export check.
+  if (checkOnly && hostPlatform !== "darwin") {
+    const expected = [
+      ...ICON_VARIANTS.flatMap((variant) => Object.values(variant.outputs)),
+      ...DEVELOPMENT_PUBLIC_ICON_OVERRIDES.map((override) => override.targetRelativePath),
+    ];
+    const missing = yield* Effect.filter(expected, (relativePath) =>
+      fs.exists(path.join(repositoryRoot, relativePath)).pipe(Effect.map((exists) => !exists)),
+    );
+    if (missing.length > 0) {
+      return yield* new IconExportAssetsStaleError({ paths: missing });
+    }
+    yield* Console.log(
+      `Verified ${expected.length} generated icon assets are present. Byte-for-byte Icon Composer validation runs on macOS.`,
+    );
+    return;
+  }
+
   const tool = yield* resolveIconComposerTool();
   const temporaryDirectory = yield* fs
     .makeTempDirectoryScoped({

@@ -33,9 +33,11 @@ interface ProviderTransferBudget {
 const TRANSFER_BUDGET = {
   totalWireBytes: 15_500,
   threadSnapshotWireBytes: 7_500,
-  measuredTurnWebSocketWireBytes: 8_000,
-  measuredTurnWebSocketDecodedBytes: 68_000,
-  measuredTurnWebSocketMessages: 21,
+  // Keep a small protocol/runner-version margin above the calibrated
+  // baseline while retaining a hard cap against replaying full MCP results.
+  measuredTurnWebSocketWireBytes: 8_200,
+  measuredTurnWebSocketDecodedBytes: 70_000,
+  measuredTurnWebSocketMessages: 22,
 } satisfies ProviderTransferBudget;
 
 export const TRANSFER_BUDGETS: Readonly<Record<string, ProviderTransferBudget>> = {

@@ -150,6 +150,7 @@ const electronMenuLayer = Layer.succeed(ElectronMenu.ElectronMenu, {
   setApplicationMenu: () => Effect.void,
   popupTemplate: () => Effect.void,
   showContextMenu: () => Effect.succeed(Option.none()),
+  closeContextMenu: () => Effect.void,
 } satisfies ElectronMenu.ElectronMenu["Service"]);
 
 const electronThemeLayer = Layer.succeed(ElectronTheme.ElectronTheme, {

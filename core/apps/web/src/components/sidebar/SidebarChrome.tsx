@@ -1,14 +1,8 @@
-import {
-  ArrowLeftIcon,
-  ChartNoAxesColumnIcon,
-  GitPullRequestIcon,
-  SettingsIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
 import { memo, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 
 import { cn } from "../../lib/utils";
-import { useEnvironments } from "../../state/environments";
 import {
   SidebarFooter,
   SidebarHeader,
@@ -64,21 +58,11 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
           ? "pull-requests"
           : null,
   });
-  const { environments } = useEnvironments();
-  // The page reads every connected server, so one of them offering pull requests is enough for
-  // the link to lead somewhere.
-  const pullRequestsSupported = environments.some(
-    (environment) => environment.serverConfig?.environment.capabilities.pullRequests === true,
-  );
   const closeMobileSidebar = useCallback(() => {
     if (isMobile) {
       setOpenMobile(false);
     }
   }, [isMobile, setOpenMobile]);
-  const handlePullRequestsClick = useCallback(() => {
-    closeMobileSidebar();
-    void navigate({ to: "/pull-requests", search: { involvement: "all", state: "open" } });
-  }, [closeMobileSidebar, navigate]);
   const handleSettingsClick = useCallback(() => {
     closeMobileSidebar();
     void navigate({ to: "/settings" });
@@ -127,24 +111,6 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
                 <TooltipPopup side="top">Settings</TooltipPopup>
               </Tooltip>
             </SidebarMenuItem>
-            {pullRequestsSupported ? (
-              <SidebarMenuItem className="shrink-0">
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <SidebarMenuButton
-                        aria-label="Pull Requests"
-                        onClick={handlePullRequestsClick}
-                        size="icon"
-                      >
-                        <GitPullRequestIcon />
-                      </SidebarMenuButton>
-                    }
-                  />
-                  <TooltipPopup side="top">Pull Requests</TooltipPopup>
-                </Tooltip>
-              </SidebarMenuItem>
-            ) : null}
             <SidebarMenuItem className="shrink-0">
               <Tooltip>
                 <TooltipTrigger

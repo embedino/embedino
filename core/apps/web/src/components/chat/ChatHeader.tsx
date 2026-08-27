@@ -4,6 +4,7 @@ import {
   type ProjectScript,
   type ResolvedKeybindingsConfig,
   type ThreadId,
+  type ProjectId,
   type HardwareDevice,
 } from "@embedino/contracts";
 import { BoardSelectorPill, type HardwareAction } from "../hardware/BoardSelectorPill";
@@ -56,6 +57,8 @@ interface ChatHeaderProps {
   /** PR state feeding the settled classification, resolved by ChatView. */
   changeRequestState: ChangeRequestStateLike | null;
   activeProjectName: string | undefined;
+  activeProjectId?: ProjectId | undefined;
+  branchSelector?: ReactNode;
   activeProjectCwd: string | null;
   activeProjectFaviconPath: string | null;
   openInCwd: string | null;
@@ -115,6 +118,8 @@ export const ChatHeader = memo(function ChatHeader({
   isServerThread,
   changeRequestState,
   activeProjectName,
+  activeProjectId,
+  branchSelector,
   activeProjectCwd,
   activeProjectFaviconPath,
   openInCwd,
@@ -316,6 +321,7 @@ export const ChatHeader = memo(function ChatHeader({
         {activeProjectScripts && (
           <ProjectScriptsControl
             scripts={activeProjectScripts}
+            keybindings={keybindings}
             onAddScript={onAddProjectScript}
             onUpdateScript={onUpdateProjectScript}
             onDeleteScript={onDeleteProjectScript}
@@ -337,6 +343,8 @@ export const ChatHeader = memo(function ChatHeader({
           <GitActionsControl
             gitCwd={gitCwd}
             activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
+            activeProjectId={activeProjectId}
+            branchSelector={branchSelector}
             onOpenPullRequest={onOpenPullRequest}
             {...(draftId ? { draftId } : {})}
           />

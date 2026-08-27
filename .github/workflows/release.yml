@@ -166,6 +166,9 @@ jobs:
       - name: Test
         run: vp run test
 
+      - name: Verify release plumbing
+        run: node scripts/release-smoke.ts
+
       - id: previous_tag
         name: Resolve previous release tag
         run: |
@@ -173,96 +176,6 @@ jobs:
             --channel "${{ steps.release_meta.outputs.release_channel }}" \
             --current-tag "${{ steps.release_meta.outputs.tag }}" \
             --github-output
-
-  relay_public_config:
-    name: Resolve Embedino Connect public config
-    needs: preflight
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment:
-      name: production
-    outputs:
-      clerk_publishable_key: ${{ steps.public_config.outputs.clerk_publishable_key }}
-      clerk_jwt_template: ${{ steps.public_config.outputs.clerk_jwt_template }}
-      clerk_cli_oauth_client_id: ${{ steps.public_config.outputs.clerk_cli_oauth_client_id }}
-      relay_url: ${{ steps.public_config.outputs.relay_url }}
-    env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      RELAY_DOMAIN: ${{ vars.RELAY_DOMAIN }}
-      RELAY_API_ZONE_NAME: ${{ vars.RELAY_API_ZONE_NAME }}
-      CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
-      CLERK_JWT_TEMPLATE: ${{ vars.CLERK_JWT_TEMPLATE }}
-      CLERK_CLI_OAUTH_CLIENT_ID: ${{ vars.CLERK_CLI_OAUTH_CLIENT_ID }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.preflight.outputs.ref }}
-          sparse-checkout: |
-            /*
-            !/.repos/
-          sparse-checkout-cone-mode: false
-
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: package.json
-          cache: true
-          run-install: |
-            args:
-              - --filter=embedino-relay...
-
-      - id: relay_state
-        name: Read production relay tracing config
-        shell: bash
-        run: |
-          vp run --filter embedino-relay deploy \
-            --stage prod \
-            --read-state \
-            --github-output \
-            --github-env-file "$RUNNER_TEMP/relay-client-tracing.env"
-
-      - name: Upload relay client tracing config
-        uses: actions/upload-artifact@v7
-        with:
-          name: relay-client-tracing-config
-          path: ${{ runner.temp }}/relay-client-tracing.env
-          if-no-files-found: error
-          retention-days: 1
-
-      - id: public_config
-        name: Resolve production relay public config
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          relay_domain="${RELAY_DOMAIN:-}"
-          if [[ -z "$relay_domain" && -n "${RELAY_API_ZONE_NAME:-}" ]]; then
-            relay_domain="relay.$RELAY_API_ZONE_NAME"
-          fi
-          required=(
-            relay_domain
-            CLERK_PUBLISHABLE_KEY
-            CLERK_JWT_TEMPLATE
-            CLERK_CLI_OAUTH_CLIENT_ID
-          )
-          missing=()
-          for name in "${required[@]}"; do
-            if [[ -z "${!name:-}" ]]; then
-              missing+=("$name")
-            fi
-          done
-          if (( ${#missing[@]} > 0 )); then
-            printf 'Missing required relay deployment configuration: %s\n' "${missing[*]}" >&2
-            exit 1
-          fi
-
-          echo "clerk_publishable_key=$CLERK_PUBLISHABLE_KEY" >> "$GITHUB_OUTPUT"
-          echo "clerk_jwt_template=$CLERK_JWT_TEMPLATE" >> "$GITHUB_OUTPUT"
-          echo "clerk_cli_oauth_client_id=$CLERK_CLI_OAUTH_CLIENT_ID" >> "$GITHUB_OUTPUT"
-          echo "relay_url=https://$relay_domain" >> "$GITHUB_OUTPUT"
 
   # node-pty publishes no Linux prebuilt and the WSL backend runs under the
   # distro's own (Linux) Node, which can't load the Windows/Electron binary. We
@@ -320,20 +233,15 @@ jobs:
     name: Build ${{ matrix.label }}
     # build_wsl_node_pty stays in `needs` so it runs first and its artifact is
     # available to download, but only the Windows matrix entry consumes it. We
-    # therefore gate the job on preflight + relay (must succeed) WITHOUT requiring
+    # therefore gate the job on preflight (must succeed) WITHOUT requiring
     # build_wsl_node_pty, so a failed Linux prebuild doesn't skip the macOS/Linux
     # builds. `!cancelled()` (not `!failure()`) lets the job run even when
     # build_wsl_node_pty failed; the Windows-only download step below then fails
     # that single platform if the prebuild is missing.
-    needs: [preflight, relay_public_config, build_wsl_node_pty]
-    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' }}
+    needs: [preflight, build_wsl_node_pty]
+    if: ${{ !cancelled() && needs.preflight.result == 'success' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    env:
-      EMBEDINO_CLERK_PUBLISHABLE_KEY: ${{ needs.relay_public_config.outputs.clerk_publishable_key }}
-      EMBEDINO_CLERK_JWT_TEMPLATE: ${{ needs.relay_public_config.outputs.clerk_jwt_template }}
-      EMBEDINO_CLERK_CLI_OAUTH_CLIENT_ID: ${{ needs.relay_public_config.outputs.clerk_cli_oauth_client_id }}
-      EMBEDINO_RELAY_URL: ${{ needs.relay_public_config.outputs.relay_url }}
     strategy:
       fail-fast: false
       matrix:
@@ -396,20 +304,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_target }}
-
-      - name: Download relay client tracing config
-        uses: actions/download-artifact@v8
-        with:
-          name: relay-client-tracing-config
-          path: ${{ runner.temp }}/relay-client-tracing
-
-      - name: Load relay client tracing config
-        shell: bash
-        run: |
-          config_path="$RUNNER_TEMP/relay-client-tracing/relay-client-tracing.env"
-          tracing_token="$(sed -n 's/^EMBEDINO_RELAY_CLIENT_OTLP_TRACES_TOKEN=//p' "$config_path")"
-          echo "::add-mask::$tracing_token"
-          cat "$config_path" >> "$GITHUB_ENV"
 
       - name: Align package versions to release version
         run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
@@ -664,18 +558,13 @@ jobs:
 
   publish_cli:
     name: Publish CLI to npm
-    needs: [preflight, relay_public_config, build]
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' && needs.build.result == 'success' }}
+    needs: [preflight, build]
+    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04 # ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
-    env:
-      EMBEDINO_CLERK_PUBLISHABLE_KEY: ${{ needs.relay_public_config.outputs.clerk_publishable_key }}
-      EMBEDINO_CLERK_JWT_TEMPLATE: ${{ needs.relay_public_config.outputs.clerk_jwt_template }}
-      EMBEDINO_CLERK_CLI_OAUTH_CLIENT_ID: ${{ needs.relay_public_config.outputs.clerk_cli_oauth_client_id }}
-      EMBEDINO_RELAY_URL: ${{ needs.relay_public_config.outputs.relay_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -696,20 +585,6 @@ jobs:
               - --filter=embedino...
               - --filter=@embedino/web...
               - --filter=@embedino/scripts...
-
-      - name: Download relay client tracing config
-        uses: actions/download-artifact@v8
-        with:
-          name: relay-client-tracing-config
-          path: ${{ runner.temp }}/relay-client-tracing
-
-      - name: Load relay client tracing config
-        shell: bash
-        run: |
-          config_path="$RUNNER_TEMP/relay-client-tracing/relay-client-tracing.env"
-          tracing_token="$(sed -n 's/^EMBEDINO_RELAY_CLIENT_OTLP_TRACES_TOKEN=//p' "$config_path")"
-          echo "::add-mask::$tracing_token"
-          cat "$config_path" >> "$GITHUB_ENV"
 
       - name: Align package versions to release version
         run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
@@ -858,15 +733,11 @@ jobs:
 
   deploy_web:
     name: Deploy hosted web app
-    needs: [preflight, relay_public_config, release]
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' && needs.release.result == 'success' }}
+    needs: [preflight, release]
+    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.release.result == 'success' && vars.VERCEL_PROJECT_ID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      EMBEDINO_CLERK_PUBLISHABLE_KEY: ${{ needs.relay_public_config.outputs.clerk_publishable_key }}
-      EMBEDINO_CLERK_JWT_TEMPLATE: ${{ needs.relay_public_config.outputs.clerk_jwt_template }}
-      EMBEDINO_CLERK_CLI_OAUTH_CLIENT_ID: ${{ needs.relay_public_config.outputs.clerk_cli_oauth_client_id }}
-      EMBEDINO_RELAY_URL: ${{ needs.relay_public_config.outputs.relay_url }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -893,20 +764,6 @@ jobs:
             args:
               - --filter=@embedino/scripts...
               - --filter=@embedino/web...
-
-      - name: Download relay client tracing config
-        uses: actions/download-artifact@v8
-        with:
-          name: relay-client-tracing-config
-          path: ${{ runner.temp }}/relay-client-tracing
-
-      - name: Load relay client tracing config
-        shell: bash
-        run: |
-          config_path="$RUNNER_TEMP/relay-client-tracing/relay-client-tracing.env"
-          tracing_token="$(sed -n 's/^EMBEDINO_RELAY_CLIENT_OTLP_TRACES_TOKEN=//p' "$config_path")"
-          echo "::add-mask::$tracing_token"
-          cat "$config_path" >> "$GITHUB_ENV"
 
       - name: Align package versions to release version
         run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
@@ -952,13 +809,6 @@ jobs:
               --token "$VERCEL_TOKEN" \
               "${vercel_scope_args[@]}" \
               --build-env "APP_VERSION=${{ needs.preflight.outputs.version }}" \
-              --build-env "EMBEDINO_CLERK_PUBLISHABLE_KEY=${EMBEDINO_CLERK_PUBLISHABLE_KEY:-}" \
-              --build-env "EMBEDINO_CLERK_JWT_TEMPLATE=${EMBEDINO_CLERK_JWT_TEMPLATE:-}" \
-              --build-env "EMBEDINO_CLERK_CLI_OAUTH_CLIENT_ID=${EMBEDINO_CLERK_CLI_OAUTH_CLIENT_ID:-}" \
-              --build-env "EMBEDINO_RELAY_URL=${EMBEDINO_RELAY_URL:-}" \
-              --build-env "EMBEDINO_RELAY_CLIENT_OTLP_TRACES_URL=${EMBEDINO_RELAY_CLIENT_OTLP_TRACES_URL:-}" \
-              --build-env "EMBEDINO_RELAY_CLIENT_OTLP_TRACES_DATASET=${EMBEDINO_RELAY_CLIENT_OTLP_TRACES_DATASET:-}" \
-              --build-env "EMBEDINO_RELAY_CLIENT_OTLP_TRACES_TOKEN=${EMBEDINO_RELAY_CLIENT_OTLP_TRACES_TOKEN:-}" \
               --build-env "VITE_HOSTED_APP_URL=$router_url" \
               --build-env "VITE_HOSTED_APP_CHANNEL=$channel_name"
           )"
@@ -1059,11 +909,10 @@ jobs:
     if: |
       always() && !cancelled() &&
       needs.preflight.result == 'success' &&
-      needs.relay_public_config.result == 'success' &&
       needs.release.result == 'success' &&
-      needs.deploy_web.result == 'success' &&
+      (needs.deploy_web.result == 'success' || needs.deploy_web.result == 'skipped') &&
       (needs.finalize.result == 'success' || needs.finalize.result == 'skipped')
-    needs: [preflight, relay_public_config, release, deploy_web, finalize]
+    needs: [preflight, release, deploy_web, finalize]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

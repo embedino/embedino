@@ -174,7 +174,7 @@ type ProviderRuntimeTestCheckpoint = ProviderRuntimeTestThread["checkpoints"][nu
 async function waitForThread(
   readModel: () => Promise<ProviderRuntimeTestReadModel>,
   predicate: (thread: ProviderRuntimeTestThread) => boolean,
-  timeoutMs = 2000,
+  timeoutMs = 10_000,
   threadId: ThreadId = asThreadId("thread-1"),
 ) {
   const deadline = (await Effect.runPromise(Clock.currentTimeMillis)) + timeoutMs;
@@ -277,7 +277,7 @@ describe("ProviderRuntimeIngestion", () => {
       commandId: CommandId.make("cmd-thread-create"),
       threadId: ThreadId.make("thread-1"),
       projectId: asProjectId("project-1"),
-      title: "Thread",
+      title: "New thread",
       modelSelection: {
         instanceId: ProviderInstanceId.make("codex"),
         model: "gpt-5-codex",
@@ -3091,6 +3091,9 @@ describe("ProviderRuntimeIngestion", () => {
   it("consumes P1 runtime events into thread metadata, diff checkpoints, and activities", async () => {
     const harness = await createHarness();
     const now = "2026-01-01T00:00:00.000Z";
+    // Allow the PubSub stream consumer to attach before publishing the first
+    // event, then drain the worker instead of relying on polling latency.
+    await Effect.runPromise(Effect.yieldNow);
 
     harness.emit({
       type: "thread.metadata.updated",
@@ -3163,6 +3166,8 @@ describe("ProviderRuntimeIngestion", () => {
       },
     });
 
+    await harness.drain();
+
     const thread = await waitForThread(
       harness.readModel,
       (entry) =>
@@ -3220,7 +3225,7 @@ describe("ProviderRuntimeIngestion", () => {
     expect(checkpoint?.status).toBe("missing");
     expect(checkpoint?.assistantMessageId).toBe("assistant:item-p1-assistant");
     expect(checkpoint?.checkpointRef).toBe("provider-diff:evt-turn-diff-updated");
-  });
+  }, 20_000);
 
   it("projects context window updates into normalized thread activities", async () => {
     const harness = await createHarness();

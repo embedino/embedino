@@ -107,9 +107,9 @@ export function PullRequestSearchInput({
 
 /**
  * Every list filter lives behind the one filter icon so the control row stays two controls
- * wide: the search and this. The trigger carries a dot whenever any filter is off its
- * default, so a narrowed list is never a mystery. Same menu chrome as the detail panel's
- * actions, which also owns its own spacing.
+ * wide: the search and this. An active filter uses the trigger's foreground color, while the
+ * project scope remains visible beside the icon. Same menu chrome as the detail panel's actions,
+ * which also owns its own spacing.
  */
 const ALL_PROJECTS_VALUE = "all";
 /** MenuRadioGroup wants a string, so "every host" wears the one value no host can be. */
@@ -258,6 +258,12 @@ export function PullRequestFiltersMenu({
     server !== undefined ||
     projectId !== undefined ||
     Object.keys(filters).length > 0;
+  const selectedProject =
+    projectId === undefined || projectEnvironmentId === undefined
+      ? undefined
+      : projects.find(
+          (project) => project.id === projectId && project.environmentId === projectEnvironmentId,
+        );
   /**
    * Rebuilt rather than spread so an unfiltered group leaves the record instead of lingering in
    * it as an explicit `undefined`, which the listing input does not accept.
@@ -272,19 +278,17 @@ export function PullRequestFiltersMenu({
     <Menu>
       <MenuTrigger
         className={cn(
-          // The icon-button size that pairs with a full-height input, so the two read as one strip.
-          "relative inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-input text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground sm:size-8",
+          // The project scope stays visible beside the filter icon, so a narrowed list is never
+          // mysterious and the project picker is discoverable without opening a second menu.
+          "relative inline-flex h-9 min-w-9 max-w-52 shrink-0 items-center justify-center gap-2 rounded-lg border border-input px-2 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground sm:h-8",
           filtered && "text-foreground",
         )}
         aria-label="Filter pull requests"
       >
         <ListFilterIcon className="size-4" />
-        {filtered ? (
-          <span
-            aria-hidden
-            className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-primary"
-          />
-        ) : null}
+        <span className="hidden min-w-0 truncate text-xs sm:inline">
+          {selectedProject?.title ?? "All projects"}
+        </span>
       </MenuTrigger>
       <MenuPopup align="end" side="bottom" className="min-w-56">
         <PullRequestFilterRadioGroup

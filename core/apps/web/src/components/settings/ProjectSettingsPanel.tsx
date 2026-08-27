@@ -1169,6 +1169,7 @@ function ProjectDetail({ group }: { group: SidebarProjectSnapshot }) {
       <ProjectScriptEditorDialog
         request={editorRequest}
         scripts={scripts}
+        keybindings={keybindings}
         onSubmit={submitScript}
         onDelete={deleteScript}
         onClose={() => setEditorRequest(null)}

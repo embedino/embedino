@@ -157,6 +157,7 @@ import {
 } from "@embedino/client-runtime/state/subagentRuntime";
 import { DiffWorkerPoolProvider } from "./DiffWorkerPoolProvider";
 import { BranchToolbar } from "./BranchToolbar";
+import { BranchToolbarBranchSelector } from "./BranchToolbarBranchSelector";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import { AlarmClockIcon, CheckCircle2Icon, ChevronDownIcon, GitBranchIcon } from "lucide-react";
@@ -2639,11 +2640,12 @@ function ChatViewContent(props: ChatViewProps) {
     terminalUiLaunchContext?.threadId === activeThreadId ? terminalUiLaunchContext : null;
   // Default true while loading to avoid toolbar flicker.
   const isGitRepo = gitStatusQuery.data?.isRepo ?? true;
-  const showComposerContextStrip = shouldShowComposerContextStrip({
-    hasActiveProject: activeProject !== null,
-    isGitRepo,
-    showEnvironmentIndicator: showComposerEnvironmentIndicator,
-  });
+  const showComposerContextStrip =
+    shouldShowComposerContextStrip({
+      hasActiveProject: activeProject !== null,
+      isGitRepo,
+      showEnvironmentIndicator: showComposerEnvironmentIndicator,
+    }) && !isServerThread;
   const initialDiffPanelGitScope =
     gitStatusQuery.data?.hasWorkingTreeChanges === true ? "unstaged" : "branch";
   const diffPanelGitStatusResolutionKey = gitStatusQuery.data ? "resolved" : "pending";
@@ -4211,7 +4213,7 @@ function ChatViewContent(props: ChatViewProps) {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to un-settle thread",
+            title: "Failed to resume thread",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -4239,7 +4241,7 @@ function ChatViewContent(props: ChatViewProps) {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to wake thread",
+            title: "Failed to resume thread",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -4445,9 +4447,9 @@ function ChatViewContent(props: ChatViewProps) {
       id: `thread-woke:${activeThread?.id ?? "unknown"}`,
       variant: "info",
       icon: <AlarmClockIcon />,
-      title: "This thread woke from snooze",
-      description: "Dismiss to clear the Woke indicator, or send a message to keep going.",
-      dismissLabel: "Dismiss Woke notification",
+      title: "This thread is ready again",
+      description: "Dismiss this reminder or send a message to keep going.",
+      dismissLabel: "Dismiss ready notification",
       onDismiss: acknowledgeActiveThreadWoke,
     };
   }, [acknowledgeActiveThreadWoke, activeThread?.id, activeThreadWokeVisible]);
@@ -4467,7 +4469,7 @@ function ChatViewContent(props: ChatViewProps) {
       id: `thread-${isSnoozed ? "snoozed" : "settled"}:${activeThread?.id ?? "unknown"}`,
       variant: "info",
       icon: isSnoozed ? <AlarmClockIcon /> : <CheckCircle2Icon />,
-      title: `This thread is ${isSnoozed ? "snoozed" : "settled"}`,
+      title: `This thread is ${isSnoozed ? "waiting for a reminder" : "paused"}`,
       description: isSnoozed
         ? "Sending a message wakes it and moves it back to Active in the sidebar."
         : "Sending a message moves it back to Active in the sidebar.",
@@ -4482,11 +4484,11 @@ function ChatViewContent(props: ChatViewProps) {
         >
           {isSnoozed
             ? isUnsnoozing
-              ? "Waking..."
-              : "Wake now"
+              ? "Resuming..."
+              : "Resume now"
             : isUnsettling
-              ? "Un-settling..."
-              : "Un-settle"}
+              ? "Resuming..."
+              : "Resume"}
         </Button>
       ),
     };
@@ -6394,6 +6396,31 @@ function ChatViewContent(props: ChatViewProps) {
             isServerThread={isServerThread}
             changeRequestState={activeThreadPr?.state ?? null}
             activeProjectName={activeProject?.title}
+            activeProjectId={activeProject?.id}
+            branchSelector={
+              isGitRepo ? (
+                <BranchToolbarBranchSelector
+                  className="w-full"
+                  environmentId={activeThread.environmentId}
+                  threadId={activeThread.id}
+                  {...(routeKind === "draft" && draftId ? { draftId } : {})}
+                  envLocked={envLocked}
+                  {...(canOverrideServerThreadEnvMode ? { effectiveEnvModeOverride: envMode } : {})}
+                  {...(canOverrideServerThreadEnvMode
+                    ? {
+                        activeThreadBranchOverride: activeThreadBranch,
+                        onActiveThreadBranchOverrideChange: setPendingServerThreadBranch,
+                      }
+                    : {})}
+                  startFromOrigin={startFromOrigin}
+                  onStartFromOriginChange={onStartFromOriginChange}
+                  {...(canCheckoutPullRequestIntoThread
+                    ? { onCheckoutPullRequestRequest: openPullRequestDialog }
+                    : {})}
+                  onComposerFocusRequest={scheduleComposerFocus}
+                />
+              ) : null
+            }
             activeProjectCwd={activeProject?.workspaceRoot ?? null}
             activeProjectFaviconPath={activeProject?.faviconPath ?? null}
             openInCwd={gitCwd}
@@ -6528,6 +6555,23 @@ function ChatViewContent(props: ChatViewProps) {
                   {threadSyncPhase && !activeEnvironmentUnavailable ? (
                     <ThreadSyncStatusPill phase={threadSyncPhase} />
                   ) : null}
+                  {showComposerContextStrip ? (
+                    <div className="pointer-events-auto">
+                      <BranchToolbar
+                        environmentId={activeThread.environmentId}
+                        threadId={activeThread.id}
+                        showGitControls={isGitRepo}
+                        {...(routeKind === "draft" && draftId ? { draftId } : {})}
+                        onEnvModeChange={onEnvModeChange}
+                        {...(canOverrideServerThreadEnvMode
+                          ? { effectiveEnvModeOverride: envMode }
+                          : {})}
+                        envLocked={envLocked}
+                        {...(hasMultipleEnvironments ? { onEnvironmentChange } : {})}
+                        availableEnvironments={logicalProjectEnvironments}
+                      />
+                    </div>
+                  ) : null}
                   <div
                     className="relative"
                     style={
@@ -6537,10 +6581,7 @@ function ChatViewContent(props: ChatViewProps) {
                     }
                   >
                     <div
-                      className={cn(
-                        "chat-composer-glass-shell relative mx-auto w-full max-w-3xl",
-                        showComposerContextStrip && "chat-composer-glass-shell-with-context",
-                      )}
+                      className={cn("chat-composer-glass-shell relative mx-auto w-full max-w-3xl")}
                     >
                       <div className="chat-composer-glass-host relative z-10 w-full rounded-[22px]">
                         <div ref={attachDraftHeroComposerAnchorRef} className="relative z-10">
@@ -6617,43 +6658,6 @@ function ChatViewContent(props: ChatViewProps) {
                             setThreadError={setThreadError}
                             onExpandImage={onExpandTimelineImage}
                           />
-                        </div>
-                      </div>
-                      <div className="min-h-0">
-                        <div
-                          data-terminal-open={terminalUiState.terminalOpen ? "true" : undefined}
-                          className="relative z-0"
-                        >
-                          {showComposerContextStrip && (
-                            <div className="pointer-events-auto">
-                              <BranchToolbar
-                                environmentId={activeThread.environmentId}
-                                threadId={activeThread.id}
-                                showGitControls={isGitRepo}
-                                {...(routeKind === "draft" && draftId ? { draftId } : {})}
-                                onEnvModeChange={onEnvModeChange}
-                                startFromOrigin={startFromOrigin}
-                                onStartFromOriginChange={onStartFromOriginChange}
-                                {...(canOverrideServerThreadEnvMode
-                                  ? { effectiveEnvModeOverride: envMode }
-                                  : {})}
-                                {...(canOverrideServerThreadEnvMode
-                                  ? {
-                                      activeThreadBranchOverride: activeThreadBranch,
-                                      onActiveThreadBranchOverrideChange:
-                                        setPendingServerThreadBranch,
-                                    }
-                                  : {})}
-                                envLocked={envLocked}
-                                onComposerFocusRequest={scheduleComposerFocus}
-                                {...(canCheckoutPullRequestIntoThread
-                                  ? { onCheckoutPullRequestRequest: openPullRequestDialog }
-                                  : {})}
-                                {...(hasMultipleEnvironments ? { onEnvironmentChange } : {})}
-                                availableEnvironments={logicalProjectEnvironments}
-                              />
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>

@@ -80,10 +80,18 @@ export const ChatStatusIndicator = memo(function ChatStatusIndicator({
         />
         <span className="truncate">{summary.label}</span>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-1" sideOffset={6}>
+      <PopoverContent
+        align="end"
+        className="w-72 overflow-hidden p-0"
+        sideOffset={6}
+        viewportClassName="!p-1"
+      >
         <div role="status" aria-label="Workspace status">
           {issues.map((issue) => (
-            <div key={issue.key} className="flex items-start gap-2 rounded-md px-2 py-2">
+            <div
+              key={issue.key}
+              className="flex items-start gap-2.5 rounded-md bg-muted/25 px-3 py-2.5 dark:bg-white/[0.025]"
+            >
               <span
                 aria-hidden="true"
                 className={cn(
@@ -93,7 +101,9 @@ export const ChatStatusIndicator = memo(function ChatStatusIndicator({
                 )}
               />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-medium text-foreground text-xs">{issue.title}</div>
+                <div className="truncate font-medium text-foreground text-xs leading-5">
+                  {issue.title}
+                </div>
                 {issue.detail !== null && (
                   <div className="mt-0.5 text-[11px] break-words text-muted-foreground leading-snug">
                     {issue.detail}

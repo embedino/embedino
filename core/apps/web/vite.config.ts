@@ -236,6 +236,15 @@ export default defineConfig(() => {
                   target: devProxyTarget,
                   changeOrigin: true,
                   ...(prefix === "/ws" ? { ws: true } : {}),
+                  configure: ((proxy: any) => {
+                    proxy.on("error", (err: unknown) => {
+                      const code = (err as NodeJS.ErrnoException | undefined)?.code;
+                      if (code === "ECONNRESET" || code === "ECONNREFUSED" || code === "EPIPE") {
+                        return;
+                      }
+                      console.error(`[vite] proxy error on ${prefix}:`, err);
+                    });
+                  }) as any,
                 },
               ]),
             ),

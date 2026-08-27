@@ -20,4 +20,21 @@ describe("menu radio item geometry", () => {
 
     expect(html).toContain("-mx-0.5");
   });
+
+  it("does not render a circular marker that can overlap radio-item icons", () => {
+    const html = renderToStaticMarkup(
+      <Menu>
+        <MenuRadioGroup value="merge">
+          <MenuRadioItem value="merge">
+            <span className="flex items-center gap-2">
+              <svg aria-hidden className="size-3.5" />
+              <span>Merge</span>
+            </span>
+          </MenuRadioItem>
+        </MenuRadioGroup>
+      </Menu>,
+    );
+
+    expect(html).not.toContain("<circle");
+  });
 });

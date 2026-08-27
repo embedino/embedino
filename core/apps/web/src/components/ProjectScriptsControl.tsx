@@ -1,4 +1,4 @@
-import type { ProjectScript } from "@embedino/contracts";
+import type { ProjectScript, ResolvedKeybindingsConfig } from "@embedino/contracts";
 import { PlusIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 
@@ -14,8 +14,11 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 export type { NewProjectScriptInput, ProjectScriptActionResult };
 
+const EMPTY_KEYBINDINGS: ResolvedKeybindingsConfig = [];
+
 interface ProjectScriptsControlProps {
   scripts: ReadonlyArray<ProjectScript>;
+  keybindings?: ResolvedKeybindingsConfig;
   onAddScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
   onUpdateScript: (
     scriptId: string,
@@ -31,6 +34,7 @@ interface ProjectScriptsControlProps {
  */
 export default function ProjectScriptsControl({
   scripts,
+  keybindings = EMPTY_KEYBINDINGS,
   onAddScript,
   onUpdateScript,
   onDeleteScript,
@@ -73,6 +77,7 @@ export default function ProjectScriptsControl({
       <ProjectScriptEditorDialog
         request={editorRequest}
         scripts={scripts}
+        keybindings={keybindings}
         onSubmit={submitScript}
         onDelete={(scriptId) => void onDeleteScript(scriptId)}
         onClose={() => setEditorRequest(null)}

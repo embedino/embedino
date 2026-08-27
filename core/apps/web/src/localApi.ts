@@ -47,7 +47,9 @@ function createBrowserLocalApi(): LocalApi {
       close: async () => {
         if (!window.desktopBridge) {
           dismissContextMenu();
+          return;
         }
+        await window.desktopBridge.closeContextMenu();
       },
     },
     persistence: {

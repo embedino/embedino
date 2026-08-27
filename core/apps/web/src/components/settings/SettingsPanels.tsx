@@ -1897,12 +1897,12 @@ export function GeneralSettingsPanel() {
       <SettingsSection title="Threads">
         <SettingsRow
           {...searchableSetting("auto-settle-merged-threads")}
-          description="Settle a thread when its pull request merges. Closed pull requests still settle automatically."
+          description="Pause a thread when its pull request merges. Closed pull requests still pause automatically."
           resetAction={
             settings.sidebarAutoSettleOnMerge !==
             DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge ? (
               <SettingResetButton
-                label="auto-settle on merge"
+                label="auto-pause on merge"
                 onClick={() =>
                   updateSettings({
                     sidebarAutoSettleOnMerge: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge,
@@ -1924,12 +1924,12 @@ export function GeneralSettingsPanel() {
 
         <SettingsRow
           {...searchableSetting("auto-settle-inactive-threads")}
-          description="Sidebar threads with no activity for this long settle automatically."
+          description="Sidebar threads with no activity for this long pause automatically."
           resetAction={
             settings.sidebarAutoSettleAfterDays !==
             DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays ? (
               <SettingResetButton
-                label="auto-settle"
+                label="auto-pause"
                 onClick={() =>
                   updateSettings({
                     sidebarAutoSettleAfterDays: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays,
@@ -1952,8 +1952,8 @@ export function GeneralSettingsPanel() {
         />
         {settings.sidebarAutoSettleAfterDays !== null ? (
           <SettingsRow
-            title="Days of inactivity before auto-settle"
-            description="Any new activity un-settles a thread automatically."
+            title="Days of inactivity before auto-pause"
+            description="Any new activity resumes a paused thread automatically."
             control={
               <AutoSettleDaysInput
                 value={settings.sidebarAutoSettleAfterDays}

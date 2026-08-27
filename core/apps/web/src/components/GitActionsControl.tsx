@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { EmbedinoFeatures, type ScopedThreadRef } from "@embedino/contracts";
+import { EmbedinoFeatures, type ProjectId, type ScopedThreadRef } from "@embedino/contracts";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -17,7 +17,15 @@ import type {
 } from "@embedino/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import * as Option from "effect/Option";
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { flushSync } from "react-dom";
 import {
   CheckIcon,
@@ -26,6 +34,7 @@ import {
   ExternalLinkIcon,
   GitBranchPlusIcon,
   GitCommitIcon,
+  GitPullRequestIcon,
   LockIcon,
   GlobeIcon,
 } from "lucide-react";
@@ -60,7 +69,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "~/components/ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "~/components/ui/menu";
 import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Textarea } from "~/components/ui/textarea";
@@ -90,6 +99,8 @@ import { openPullRequestLink } from "~/lib/openPullRequestLink";
 interface GitActionsControlProps {
   gitCwd: string | null;
   activeThreadRef: ScopedThreadRef | null;
+  activeProjectId?: ProjectId | undefined;
+  branchSelector?: ReactNode;
   draftId?: DraftId;
   /**
    * Opens the thread's own change request beside it. Absent when the thread has no project to
@@ -953,9 +964,12 @@ function PublishRepositoryDialog(props: PublishRepositoryDialogProps) {
 export default function GitActionsControl({
   gitCwd,
   activeThreadRef,
+  activeProjectId,
+  branchSelector,
   draftId,
   onOpenPullRequest,
 }: GitActionsControlProps) {
+  const navigate = useNavigate();
   const updateThreadMetadata = useAtomCommand(
     threadEnvironment.updateMetadata,
     "thread branch metadata update",
@@ -1570,6 +1584,19 @@ export default function GitActionsControl({
   );
 
   const canPublishRepository = isRepo && gitStatusForActions !== null && !hasPrimaryRemote;
+  const canBrowsePullRequests = serverConfig?.environment.capabilities.pullRequests === true;
+
+  const openPullRequests = useCallback(() => {
+    void navigate({
+      to: "/pull-requests",
+      search: {
+        involvement: "all",
+        state: "open",
+        ...(activeProjectId ? { projectId: activeProjectId } : {}),
+        ...(activeEnvironmentId ? { environmentId: activeEnvironmentId } : {}),
+      },
+    });
+  }, [activeEnvironmentId, activeProjectId, navigate]);
 
   if (!gitCwd) return null;
 
@@ -1612,7 +1639,14 @@ export default function GitActionsControl({
           }}
         >
           <MenuTrigger
-            render={<Button aria-label="Git actions" size="icon-xs" variant="outline" />}
+            render={
+              <Button
+                aria-label="Git actions"
+                className="min-w-9 px-2"
+                size="xs"
+                variant="outline"
+              />
+            }
             disabled={isGitActionRunning}
           >
             <span className="relative flex items-center">
@@ -1623,7 +1657,16 @@ export default function GitActionsControl({
               />
             </span>
           </MenuTrigger>
-          <MenuPopup align="end" className="w-full">
+          <MenuPopup align="end" className="min-w-56">
+            {branchSelector ? (
+              <>
+                <div className="space-y-1 px-2 pt-1 pb-0.5">
+                  <p className="px-1 text-[11px] font-medium text-muted-foreground">Branch</p>
+                  {branchSelector}
+                </div>
+                <MenuSeparator />
+              </>
+            ) : null}
             {gitActionMenuItems.map((item) => {
               const disabledReason = getMenuActionDisabledReason({
                 item,
@@ -1674,6 +1717,15 @@ export default function GitActionsControl({
                 <CloudUploadIcon />
                 Publish repository...
               </MenuItem>
+            ) : null}
+            {canBrowsePullRequests ? (
+              <>
+                <MenuSeparator />
+                <MenuItem onClick={openPullRequests}>
+                  <GitPullRequestIcon />
+                  Pull Requests
+                </MenuItem>
+              </>
             ) : null}
             {gitStatusForActions?.refName === null && (
               <p className="px-2 py-1.5 text-xs text-warning">

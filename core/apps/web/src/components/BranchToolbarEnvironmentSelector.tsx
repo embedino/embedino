@@ -41,30 +41,17 @@ export const BranchToolbarEnvironmentSelector = memo(function BranchToolbarEnvir
     [availableEnvironments],
   );
 
-  // The static label carries the xs control's height (h-7 sm:h-6) as well as
-  // its padding: the composer context strip has no min-height of its own, and
-  // the glass seam joining it to the composer assumes a fixed strip height, so
-  // a shorter label would drag the seam out of line whenever this label is the
-  // only thing in the strip.
+  // Keep the static label aligned with the compact context row's xs controls.
   if (envLocked || onEnvironmentChange === undefined) {
     return (
-      <span
-        className="inline-flex h-7 min-w-0 max-w-full items-center gap-1 border border-transparent px-[calc(--spacing(3)-1px)] text-sm font-medium text-muted-foreground/70 sm:h-6 sm:text-xs"
-        data-composer-context-control
-      >
+      <span className="inline-flex h-7 min-w-0 max-w-full items-center gap-1 border border-transparent px-[calc(--spacing(3)-1px)] text-sm font-medium text-muted-foreground/70 sm:h-6 sm:text-xs">
         {activeEnvironment?.isPrimary ? (
           <MonitorIcon className="size-3 shrink-0" />
         ) : (
           <CloudIcon className="size-3 shrink-0" />
         )}
-        <span
-          data-composer-label
-          className="min-w-0 max-w-[240px] group-data-[compact]/composer-context:max-w-0"
-        >
-          <span
-            data-composer-label-motion
-            className="block w-full min-w-0 max-w-[240px] origin-left truncate transition-[opacity,transform] duration-180 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[compact]/composer-context:[transform:translateX(-0.25rem)_scaleX(0.95)] group-data-[compact]/composer-context:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity"
-          >
+        <span className="min-w-0 max-w-[240px]">
+          <span className="block w-full min-w-0 max-w-[240px] truncate">
             {activeEnvironment?.label ?? "Run on"}
           </span>
         </span>
@@ -84,21 +71,14 @@ export const BranchToolbarEnvironmentSelector = memo(function BranchToolbarEnvir
         size="xs"
         className="min-w-0 max-w-full rounded-full font-normal text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring data-pressed:bg-muted [&_[data-slot=select-icon]]:hidden"
         aria-label="Run on"
-        data-composer-context-control
       >
         {activeEnvironment?.isPrimary ? (
           <MonitorIcon className="size-3 shrink-0" />
         ) : (
           <CloudIcon className="size-3 shrink-0" />
         )}
-        <span
-          data-composer-label
-          className="min-w-0 max-w-[240px] group-data-[compact]/composer-context:max-w-0"
-        >
-          <span
-            data-composer-label-motion
-            className="block w-full min-w-0 max-w-[240px] origin-left truncate transition-[opacity,transform] duration-180 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[compact]/composer-context:[transform:translateX(-0.25rem)_scaleX(0.95)] group-data-[compact]/composer-context:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity"
-          >
+        <span className="min-w-0 max-w-[240px]">
+          <span className="block w-full min-w-0 max-w-[240px] truncate">
             <SelectValue />
           </span>
         </span>

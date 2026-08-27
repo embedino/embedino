@@ -66,17 +66,17 @@ export function buildThreadActionMenuItems(
     ...(state.supports.settlement
       ? [
           state.isSettled
-            ? { id: "unsettle" as const, label: "Un-settle thread" }
-            : { id: "settle" as const, label: "Settle thread" },
+            ? { id: "unsettle" as const, label: "Resume thread" }
+            : { id: "settle" as const, label: "Pause thread" },
         ]
       : []),
     ...(state.supports.snooze
       ? [
           state.isSnoozed
-            ? { id: "unsnooze" as const, label: "Wake thread" }
+            ? { id: "unsnooze" as const, label: "Resume thread now" }
             : {
                 id: "snooze" as const,
-                label: "Snooze",
+                label: "Remind later",
                 disabled: !state.canSnoozeNow,
                 children: state.snoozePresets.map((preset) => ({
                   id: `snooze:${preset.id}` as const,

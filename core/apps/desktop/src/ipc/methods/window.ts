@@ -251,6 +251,16 @@ export const showContextMenu = DesktopIpc.makeIpcMethod({
   }),
 });
 
+export const closeContextMenu = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.CLOSE_CONTEXT_MENU_CHANNEL,
+  payload: Schema.Void,
+  result: Schema.Void,
+  handler: Effect.fn("desktop.ipc.window.closeContextMenu")(function* () {
+    const electronMenu = yield* ElectronMenu.ElectronMenu;
+    yield* electronMenu.closeContextMenu();
+  }),
+});
+
 export const openExternal = DesktopIpc.makeIpcMethod({
   channel: IpcChannels.OPEN_EXTERNAL_CHANNEL,
   payload: Schema.String,

@@ -1705,7 +1705,7 @@ export const make = Effect.gen(function* () {
             },
           }
         : null;
-    const { commitSha } = yield* gitCore.commit(cwd, suggestion.subject, suggestion.body, {
+    const { commitSha } = yield* gitCore.commit(cwd, suggestion.subject, suggestion.commitMessage, {
       timeoutMs: COMMIT_TIMEOUT_MS,
       ...(commitProgress ? { progress: commitProgress } : {}),
     });

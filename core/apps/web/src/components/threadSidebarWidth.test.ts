@@ -7,6 +7,7 @@ import {
   resolveInitialThreadSidebarWidth,
   THREAD_MAIN_CONTENT_MIN_WIDTH,
   THREAD_SIDEBAR_DEFAULT_WIDTH,
+  THREAD_SIDEBAR_MAX_WIDTH,
   THREAD_SIDEBAR_MIN_WIDTH,
 } from "./threadSidebarWidth";
 
@@ -17,6 +18,10 @@ describe("thread sidebar width", () => {
 
   it("uses a stored width in the initial render", () => {
     expect(resolveInitialThreadSidebarWidth(360, 1200)).toBe(360);
+  });
+
+  it("caps a stored width on wide desktop layouts", () => {
+    expect(resolveInitialThreadSidebarWidth(900, 2400)).toBe(THREAD_SIDEBAR_MAX_WIDTH);
   });
 
   it("clamps a stored width to the sidebar minimum", () => {

@@ -55,6 +55,7 @@ export class ElectronMenu extends Context.Service<
     readonly showContextMenu: (
       input: ElectronMenuContextInput,
     ) => Effect.Effect<Option.Option<string>>;
+    readonly closeContextMenu: () => Effect.Effect<void>;
     readonly popupTemplate: (input: ElectronMenuTemplateInput) => Effect.Effect<void>;
   }
 >()("@embedino/desktop/electron/ElectronMenu") {}
@@ -112,6 +113,7 @@ const normalizePosition = (
 export const make = Effect.gen(function* () {
   const platform = yield* HostProcessPlatform;
   let destructiveMenuIconCache: Option.Option<Electron.NativeImage> | undefined;
+  let activeContextMenu: { menu: Electron.Menu; window: Electron.BrowserWindow } | undefined;
 
   const getDestructiveMenuIcon = (): Option.Option<Electron.NativeImage> => {
     if (platform !== "darwin") {
@@ -216,11 +218,13 @@ export const make = Effect.gen(function* () {
             return;
           }
           completed = true;
+          activeContextMenu = undefined;
           resume(Effect.succeed(selectedItemId));
         };
 
         try {
           const menu = Electron.Menu.buildFromTemplate(buildTemplate(normalizedItems, complete));
+          activeContextMenu = { menu, window: input.window };
           const popupPosition = normalizePosition(
             input.position,
             input.window.webContents.getZoomFactor(),
@@ -255,6 +259,13 @@ export const make = Effect.gen(function* () {
             ),
           );
         }
+      }),
+    closeContextMenu: () =>
+      Effect.sync(() => {
+        const active = activeContextMenu;
+        if (!active) return;
+        activeContextMenu = undefined;
+        active.menu.closePopup(active.window);
       }),
   });
 });

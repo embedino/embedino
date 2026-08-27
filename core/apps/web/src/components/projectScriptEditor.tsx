@@ -10,10 +10,14 @@ import {
 } from "@embedino/client-runtime/state/runtime";
 import {
   BugIcon,
+  CheckIcon,
   FlaskConicalIcon,
+  Globe2Icon,
   HammerIcon,
+  KeyboardIcon,
   ListChecksIcon,
   PlayIcon,
+  TerminalIcon,
   WrenchIcon,
 } from "lucide-react";
 import React, { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
@@ -22,6 +26,7 @@ import {
   keybindingValueForCommand,
   decodeProjectScriptKeybindingRule,
 } from "~/lib/projectScriptKeybindings";
+import { readLocalApi } from "~/localApi";
 import { keybindingFromKeyboardEvent } from "~/components/settings/KeybindingsSettings.logic";
 import { commandForProjectScript, nextProjectScriptId } from "~/projectScripts";
 import {
@@ -131,6 +136,7 @@ export function editorRequestForScript(
 export function ProjectScriptEditorDialog({
   request,
   scripts,
+  keybindings,
   onSubmit,
   onDelete,
   onClose,
@@ -138,6 +144,7 @@ export function ProjectScriptEditorDialog({
   request: ProjectScriptEditorRequest | null;
   /** Existing scripts, used to derive a unique id for new scripts. */
   scripts: ReadonlyArray<ProjectScript>;
+  keybindings: ResolvedKeybindingsConfig;
   onSubmit: (
     scriptId: string | null,
     input: NewProjectScriptInput,
@@ -152,6 +159,7 @@ export function ProjectScriptEditorDialog({
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [runOnWorktreeCreate, setRunOnWorktreeCreate] = useState(false);
   const [keybinding, setKeybinding] = useState("");
+  const [isCapturingKeybinding, setIsCapturingKeybinding] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [autoOpenPreview, setAutoOpenPreview] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -159,6 +167,24 @@ export function ProjectScriptEditorDialog({
 
   const isOpen = request !== null;
   const isEditing = request?.scriptId != null;
+  const currentCommand = request
+    ? commandForProjectScript(
+        request.scriptId ??
+          nextProjectScriptId(
+            name.trim(),
+            scripts.map((script) => script.id),
+          ),
+      )
+    : null;
+  const keybindingConflict =
+    currentCommand && keybinding.trim()
+      ? keybindings.find(
+          (binding) =>
+            binding.command !== currentCommand &&
+            keybindingValueForCommand(keybindings, binding.command)?.toLowerCase() ===
+              keybinding.trim().toLowerCase(),
+        )
+      : undefined;
 
   // Hydrate the form whenever a new request opens the dialog.
   useEffect(() => {
@@ -169,10 +195,22 @@ export function ProjectScriptEditorDialog({
     setIconPickerOpen(false);
     setRunOnWorktreeCreate(request.initial.runOnWorktreeCreate);
     setKeybinding(request.initial.keybinding ?? "");
+    setIsCapturingKeybinding(false);
     setPreviewUrl(request.initial.previewUrl ?? "");
     setAutoOpenPreview(request.initial.autoOpenPreview);
     setValidationError(request.error ?? null);
   }, [request]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const suppressContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    window.addEventListener("contextmenu", suppressContextMenu, true);
+    void readLocalApi()?.contextMenu.close();
+    return () => window.removeEventListener("contextmenu", suppressContextMenu, true);
+  }, [isOpen]);
 
   const captureKeybinding = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Tab") return;
@@ -197,6 +235,12 @@ export function ProjectScriptEditorDialog({
     }
     if (trimmedCommand.length === 0) {
       setValidationError("Command is required.");
+      return;
+    }
+    if (keybindingConflict) {
+      setValidationError(
+        `That shortcut is already assigned to ${keybindingConflict.command}. Choose another shortcut.`,
+      );
       return;
     }
 
@@ -251,120 +295,211 @@ export function ProjectScriptEditorDialog({
           }
         }}
       >
-        <DialogPopup>
-          <DialogHeader>
-            <DialogTitle>{isEditing ? "Edit Action" : "Add Action"}</DialogTitle>
-            <DialogDescription>
-              Actions are project-scoped commands you can run from the top bar or keybindings.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogPanel>
-            <form id={formId} className="space-y-4" onSubmit={submit}>
-              <div className="space-y-1.5">
-                <Label htmlFor="script-name">Name</Label>
-                <div className="flex items-center gap-2">
-                  <Popover onOpenChange={setIconPickerOpen} open={iconPickerOpen}>
-                    <PopoverTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="size-9 shrink-0 hover:bg-popover active:bg-popover data-pressed:bg-popover data-pressed:shadow-xs/5 data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] dark:border-transparent dark:bg-white/[0.035] dark:data-pressed:before:shadow-none"
-                          aria-label="Choose icon"
-                        />
-                      }
-                    >
-                      <ScriptIcon icon={icon} className="size-4.5" />
-                    </PopoverTrigger>
-                    <PopoverPopup align="start">
-                      <div className="grid grid-cols-3 gap-2">
-                        {SCRIPT_ICONS.map((entry) => {
-                          const isSelected = entry.id === icon;
-                          return (
-                            <button
-                              key={entry.id}
-                              type="button"
-                              className={`relative flex flex-col items-center gap-2 rounded-md border px-2 py-2 text-xs dark:border-transparent ${
-                                isSelected
-                                  ? "border-primary/70 bg-primary/10 dark:ring-1 dark:ring-primary/30"
-                                  : "border-border/70 hover:bg-accent/60 dark:bg-white/[0.035]"
-                              }`}
-                              onClick={() => {
-                                setIcon(entry.id);
-                                setIconPickerOpen(false);
-                              }}
-                            >
-                              <ScriptIcon icon={entry.id} className="size-4" />
-                              <span>{entry.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </PopoverPopup>
-                  </Popover>
-                  <Input
-                    id="script-name"
-                    autoFocus
-                    placeholder="Test"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                  />
+        <DialogPopup className="max-w-xl overflow-hidden">
+          <DialogHeader className="border-b border-border/60 bg-background pb-5 dark:border-white/8">
+            <div className="flex items-start gap-3 pr-8">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/70 text-foreground dark:border-white/10 dark:bg-white/[0.06]">
+                <TerminalIcon className="size-4" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <DialogTitle>{isEditing ? "Edit action" : "Create an action"}</DialogTitle>
+                  <span className="text-xs text-muted-foreground">Project command</span>
                 </div>
+                <DialogDescription>
+                  Add a reusable project command to your toolbar or keybindings.
+                </DialogDescription>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="script-keybinding">Keybinding</Label>
-                <Input
-                  id="script-keybinding"
-                  placeholder="Press shortcut"
-                  value={keybinding}
-                  readOnly
-                  onKeyDown={captureKeybinding}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Press a shortcut. Use <code>Backspace</code> to clear.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="script-command">Command</Label>
-                <Textarea
-                  id="script-command"
-                  placeholder="bun test"
-                  value={command}
-                  onChange={(event) => setCommand(event.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="script-preview-url">Preview URL (optional)</Label>
-                <Input
-                  id="script-preview-url"
-                  placeholder="http://localhost:5173"
-                  value={previewUrl}
-                  onChange={(event) => setPreviewUrl(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Open this URL in the in-app preview when this action runs.
-                </p>
-              </div>
-              <label className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2 text-sm dark:border-transparent dark:bg-white/[0.035]">
-                <span>Run automatically on worktree creation</span>
-                <Switch
-                  checked={runOnWorktreeCreate}
-                  onCheckedChange={(checked) => setRunOnWorktreeCreate(Boolean(checked))}
-                />
-              </label>
-              <label
-                className={`flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2 text-sm dark:border-transparent dark:bg-white/[0.035] ${
-                  previewUrl.trim().length === 0 ? "opacity-60" : ""
-                }`}
-              >
-                <span>Open preview automatically when this action runs</span>
-                <Switch
-                  checked={autoOpenPreview}
-                  disabled={previewUrl.trim().length === 0}
-                  onCheckedChange={(checked) => setAutoOpenPreview(Boolean(checked))}
-                />
-              </label>
-              {validationError && <p className="text-sm text-destructive">{validationError}</p>}
+            </div>
+          </DialogHeader>
+          <DialogPanel className="!p-0" scrollFade={false}>
+            <form
+              id={formId}
+              className="divide-y divide-border/60 dark:divide-white/8"
+              onSubmit={submit}
+            >
+              <section className="space-y-4 p-6 pb-5">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Action details</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Give this command a recognizable name and icon.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="script-name">Name</Label>
+                  <div className="flex items-center gap-2">
+                    <Popover onOpenChange={setIconPickerOpen} open={iconPickerOpen}>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="size-9 shrink-0 hover:bg-popover active:bg-popover data-pressed:bg-popover data-pressed:shadow-xs/5 data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] dark:border-transparent dark:bg-white/[0.035] dark:data-pressed:before:shadow-none"
+                            aria-label="Choose icon"
+                          />
+                        }
+                      >
+                        <ScriptIcon icon={icon} className="size-4.5" />
+                      </PopoverTrigger>
+                      <PopoverPopup align="start">
+                        <div className="grid grid-cols-3 gap-2">
+                          {SCRIPT_ICONS.map((entry) => {
+                            const isSelected = entry.id === icon;
+                            return (
+                              <button
+                                key={entry.id}
+                                type="button"
+                                className={`relative flex flex-col items-center gap-2 rounded-md border px-2 py-2 text-xs dark:border-transparent ${
+                                  isSelected
+                                    ? "border-primary/70 bg-primary/10 dark:ring-1 dark:ring-primary/30"
+                                    : "border-border/70 hover:bg-accent/60 dark:bg-white/[0.035]"
+                                }`}
+                                onClick={() => {
+                                  setIcon(entry.id);
+                                  setIconPickerOpen(false);
+                                }}
+                              >
+                                <ScriptIcon icon={entry.id} className="size-4" />
+                                <span>{entry.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </PopoverPopup>
+                    </Popover>
+                    <Input
+                      id="script-name"
+                      className="focus-within:!border-input focus-within:!ring-0"
+                      autoFocus
+                      placeholder="Test"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="script-keybinding">
+                    Keybinding <span className="font-normal text-muted-foreground">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <KeyboardIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="script-keybinding"
+                      className="pr-20 pl-9 font-mono text-[13px] focus-within:!border-input focus-within:!ring-0"
+                      placeholder={
+                        isCapturingKeybinding
+                          ? "Listening for keys…"
+                          : "Click, then press a shortcut"
+                      }
+                      value={keybinding}
+                      readOnly
+                      aria-describedby="script-keybinding-help"
+                      onFocus={() => setIsCapturingKeybinding(true)}
+                      onBlur={() => setIsCapturingKeybinding(false)}
+                      onKeyDown={captureKeybinding}
+                    />
+                    {keybinding ? (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => setKeybinding("")}
+                      >
+                        Clear
+                      </button>
+                    ) : (
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground/70">
+                        Ctrl + K
+                      </span>
+                    )}
+                  </div>
+                  <p id="script-keybinding-help" className="text-xs text-muted-foreground">
+                    {isCapturingKeybinding
+                      ? "Press a modifier and key together, such as Ctrl + K. Backspace clears the shortcut."
+                      : "Use a modifier and key together, such as Ctrl + K."}
+                  </p>
+                  {keybindingConflict && (
+                    <p className="text-xs text-destructive">
+                      Already used by <code>{keybindingConflict.command}</code>. Choose another
+                      shortcut.
+                    </p>
+                  )}
+                </div>
+              </section>
+              <section className="space-y-4 p-6 py-5">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Execution</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    The command runs from the project root.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="script-command">Command</Label>
+                  <div className="overflow-hidden rounded-lg border border-input bg-background shadow-xs/5 dark:bg-input/32">
+                    <div className="flex items-center gap-2 border-b border-border/70 px-3 py-2 text-[11px] font-medium text-muted-foreground dark:border-white/8">
+                      <TerminalIcon className="size-3.5" /> Command to run
+                    </div>
+                    <Textarea
+                      id="script-command"
+                      unstyled
+                      className="min-h-24 resize-none rounded-none bg-transparent px-3 py-3 font-mono text-[13px] shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0"
+                      placeholder="e.g. bun test"
+                      rows={3}
+                      value={command}
+                      onChange={(event) => setCommand(event.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="script-preview-url">
+                    Preview URL{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <Globe2Icon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="script-preview-url"
+                      className="pl-9 focus-within:!border-input focus-within:!ring-0"
+                      placeholder="http://localhost:5173"
+                      value={previewUrl}
+                      onChange={(event) => setPreviewUrl(event.target.value)}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Open this URL in the in-app preview when the action runs.
+                  </p>
+                </div>
+              </section>
+              <section className="space-y-3 p-6 pt-5">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Behavior</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Choose when Embedino should run or open this action.
+                  </p>
+                </div>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3 text-sm transition-colors hover:bg-muted/40 dark:border-white/8 dark:bg-white/[0.025] dark:hover:bg-white/[0.05]">
+                  <span className="flex items-center gap-2.5">
+                    <CheckIcon className="size-4 text-emerald-500" /> Run on worktree creation
+                  </span>
+                  <Switch
+                    checked={runOnWorktreeCreate}
+                    onCheckedChange={(checked) => setRunOnWorktreeCreate(Boolean(checked))}
+                  />
+                </label>
+                <label
+                  className={`flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3 text-sm transition-colors hover:bg-muted/40 dark:border-white/8 dark:bg-white/[0.025] dark:hover:bg-white/[0.05] ${previewUrl.trim().length === 0 ? "opacity-60" : ""}`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Globe2Icon className="size-4 text-sky-500" /> Open preview after running
+                  </span>
+                  <Switch
+                    checked={autoOpenPreview}
+                    disabled={previewUrl.trim().length === 0}
+                    onCheckedChange={(checked) => setAutoOpenPreview(Boolean(checked))}
+                  />
+                </label>
+                {validationError && <p className="text-sm text-destructive">{validationError}</p>}
+              </section>
             </form>
           </DialogPanel>
           <DialogFooter className="dark:border-transparent dark:bg-transparent">

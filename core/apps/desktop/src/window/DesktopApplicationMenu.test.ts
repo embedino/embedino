@@ -94,6 +94,7 @@ const makeElectronMenuLayer = (
       Deferred.succeed(applicationMenuTemplate, template).pipe(Effect.asVoid),
     popupTemplate: () => Effect.void,
     showContextMenu: () => Effect.succeed(Option.none()),
+    closeContextMenu: () => Effect.void,
   } satisfies ElectronMenu.ElectronMenu["Service"]);
 
 const configureMenu = (

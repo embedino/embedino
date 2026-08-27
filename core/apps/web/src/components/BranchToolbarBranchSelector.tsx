@@ -5,7 +5,7 @@ import {
 } from "@embedino/client-runtime/state/runtime";
 import type { ContextMenuItem, EnvironmentId, VcsRef, ThreadId } from "@embedino/contracts";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
-import { GitBranchIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, GitBranchIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import {
   useCallback,
   useDeferredValue,
@@ -714,10 +714,7 @@ export function BranchToolbarBranchSelector({
       open={isBranchMenuOpen}
       value={resolvedActiveBranch}
     >
-      <div
-        className={cn("flex min-w-0 items-center gap-1", className)}
-        data-composer-context-control
-      >
+      <div className={cn("flex min-w-0 items-center gap-1", className)}>
         {branchPr && branchPrStatus ? (
           <Tooltip>
             <TooltipTrigger
@@ -747,29 +744,22 @@ export function BranchToolbarBranchSelector({
           onContextMenu={(event) => handleBranchContextMenu(event, resolvedActiveBranch)}
         >
           <ComboboxTrigger
-            render={<Button variant="ghost" size="xs" />}
-            className="min-w-0 max-w-full rounded-full font-normal text-muted-foreground transition-colors duration-150 hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring data-pressed:bg-muted"
+            render={<Button variant="outline" size="xs" />}
+            className="min-w-0 max-w-full justify-start rounded-[var(--control-radius)] font-normal text-muted-foreground transition-colors duration-150 hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring data-pressed:bg-accent/50"
             disabled={isInitialBranchesLoadPending || isBranchActionPending}
           >
             <GitBranchIcon className="size-3 shrink-0 opacity-70" />
-            <span
-              data-composer-label
-              className="min-w-0 max-w-[240px] group-data-[compact]/composer-context:max-w-0"
-            >
-              <span
-                data-composer-label-motion
-                className="block w-full min-w-0 max-w-[240px] origin-left truncate transition-[opacity,transform] duration-180 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[compact]/composer-context:[transform:translateX(-0.25rem)_scaleX(0.95)] group-data-[compact]/composer-context:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity"
-              >
-                {triggerLabel}
-              </span>
+            <span className="min-w-0 max-w-[240px]">
+              <span className="block w-full max-w-[240px] truncate">{triggerLabel}</span>
             </span>
+            <ChevronDownIcon aria-hidden className="size-3 shrink-0 opacity-50" />
           </ComboboxTrigger>
         </span>
       </div>
       <ComboboxPopup
         align="end"
         side="top"
-        className="flex w-80 flex-col rounded-xl border border-border bg-background shadow-[0_10px_18px_rgba(0,0,0,0.14)] before:hidden [-webkit-backdrop-filter:none]! [backdrop-filter:none]!"
+        className="flex w-80 flex-col rounded-lg [-webkit-backdrop-filter:none]! [backdrop-filter:none]!"
       >
         <div className="shrink-0 px-3 pt-2.5">
           <div className="relative -translate-y-px border-b border-border/70 pb-1.5 transition-colors focus-within:border-ring">
