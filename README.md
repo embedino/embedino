@@ -1,11 +1,11 @@
 <div align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/embedino/embedino/f5ef203ffdd8c615b2cb552da1f54628052c8c47/logo.svg" alt="Embedino Logo" width="100" height="100" />
+  <img src="./logo.svg" alt="Embedino" width="100" height="100" />
   <br />
   <br />
   <h1>Embedino Workspace</h1>
-  <p><b>Shaping the Future of Hardware</b></p>
-  <p>An open-source developer workspace built to reduce complexity and unleash hardware potential.</p>
+  <p><b>Build, debug, and ship hardware with AI.</b></p>
+  <p>An open-source, local-first developer workspace for embedded systems and everything around them.</p>
   <br />
 
   <a href="https://embedino.app"><strong>Website</strong></a> &nbsp;&bull;&nbsp;
@@ -21,9 +21,9 @@
 
 ## Overview
 
-**Embedino Workspace** is a modern, unified environment created to bridge the gap between hardware engineering and software workflows. Built on the principles of minimal friction and high extensibility, Embedino simplifies how developers interact with, configure, and deploy to embedded devices.
+**Embedino** is a unified developer workspace for hardware and software workflows. It connects AI-assisted coding with projects, terminals, toolchains, boards, previews, and source control without forcing developers into a separate hardware-only mode.
 
-We are building this project in the open. Rather than adding unnecessary layers of abstraction, Embedino focuses on clean design patterns, intuitive developer tooling, and modular components.
+Embedino is local-first and provider-agnostic: use the AI provider, model, board, and toolchain that fit the project.
 
 ---
 
@@ -35,13 +35,49 @@ We are building this project in the open. Rather than adding unnecessary layers 
 
 ---
 
+## Install the CLI
+
+The public CLI package is `embedino`:
+
+```bash
+npm install --global embedino
+embedino --help
+```
+
+For a one-off invocation:
+
+```bash
+npx --yes embedino --help
+```
+
+The CLI can start or serve an Embedino backend, pair a workspace, manage projects, and connect to supported providers. The desktop release is distributed separately through [GitHub Releases](https://github.com/embedino/embedino/releases).
+
+## Release channels
+
+| Channel | Purpose | Distribution |
+| --- | --- | --- |
+| Stable | Public, versioned releases | Latest GitHub release and npm `latest` |
+| Nightly | Fast-moving builds for testers | GitHub prerelease and npm `nightly` |
+
+Desktop artifacts target macOS arm64/x64, Linux x64 AppImage, and Windows x64 NSIS installers. Nightly builds use the same platform matrix and are marked prerelease.
+
+## Build from source
+
+```bash
+git clone https://github.com/embedino/embedino.git
+cd embedino/core
+pnpm install
+pnpm run tc
+pnpm run test
+pnpm run build:desktop
+```
+
 ## Project Structure
 
 ```text
 embedino-workspace/
-├── docs/             # Technical specifications & design notes
-├── packages/         # Core workspace modules & developer tools
-└── examples/         # Reference implementations & hardware templates
+├── core/             # Web, desktop, server, packages, and release tooling
+└── logo.svg          # Public brand mark
 ```
 
 ---
@@ -49,13 +85,13 @@ embedino-workspace/
 ## Getting Started
 
 > [!NOTE]
-> Embedino Workspace is currently under active development. Core modules and initial releases are being staged.
+> Stable releases are for general use. Nightly releases are for testers and contributors and may contain unfinished changes.
 
 To follow progress or contribute to early feedback:
 
-1. **Visit the official portal**: [embedino.app](https://embedino.app)
-2. **Explore open repositories**: Star or watch this repository for updates as initial modules drop.
-3. **Join the effort**: Review open issues and contribution guidelines as modules are published.
+1. **Download a desktop build**: [GitHub Releases](https://github.com/embedino/embedino/releases)
+2. **Install the CLI**: `npm install --global embedino`
+3. **Report a problem**: use the focused [bug report](https://github.com/embedino/embedino/issues/new?template=bug_report.yml) or [tester feedback](https://github.com/embedino/embedino/issues/new?template=tester_feedback.yml) form.
 
 ---
 

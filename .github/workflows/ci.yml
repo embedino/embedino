@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - beta
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: ./core
+
+permissions:
+  contents: read
+
+jobs:
+  check_and_build:
+    name: Quality, Release Smoke & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+          working-directory: core
+
+      - name: Check Formatting & Linting
+        run: vp check
+
+      - name: Strict Typecheck
+        run: vp run tc
+
+      - name: Verify Release Plumbing
+        run: vp run release:smoke
+
+      - name: Verify Brand Assets
+        run: vp run icons:check
+
+      - name: Build Workspace Packages
+        run: vp run build
+
+      - name: Build Desktop Production Bundle
+        run: vp run build:desktop
+
+  unit_tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+          working-directory: core
+
+      - name: Run Test Suite
+        run: vp run test

@@ -1,0 +1,72 @@
+name: Tester feedback
+description: Report a nightly or stable release result with enough context to reproduce it.
+title: "[Tester]: "
+labels:
+  - tester-feedback
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for hands-on release feedback. For a clearly reproducible bug, use the bug report form instead.
+        Remove credentials, tokens, private source code, and personal device identifiers before submitting.
+
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Release channel
+      options:
+        - Stable
+        - Nightly
+        - Built from source
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v1.0.0 or nightly SHA
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating_system
+    attributes:
+      label: Operating system
+      options:
+        - macOS arm64
+        - macOS x64
+        - Windows x64
+        - Linux x64
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: provider_model
+    attributes:
+      label: Provider and model
+      placeholder: Provider/model, or N/A
+
+  - type: input
+    id: board_toolchain
+    attributes:
+      label: Board and toolchain
+      placeholder: Board, PlatformIO/Arduino/native toolchain, or N/A
+
+  - type: textarea
+    id: experience
+    attributes:
+      label: What did you try?
+      description: Tell us what worked, what felt confusing, and what you expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Attach only redacted, relevant evidence.
+      render: shell
+

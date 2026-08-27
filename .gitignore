@@ -138,3 +138,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+.vite-plus/
+
+# Embedino Workspace — runtime data & build output
+userdata/
+caches/
+worktrees/
+dist-electron/
+.agents/
+.regraft/
