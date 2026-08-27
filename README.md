@@ -1,6 +1,6 @@
 <div align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/embedino/embedino/f5ef203ffdd8c615b2cb552da1f54628052c8c47/logo.svg" alt="Embedino Logo" width="100" height="100" />
+  <img src="./logo.svg" alt="Embedino" width="100" height="100" />
   <br />
   <br />
   <h1>Embedino Workspace</h1>
@@ -76,9 +76,8 @@ pnpm run build:desktop
 
 ```text
 embedino-workspace/
-├── docs/             # Technical specifications & design notes
-├── core/             # Web, desktop, server, packages, and release tooling
 ├── docs/             # Technical specifications & launch notes
+├── core/             # Web, desktop, server, packages, and release tooling
 └── logo.svg          # Public brand mark
 ```
 
