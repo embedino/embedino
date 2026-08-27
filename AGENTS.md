@@ -11,7 +11,6 @@ This file covers workspace-level orientation. For engineering details, verificat
 ```
 embedino workspace/
 ├── AGENTS.md          # This file
-├── docs/              # Project context & timeline notes
 ├── logo.svg           # Brand mark (source of truth for icon exports)
 └── core/              # The monorepo (apps/web, apps/desktop, apps/server, packages/*)
 ```

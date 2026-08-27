@@ -25,7 +25,6 @@ The codebase is a TypeScript monorepo managed with **pnpm** and **Vite+ (`vp`)**
 ```
 embedino workspace/
 ├── AGENTS.md                # Workspace-level guide
-├── docs/                    # Project context & timeline notes
 └── core/                    # Main monorepo root
     ├── apps/
     │   ├── web/             # React 19 Frontend (@tanstack/react-router, Effect atoms)

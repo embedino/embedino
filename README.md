@@ -76,7 +76,6 @@ pnpm run build:desktop
 
 ```text
 embedino-workspace/
-├── docs/             # Technical specifications & launch notes
 ├── core/             # Web, desktop, server, packages, and release tooling
 └── logo.svg          # Public brand mark
 ```
