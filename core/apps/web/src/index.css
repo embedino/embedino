@@ -510,6 +510,18 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(embedino
     background: var(--background);
   }
 
+  .embedino-confirm-dialog {
+    border-color: color-mix(in srgb, var(--foreground) 12%, transparent);
+    background: var(--popover);
+    box-shadow:
+      0 20px 48px color-mix(in srgb, var(--foreground) 18%, transparent),
+      0 2px 8px color-mix(in srgb, var(--foreground) 8%, transparent) !important;
+  }
+
+  .embedino-confirm-dialog[data-variant="destructive"] {
+    border-color: color-mix(in srgb, var(--destructive) 18%, var(--border));
+  }
+
   .dialog-backdrop {
     background: color-mix(in srgb, var(--background) 80%, transparent);
   }

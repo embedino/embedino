@@ -62,6 +62,7 @@ export function ConfirmDialogHost() {
 
   const copy = resolveConfirmDialogCopy(state.status === "idle" ? "" : state.message);
   const confirmVariant = state.status === "idle" ? "default" : state.variant;
+  const isDestructive = confirmVariant === "destructive";
   const onCancel = () => respondToConfirmDialog(false);
   const onConfirm = () => respondToConfirmDialog(true);
 
@@ -75,19 +76,26 @@ export function ConfirmDialogHost() {
         if (!open) completeConfirmDialogClose();
       }}
     >
-      <AlertDialogPopup className="max-w-lg">
-        <AlertDialogHeader>
-          <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+      <AlertDialogPopup
+        className="embedino-confirm-dialog max-w-[30rem]"
+        data-variant={isDestructive ? "destructive" : "default"}
+      >
+        <AlertDialogHeader className="gap-2 p-6 text-left">
+          <AlertDialogTitle className="text-base font-medium leading-6">
+            {copy.title}
+          </AlertDialogTitle>
           {copy.description ? (
-            <AlertDialogDescription className="whitespace-pre-line">
+            <AlertDialogDescription className="max-w-[34rem] whitespace-pre-line leading-5">
               {copy.description}
             </AlertDialogDescription>
           ) : null}
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogClose render={<Button variant="outline" />}>Cancel</AlertDialogClose>
-          <Button variant={confirmVariant} onClick={onConfirm}>
-            Confirm
+        <AlertDialogFooter variant="bare" className="flex-row justify-end gap-2 px-6 pb-6">
+          <AlertDialogClose render={<Button size="sm" variant="outline" />}>
+            Cancel
+          </AlertDialogClose>
+          <Button size="sm" variant={confirmVariant} onClick={onConfirm}>
+            {isDestructive ? "Delete thread" : "Confirm"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogPopup>

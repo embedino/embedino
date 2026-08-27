@@ -235,6 +235,34 @@ function WorkingDuration(props: { startedAt: string | null }) {
   );
 }
 
+function SidebarStatusBadge(props: {
+  label: string;
+  icon: "working" | "done" | "woke" | null;
+  className: string;
+  compact?: boolean;
+  detail?: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 font-medium leading-none",
+        props.compact ? "text-[10px]" : "text-xs",
+        props.className,
+      )}
+    >
+      {props.icon === "working" ? (
+        <WorkingDots />
+      ) : props.icon === "done" ? (
+        <CircleCheckIcon aria-hidden className="size-3 shrink-0" />
+      ) : props.icon === "woke" ? (
+        <AlarmClockIcon aria-hidden className="size-3 shrink-0" />
+      ) : null}
+      <span role="status">{props.label}</span>
+      {props.detail}
+    </span>
+  );
+}
+
 function terminalProcessLabel(count: number): string {
   return `${count} terminal ${count === 1 ? "process" : "processes"} running`;
 }
@@ -1020,11 +1048,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   // a useful hierarchy nor a reliable hover cue. Status now lives in the row
   // content; surface is reserved for interaction (hover, multi-select, route).
   const rowSurfaceClassName = cn(
-    "group/sidebar-row relative w-full cursor-pointer overflow-hidden rounded-md text-left outline-none select-none",
+    "group/sidebar-row relative w-full cursor-pointer overflow-hidden rounded-lg border border-transparent text-left outline-none select-none transition-[background-color,border-color,box-shadow] duration-150",
     props.isActive
-      ? "bg-sidebar-row-active text-sidebar-foreground"
+      ? "border-sidebar-border/70 bg-sidebar-row-active text-sidebar-foreground shadow-xs"
       : isSelected
-        ? "bg-sidebar-row-selected text-sidebar-foreground"
+        ? "border-sidebar-border/50 bg-sidebar-row-selected text-sidebar-foreground"
         : shouldRecede
           ? "text-sidebar-muted-foreground/75 hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
           : "bg-transparent text-sidebar-foreground hover:bg-sidebar-row-hover",
@@ -1164,7 +1192,14 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               remain visible AND clickable while the row is hovered. Only
               the time/jump label yields to the settle affordance. */}
             {prBadge}
-            <span className="relative ml-auto flex h-6 min-w-8 shrink-0 items-center justify-end">
+            <span
+              className={cn(
+                "relative ml-auto flex h-6 shrink-0 items-center justify-end",
+                variantAction === "unsettle" || variantAction === "unsnooze"
+                  ? "min-w-16"
+                  : "min-w-8",
+              )}
+            >
               <span
                 className={cn(
                   "inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
@@ -1190,6 +1225,13 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                     <AlarmClockIcon aria-hidden className="size-3" />
                     <span role="status">Ready</span>
                   </button>
+                ) : topStatus?.icon === "done" ? (
+                  <SidebarStatusBadge
+                    label={topStatus.label}
+                    icon={topStatus.icon}
+                    className={topStatus.className}
+                    compact
+                  />
                 ) : (
                   <span className="text-xs">
                     {variantAction === "unsettle"
@@ -1205,11 +1247,12 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                     aria-label="Resume thread now"
                     onClick={handleUnsnoozeClick}
                     className={cn(
-                      "pointer-events-none absolute inset-y-0 right-0 -mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
+                      "pointer-events-none absolute inset-y-1 right-0 -mr-0.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-sidebar-border/70 bg-sidebar-row-active px-2 text-xs font-medium text-sidebar-foreground opacity-0 shadow-xs transition-opacity hover:border-sidebar-border hover:bg-sidebar-row-hover focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
                       isWoke && "group-hover/sidebar-row:static",
                     )}
                   >
                     <AlarmClockOffIcon className="mb-px size-3" />
+                    <span>Wake</span>
                   </button>
                 )
               ) : !props.settlementSupported ? null : variantAction === "unsettle" ? (
@@ -1218,11 +1261,12 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                   aria-label="Resume thread"
                   onClick={handleUnsettleClick}
                   className={cn(
-                    "pointer-events-none absolute inset-y-0 right-0 -mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
+                    "pointer-events-none absolute inset-y-1 right-0 -mr-0.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-sidebar-border/70 bg-sidebar-row-active px-2 text-xs font-medium text-sidebar-foreground opacity-0 shadow-xs transition-opacity hover:border-sidebar-border hover:bg-sidebar-row-hover focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
                     isWoke && "group-hover/sidebar-row:static",
                   )}
                 >
                   <Undo2Icon className="mb-px size-3.5" />
+                  <span>Resume</span>
                 </button>
               ) : (
                 <button
@@ -1230,7 +1274,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                   aria-label="Pause thread"
                   onClick={handleSettleClick}
                   className={cn(
-                    "pointer-events-none absolute inset-y-0 right-0 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
+                    "pointer-events-none absolute inset-y-1 right-0 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-sidebar-border/70 bg-sidebar-row-active px-2 text-xs font-medium text-sidebar-foreground opacity-0 shadow-xs transition-opacity hover:border-sidebar-border hover:bg-sidebar-row-hover focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
                     isWoke && "group-hover/sidebar-row:static",
                   )}
                 >
@@ -1351,36 +1395,27 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                         aria-label="Dismiss ready notification"
                         title="Dismiss ready notification"
                         onClick={handleAcknowledgeWokeClick}
-                        className={cn(
-                          "inline-flex cursor-pointer items-center gap-1 rounded-sm font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
-                          topStatus.className,
-                        )}
+                        className="inline-flex cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <AlarmClockIcon aria-hidden className="size-4 shrink-0" />
-                        <span role="status">{topStatus.label}</span>
+                        <SidebarStatusBadge
+                          label={topStatus.label}
+                          icon={topStatus.icon}
+                          className={topStatus.className}
+                        />
                       </button>
                     ) : (
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 font-medium",
-                          topStatus.className,
-                        )}
-                      >
-                        {topStatus.icon === "working" ? (
-                          <WorkingDots />
-                        ) : topStatus.icon === "done" ? (
-                          <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-                        ) : null}
-                        {/* The label alone is the live region: a role="status"
-                            wrapper around the ticking duration would make
-                            screen readers announce every second. */}
-                        <span role="status">{topStatus.label}</span>
-                        {status === "working" ? (
-                          <span aria-hidden>
-                            <WorkingDuration startedAt={resolveWorkingStartedAt(thread)} />
-                          </span>
-                        ) : null}
-                      </span>
+                      <SidebarStatusBadge
+                        label={topStatus.label}
+                        icon={topStatus.icon}
+                        className={topStatus.className}
+                        detail={
+                          status === "working" ? (
+                            <span aria-hidden>
+                              <WorkingDuration startedAt={resolveWorkingStartedAt(thread)} />
+                            </span>
+                          ) : null
+                        }
+                      />
                     )
                   ) : (
                     threadTimeLabel(thread)

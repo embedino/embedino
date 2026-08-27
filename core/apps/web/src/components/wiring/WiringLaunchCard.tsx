@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from "react";
-import { ArrowUpRight, Cpu, ShieldAlert, AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Cpu } from "lucide-react";
 import type { ScopedThreadRef } from "@embedino/contracts";
 import {
   parseCircuitWiringJson,
@@ -55,7 +55,7 @@ export function WiringLaunchCard({
       return (
         <div
           className={cn(
-            "flex w-full flex-col gap-2 overflow-hidden rounded-xl border border-border/60 bg-card p-4 shadow-xs",
+            "!mt-4 !mb-3 flex w-full flex-col gap-2 overflow-hidden rounded-xl border border-border/60 bg-card p-4 shadow-xs",
             className,
           )}
           data-wiring-launch-card="generating"
@@ -65,10 +65,10 @@ export function WiringLaunchCard({
               <Spinner className="size-4" />
             </div>
             <div className="flex flex-col">
-              <h4 className="text-sm font-medium text-foreground">
+              <div className="text-sm font-medium text-foreground">
                 {fenceTitle || "Circuit Wiring Diagram"}
-              </h4>
-              <p className="text-[11px] text-muted-foreground">Generating wiring…</p>
+              </div>
+              <div className="text-[11px] text-muted-foreground">Generating wiring…</div>
             </div>
           </div>
         </div>
@@ -77,7 +77,7 @@ export function WiringLaunchCard({
     return (
       <div
         className={cn(
-          "flex w-full flex-col gap-2 overflow-hidden rounded-xl border border-destructive/40 bg-card p-3.5 shadow-xs",
+          "!mt-4 !mb-3 flex w-full flex-col gap-2 overflow-hidden rounded-xl border border-destructive/40 bg-card p-3.5 shadow-xs",
           className,
         )}
         data-wiring-launch-card="error"
@@ -86,45 +86,53 @@ export function WiringLaunchCard({
           <AlertTriangle className="size-3.5 shrink-0" />
           <span>Invalid wiring specification</span>
         </div>
-        <p className="text-[11px] text-muted-foreground font-mono truncate">{parseError}</p>
+        <div className="truncate font-mono text-[11px] text-muted-foreground">{parseError}</div>
       </div>
     );
   }
 
-  const warnings = circuit.warnings ?? [];
   const title = circuit.title || fenceTitle || "Circuit Wiring Diagram";
+  const summary = [
+    boards.length > 0 ? `${boards.length} ${boards.length === 1 ? "board" : "boards"}` : null,
+    peripherals.length > 0
+      ? `${peripherals.length} ${peripherals.length === 1 ? "component" : "components"}`
+      : null,
+    `${circuit.connections.length} ${circuit.connections.length === 1 ? "connection" : "connections"}`,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" · ");
 
   return (
     <div
       className={cn(
-        "flex w-full flex-col gap-3 rounded-xl border border-border/80 bg-card text-card-foreground p-4 shadow-xs hover:border-border transition-colors select-none",
+        "group/wiring-launch !mt-4 !mb-3 flex w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 text-card-foreground shadow-xs transition-colors hover:border-border hover:bg-muted/30 select-none",
         className,
       )}
       data-wiring-launch-card="true"
     >
-      {/* Top Header & Metadata */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Cpu className="size-4" />
-          </div>
-          <div className="flex flex-col">
-            <h4 className="text-sm font-medium text-foreground">{title}</h4>
-          </div>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/40 text-muted-foreground transition-colors group-hover/wiring-launch:text-foreground">
+          <Cpu className="size-4" />
         </div>
-
-        {/* Action Button */}
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="gap-1.5 font-medium cursor-pointer self-start sm:self-auto shrink-0"
-          onClick={handleOpenWiring}
-        >
-          <span>Open Wiring</span>
-          <ArrowUpRight className="size-3.5 text-muted-foreground" />
-        </Button>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium text-foreground">{title}</div>
+          {summary ? (
+            <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{summary}</div>
+          ) : null}
+        </div>
       </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        aria-label={`Open wiring for ${title}`}
+        className="h-8 shrink-0 gap-1.5 border-border/70 bg-transparent px-3 text-xs font-medium hover:bg-muted/50"
+        onClick={handleOpenWiring}
+      >
+        <span>Open wiring</span>
+        <ArrowUpRight className="size-3.5 text-muted-foreground" />
+      </Button>
     </div>
   );
 }
