@@ -4,6 +4,19 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 // Inline Lucide-style icon paths (stroke-based, viewBox 0 0 24 24, strokeWidth 2).
 const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<string, string> }>> = {
+  pin: [
+    { tag: "path", attrs: { d: "M12 17v5" } },
+    { tag: "path", attrs: { d: "m5 3 2 5-2 5h14l-2-5 2-5Z" } },
+  ],
+  pause: [
+    { tag: "rect", attrs: { x: "5", y: "4", width: "4", height: "16", rx: "1" } },
+    { tag: "rect", attrs: { x: "15", y: "4", width: "4", height: "16", rx: "1" } },
+  ],
+  play: [{ tag: "path", attrs: { d: "m8 5 11 7-11 7Z" } }],
+  clock: [
+    { tag: "circle", attrs: { cx: "12", cy: "12", r: "9" } },
+    { tag: "path", attrs: { d: "M12 7v5l3 2" } },
+  ],
   pencil: [
     {
       tag: "path",
@@ -16,6 +29,14 @@ const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<stri
   copy: [
     { tag: "rect", attrs: { width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2" } },
     { tag: "path", attrs: { d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" } },
+  ],
+  mail: [
+    { tag: "rect", attrs: { width: "20", height: "16", x: "2", y: "4", rx: "2" } },
+    { tag: "path", attrs: { d: "m22 7-10 6L2 7" } },
+  ],
+  sparkles: [
+    { tag: "path", attrs: { d: "m12 3-1.5 5.5L5 10l5.5 1.5L12 17l1.5-5.5L19 10l-5.5-1.5Z" } },
+    { tag: "path", attrs: { d: "m19 16-.7 2.3L16 19l2.3.7L19 22l.7-2.3L22 19l-2.3-.7Z" } },
   ],
   "folder-tree": [
     {
@@ -40,6 +61,23 @@ const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<stri
     { tag: "line", attrs: { x1: "10", x2: "10", y1: "11", y2: "17" } },
     { tag: "line", attrs: { x1: "14", x2: "14", y1: "11", y2: "17" } },
   ],
+};
+
+const DEFAULT_ICON_BY_ID: Record<string, string> = {
+  pin: "pin",
+  unpin: "pin",
+  settle: "pause",
+  unsettle: "play",
+  snooze: "clock",
+  unsnooze: "clock",
+  rename: "pencil",
+  "regenerate-title": "sparkles",
+  "mark-unread": "mail",
+  copy: "copy",
+  "copy-path": "copy",
+  "copy-branch": "copy",
+  "copy-thread-id": "copy",
+  delete: "trash",
 };
 
 function createIconElement(name: string, tone: "neutral" | "destructive"): SVGSVGElement | null {
@@ -186,23 +224,26 @@ export function showContextMenuFallback<T extends string>(
 
       const menu = document.createElement("div");
       menu.className =
-        "dropdown-glass fixed z-[10000] min-w-32 max-w-sm overflow-hidden rounded-lg bg-clip-padding text-popover-foreground outline-none";
+        "embedino-context-menu dropdown-glass fixed z-[10000] min-w-32 max-w-sm overflow-hidden rounded-lg bg-clip-padding text-popover-foreground outline-none";
       menu.style.cssText =
-        "position:fixed;z-index:10000;min-width:8rem;max-width:24rem;overflow:hidden;border-radius:var(--radius-lg);background-clip:padding-box;color:var(--popover-foreground);outline:none;pointer-events:auto;";
+        "position:fixed;z-index:10000;min-width:13.5rem;max-width:24rem;overflow:hidden;border-radius:var(--radius-lg);background-clip:padding-box;color:var(--popover-foreground);outline:none;pointer-events:auto;";
       menu.style.left = `${preferredLeft}px`;
       menu.style.top = `${preferredTop}px`;
       menu.dataset.level = String(level);
+      menu.setAttribute("role", "menu");
+      menu.setAttribute("aria-label", "Thread actions");
 
       const inner = document.createElement("div");
       inner.className =
-        "max-h-[min(24rem,70vh)] min-w-0 max-w-sm overflow-y-auto overflow-x-hidden p-1";
+        "embedino-context-menu-list max-h-[min(24rem,70vh)] min-w-0 max-w-sm overflow-y-auto overflow-x-hidden p-1";
       inner.style.cssText =
         "max-height:min(24rem,70vh);min-width:0;max-width:24rem;overflow-x:hidden;overflow-y:auto;padding:0.25rem;";
 
       for (const item of entries) {
         if (item.header === true) {
           const header = document.createElement("div");
-          header.className = "px-2 py-1.5 font-medium text-muted-foreground text-xs";
+          header.className =
+            "embedino-context-menu-header px-2 py-1.5 font-medium text-muted-foreground text-xs";
           header.textContent = item.label;
           inner.appendChild(header);
           continue;
@@ -216,8 +257,16 @@ export function showContextMenuFallback<T extends string>(
         button.type = "button";
         const isDisabled = item.disabled === true;
         button.disabled = isDisabled;
+        button.setAttribute("role", "menuitem");
+        button.dataset.contextMenuItem = item.id;
+        if (isLeafDestructive) {
+          button.dataset.destructive = "true";
+        }
+        if (hasChildren) {
+          button.setAttribute("aria-haspopup", "menu");
+        }
         const rowBase =
-          "flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-left outline-none transition-colors sm:min-h-7 sm:text-sm min-h-8 text-base";
+          "embedino-context-menu-item flex w-full cursor-default select-none items-center gap-2 rounded-md px-2 py-1 text-left outline-none transition-colors sm:min-h-7 sm:text-sm min-h-8 text-base";
         button.className = isDisabled
           ? `${rowBase} pointer-events-none cursor-not-allowed text-muted-foreground opacity-64`
           : isLeafDestructive
@@ -234,8 +283,9 @@ export function showContextMenuFallback<T extends string>(
           button.style.pointerEvents = "none";
         }
 
-        if (typeof item.icon === "string") {
-          const icon = createIconElement(item.icon, isLeafDestructive ? "destructive" : "neutral");
+        const iconName = item.icon ?? DEFAULT_ICON_BY_ID[item.id];
+        if (iconName) {
+          const icon = createIconElement(iconName, isLeafDestructive ? "destructive" : "neutral");
           if (icon) {
             button.appendChild(icon);
           }
@@ -248,8 +298,10 @@ export function showContextMenuFallback<T extends string>(
 
         if (hasChildren) {
           const chevron = document.createElement("span");
-          chevron.className = "ms-auto shrink-0 text-muted-foreground/80 text-sm leading-none";
-          chevron.textContent = ">";
+          chevron.className =
+            "embedino-context-menu-chevron ms-auto shrink-0 text-muted-foreground/80";
+          chevron.textContent = "›";
+          chevron.setAttribute("aria-hidden", "true");
           button.appendChild(chevron);
         }
 

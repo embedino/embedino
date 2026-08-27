@@ -24,6 +24,7 @@ class FakeElement {
   parent: FakeElement | null = null;
   style: Record<string, string> & { cssText?: string } = {};
   dataset: Record<string, string> = {};
+  attributes: Record<string, string> = {};
   className = "";
   disabled = false;
   type = "";
@@ -53,6 +54,10 @@ class FakeElement {
     const existing = this.listeners.get(type) ?? [];
     existing.push(listener);
     this.listeners.set(type, existing);
+  }
+
+  setAttribute(name: string, value: string) {
+    this.attributes[name] = value;
   }
 
   dispatchEvent(event: FakeDomEvent) {
@@ -119,6 +124,10 @@ class FakeDocument {
   private readonly listeners = new Map<string, FakeListener[]>();
 
   createElement(tagName: string) {
+    return new FakeElement(tagName);
+  }
+
+  createElementNS(_namespace: string, tagName: string) {
     return new FakeElement(tagName);
   }
 
