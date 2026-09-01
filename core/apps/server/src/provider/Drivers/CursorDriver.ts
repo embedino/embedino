@@ -30,6 +30,7 @@ import {
   buildInitialCursorProviderSnapshot,
   checkCursorProviderStatus,
   enrichCursorSnapshot,
+  resolveCursorCliBinaryPath,
 } from "../Layers/CursorProvider.ts";
 import { ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
 import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
@@ -119,7 +120,11 @@ export const CursorDriver: ProviderDriver<CursorSettings, CursorDriverEnv> = {
         accentColor,
         continuationGroupKey: continuationIdentity.continuationKey,
       });
-      const effectiveConfig = { ...config, enabled } satisfies CursorSettings;
+      const effectiveConfig = {
+        ...config,
+        enabled,
+        binaryPath: yield* resolveCursorCliBinaryPath(config, processEnv),
+      } satisfies CursorSettings;
       const maintenanceCapabilities = yield* resolveProviderMaintenanceCapabilitiesEffect(UPDATE, {
         binaryPath: effectiveConfig.binaryPath,
         env: processEnv,

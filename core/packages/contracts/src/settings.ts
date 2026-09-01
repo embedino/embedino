@@ -16,6 +16,15 @@ import {
   type ProviderDriverKind,
 } from "./providerInstance.ts";
 
+// ── Shared model-picker settings ──────────────────────────────
+
+/** A model pinned to the top-level model picker favorites view. */
+export const FavoriteModel = Schema.Struct({
+  provider: ProviderInstanceId,
+  model: TrimmedNonEmptyString,
+});
+export type FavoriteModel = typeof FavoriteModel.Type;
+
 // ── Client Settings (local-only) ───────────────────────────────
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
@@ -150,12 +159,7 @@ export const ClientSettingsSchema = Schema.Struct({
   // default instance for their kind (because `defaultInstanceIdForDriver(kind)`
   // uses the same slug). The field name is kept as `provider` for storage
   // stability; new call sites should treat the value as an instance id.
-  favorites: Schema.Array(
-    Schema.Struct({
-      provider: ProviderInstanceId,
-      model: TrimmedNonEmptyString,
-    }),
-  ).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
+  favorites: Schema.Array(FavoriteModel).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   // When on, the chat model picker opens straight to the Favorites view
   // (with "Change" leading to providers) instead of the active provider's
   // models. Off keeps the classic provider-first behavior.
@@ -611,6 +615,11 @@ export const ServerSettings = Schema.Struct({
   sourceControlWriterModelSelection: Schema.NullOr(ModelSelection).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
+  // These preferences used to be browser-local. They remain optional on the
+  // server so older settings files can fall back to the legacy client values
+  // until the web app migrates them.
+  favorites: Schema.optionalKey(Schema.Array(FavoriteModel)),
+  modelPickerOpensFavorites: Schema.optionalKey(Schema.Boolean),
 
   // Legacy single-instance-per-driver settings. Continues to be the source
   // of truth until `providerInstances` (below) lands per-driver migration
@@ -804,6 +813,8 @@ export const ServerSettingsPatch = Schema.Struct({
     }),
   ),
   sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  favorites: Schema.optionalKey(Schema.Array(FavoriteModel)),
+  modelPickerOpensFavorites: Schema.optionalKey(Schema.Boolean),
   observability: Schema.optionalKey(
     Schema.Struct({
       otlpTracesUrl: Schema.optionalKey(TrimmedString),
@@ -842,14 +853,7 @@ export const ClientSettingsPatch = Schema.Struct({
   fontFamilySans: Schema.optionalKey(FontFamilyPreference),
   fontFamilyTerminal: Schema.optionalKey(FontFamilyPreference),
   fontSmoothing: Schema.optionalKey(Schema.Boolean),
-  favorites: Schema.optionalKey(
-    Schema.Array(
-      Schema.Struct({
-        provider: ProviderInstanceId,
-        model: TrimmedNonEmptyString,
-      }),
-    ),
-  ),
+  favorites: Schema.optionalKey(Schema.Array(FavoriteModel)),
   modelPickerOpensFavorites: Schema.optionalKey(Schema.Boolean),
   providerModelPreferences: Schema.optionalKey(
     Schema.Record(

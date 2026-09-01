@@ -23,9 +23,11 @@ import {
   DialogTrigger,
 } from "~/components/ui/dialog";
 import { primaryEnvironmentIdAtom } from "~/state/primaryEnvironment";
+import { usePrimaryEnvironment } from "~/state/environments";
 import { useAtomCommand } from "~/state/use-atom-command";
 import {
   ToolchainState,
+  initialToolchainState,
   toolchainGetStatusCommand,
   toolchainInstallCommand,
   toolchainStateAtom,
@@ -43,53 +45,70 @@ export function useFetchToolchainStatus() {
     reportFailure: false,
   });
 
-  const fetchStatus = useCallback(
-    async (retries = 3) => {
-      if (!environmentId) return;
+  const fetchStatus = useCallback(async () => {
+    if (!environmentId) return;
 
-      const result = await getStatus({ environmentId });
+    const result = await getStatus({ environmentId });
 
-      if (result._tag === "Success") {
-        const s = result.value as {
-          platformioInstalled: boolean;
-          platformioVersion: string | null;
-          platformioPath: string | null;
-          arduinoInstalled: boolean;
-          arduinoVersion: string | null;
-          arduinoCliPath: string | null;
-        };
-        updateToolchainState({
-          platformioInstalled: s.platformioInstalled,
-          platformioVersion: s.platformioVersion,
-          platformioPath: s.platformioPath,
-          arduinoInstalled: s.arduinoInstalled,
-          arduinoVersion: s.arduinoVersion,
-          arduinoCliPath: s.arduinoCliPath,
-          statusLoaded: true,
-        });
-      } else if (retries > 0) {
-        setTimeout(() => void fetchStatus(retries - 1), 2000);
-      } else {
-        updateToolchainState({ statusLoaded: true });
-      }
-    },
-    [environmentId, getStatus],
-  );
+    if (result._tag === "Success") {
+      const s = result.value as {
+        platformioInstalled: boolean;
+        platformioVersion: string | null;
+        platformioPath: string | null;
+        arduinoInstalled: boolean;
+        arduinoVersion: string | null;
+        arduinoCliPath: string | null;
+      };
+      updateToolchainState({
+        environmentId,
+        platformioInstalled: s.platformioInstalled,
+        platformioVersion: s.platformioVersion,
+        platformioPath: s.platformioPath,
+        arduinoInstalled: s.arduinoInstalled,
+        arduinoVersion: s.arduinoVersion,
+        arduinoCliPath: s.arduinoCliPath,
+        statusLoaded: true,
+        statusError: false,
+      });
+    } else {
+      // A transport or startup failure is not evidence that the user's
+      // installed toolchains disappeared. Keep the setup prompt hidden and
+      // retry when the environment reconnects or the dialog is opened.
+      updateToolchainState({ environmentId, statusLoaded: true, statusError: true });
+    }
+  }, [environmentId, getStatus]);
 
   return fetchStatus;
 }
 
 export function useToolchainState(): ToolchainState {
   const environmentId = useAtomValue(primaryEnvironmentIdAtom);
+  const primaryEnvironment = usePrimaryEnvironment();
   const snap = useAtomValue(toolchainStateAtom);
   const fetchStatus = useFetchToolchainStatus();
+  const isCurrentEnvironment = snap.environmentId === environmentId;
 
   useEffect(() => {
-    if (!environmentId || snap.statusLoaded) return;
+    if (
+      !environmentId ||
+      primaryEnvironment?.connection.phase !== "connected" ||
+      (isCurrentEnvironment && snap.statusLoaded && !snap.statusError)
+    ) {
+      return;
+    }
     void fetchStatus();
-  }, [environmentId, snap.statusLoaded, fetchStatus]);
+  }, [
+    environmentId,
+    primaryEnvironment?.connection.phase,
+    isCurrentEnvironment,
+    snap.statusLoaded,
+    snap.statusError,
+    fetchStatus,
+  ]);
 
-  return snap;
+  return isCurrentEnvironment
+    ? snap
+    : { ...initialToolchainState, environmentId, statusLoaded: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +207,7 @@ export function ToolchainSetupPill() {
   // Default state — Getting Started
   const isAnyInstalled = snap.platformioInstalled || snap.arduinoInstalled;
 
-  if (!snap.statusLoaded) return null;
+  if (!snap.statusLoaded || snap.statusError) return null;
   if (isAnyInstalled) return null;
 
   return (

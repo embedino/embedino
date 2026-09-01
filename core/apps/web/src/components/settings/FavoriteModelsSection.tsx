@@ -3,7 +3,7 @@ import type { UnifiedSettings } from "@embedino/contracts/settings";
 import { CheckIcon, PlusIcon, SearchIcon, StarIcon, XIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useClientSettings, useUpdateClientSettings } from "~/hooks/useSettings";
+import { usePrimarySettings, useUpdatePrimarySettings } from "~/hooks/useSettings";
 import { getAppModelOptionsForInstance } from "../../modelSelection";
 import {
   applyProviderInstanceSettings,
@@ -40,11 +40,11 @@ export function FavoriteModelsSection(props: {
   settings: UnifiedSettings;
   readOnly?: boolean;
 }) {
-  const favorites = useClientSettings((snapshot) => snapshot.favorites ?? []);
-  const opensOnFavorites = useClientSettings(
+  const favorites = usePrimarySettings((snapshot) => snapshot.favorites ?? []);
+  const opensOnFavorites = usePrimarySettings(
     (snapshot) => snapshot.modelPickerOpensFavorites ?? false,
   );
-  const updateClientSettings = useUpdateClientSettings();
+  const updateSettings = useUpdatePrimarySettings();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -77,7 +77,7 @@ export function FavoriteModelsSection(props: {
           (favorite) => !(favorite.provider === item.instanceId && favorite.model === item.slug),
         )
       : [...favorites, { provider: item.instanceId, model: item.slug }];
-    updateClientSettings({ favorites: next });
+    updateSettings({ favorites: next });
   };
 
   return (
@@ -137,7 +137,7 @@ export function FavoriteModelsSection(props: {
         <Switch
           checked={opensOnFavorites}
           onCheckedChange={(checked) => {
-            updateClientSettings({ modelPickerOpensFavorites: checked });
+            updateSettings({ modelPickerOpensFavorites: checked });
           }}
         />
       </div>

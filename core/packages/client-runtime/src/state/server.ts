@@ -325,6 +325,25 @@ const cachedConfigSnapshotEvent = (config: ServerConfig): ServerConfigStreamEven
 });
 
 /**
+ * Provider maintenance progress belongs to the live server process. Persisting
+ * queued/running states makes an interrupted update look active forever after
+ * a reconnect, while terminal states can replay obsolete notices on startup.
+ */
+export function withoutTransientProviderUpdateState(config: ServerConfig): ServerConfig {
+  if (config.providers.every((provider) => provider.updateState === undefined)) {
+    return config;
+  }
+
+  return {
+    ...config,
+    providers: config.providers.map((provider) => {
+      const { updateState: _updateState, ...providerWithoutUpdateState } = provider;
+      return providerWithoutUpdateState;
+    }),
+  };
+}
+
+/**
  * Keeps a complete server configuration available during reconnects. Server
  * config carries the provider/model catalogue used by task creation, so it is
  * useful—and safe—to retain after a transport session ends.
@@ -335,6 +354,7 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
     const cache = yield* EnvironmentCacheStore;
     const environmentId = supervisor.target.environmentId;
     const cachedConfig = yield* cache.loadServerConfig(environmentId).pipe(
+      Effect.map(Option.map(withoutTransientProviderUpdateState)),
       Effect.catch((error) =>
         Effect.logWarning("Could not load cached server configuration.").pipe(
           Effect.annotateLogs({
@@ -358,18 +378,20 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
     const persist = Effect.fn("EnvironmentServerConfigState.persist")(function* (
       config: ServerConfig,
     ) {
-      return yield* cache.saveServerConfig(environmentId, config).pipe(
-        Effect.as(true),
-        Effect.catch((error) =>
-          Effect.logWarning("Could not persist cached server configuration.").pipe(
-            Effect.annotateLogs({
-              environmentId,
-              ...safeErrorLogAttributes(error),
-            }),
-            Effect.as(false),
+      return yield* cache
+        .saveServerConfig(environmentId, withoutTransientProviderUpdateState(config))
+        .pipe(
+          Effect.as(true),
+          Effect.catch((error) =>
+            Effect.logWarning("Could not persist cached server configuration.").pipe(
+              Effect.annotateLogs({
+                environmentId,
+                ...safeErrorLogAttributes(error),
+              }),
+              Effect.as(false),
+            ),
           ),
-        ),
-      );
+        );
     });
 
     const persistPending = Effect.fn("EnvironmentServerConfigState.persistPending")(function* (

@@ -401,12 +401,11 @@ effectIt.layer(NodeServices.layer)("resolveSpawnCommand", (it) => {
       expect(command.shell).toBe(true);
       expect(command.command).not.toContain(" & ");
       expect(command.command).toContain("^&");
-      expect(command.args).toEqual([
-        '^"run^"',
-        '^"value^ ^&^ calc^"',
-        '^"^%PATH^%^"',
-        '^"quote\\^"value^"',
-      ]);
+      expect(command.command).toContain('^"run^"');
+      expect(command.command).toContain('^"value^ ^&^ calc^"');
+      expect(command.command).toContain('^"^%PATH^%^"');
+      expect(command.command).toContain('^"quote\\^"value^"');
+      expect(command.args).toEqual([]);
     }),
   );
 

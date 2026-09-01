@@ -31,7 +31,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isDesktopLocalConnectionTarget } from "../../connection/desktopLocal";
 import { isElectron } from "../../env";
 import { usePrimarySessionState } from "../../environments/primary";
-import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "../../hooks/useSettings";
+import {
+  useEnvironmentSettings,
+  usePrimarySettings,
+  useUpdateEnvironmentSettings,
+  useUpdatePrimarySettings,
+} from "../../hooks/useSettings";
 import { resolveAppModelSelectionState } from "../../modelSelection";
 import {
   useEnvironments,
@@ -412,6 +417,8 @@ export function EnvironmentProviderSettings({
 }) {
   const settings = useEnvironmentSettings(environmentId);
   const updateSettings = useUpdateEnvironmentSettings(environmentId);
+  const primarySettings = usePrimarySettings();
+  const updatePrimarySettings = useUpdatePrimarySettings();
   const serverProviders =
     useAtomValue(serverEnvironment.providersValueAtom(environmentId)) ?? EMPTY_SERVER_PROVIDERS;
   const refreshServerProviders = useAtomCommand(serverEnvironment.refreshProviders, {
@@ -666,9 +673,9 @@ export function EnvironmentProviderSettings({
         }),
       ),
     ];
-    updateSettings({
+    updatePrimarySettings({
       favorites: [
-        ...withoutProviderInstanceFavorites(settings.favorites ?? [], instanceId),
+        ...withoutProviderInstanceFavorites(primarySettings.favorites ?? [], instanceId),
         ...favoriteModels.map((model) => ({ provider: instanceId, model })),
       ],
     });

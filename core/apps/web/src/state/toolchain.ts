@@ -15,6 +15,7 @@ import { connectionAtomRuntime } from "../connection/runtime";
 // ---------------------------------------------------------------------------
 
 export interface ToolchainState {
+  readonly environmentId: EnvironmentId | null;
   readonly installing: "platformio" | "arduino" | null;
   readonly progress: number;
   readonly error: string | null;
@@ -25,9 +26,11 @@ export interface ToolchainState {
   readonly arduinoVersion: string | null;
   readonly arduinoCliPath: string | null;
   readonly statusLoaded: boolean;
+  readonly statusError: boolean;
 }
 
 export const initialToolchainState: ToolchainState = {
+  environmentId: null,
   installing: null,
   progress: 0,
   error: null,
@@ -38,6 +41,7 @@ export const initialToolchainState: ToolchainState = {
   arduinoVersion: null,
   arduinoCliPath: null,
   statusLoaded: false,
+  statusError: false,
 };
 
 export const toolchainStateAtom = Atom.make<ToolchainState>(initialToolchainState).pipe(

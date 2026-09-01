@@ -848,20 +848,23 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
 
   if (Result.isFailure(versionProbe)) {
     const error = versionProbe.failure;
-    yield* Effect.logWarning("Claude Agent CLI health check failed.", {
-      errorTag: error._tag,
-    });
+    const commandMissing = isCommandMissingCause(error);
+    if (!commandMissing) {
+      yield* Effect.logWarning("Claude Agent CLI health check failed.", {
+        errorTag: error._tag,
+      });
+    }
     return buildServerProvider({
       presentation: CLAUDE_PRESENTATION,
       enabled: claudeSettings.enabled,
       checkedAt,
       models: allModels,
       probe: {
-        installed: !isCommandMissingCause(error),
+        installed: !commandMissing,
         version: null,
-        status: "error",
+        status: commandMissing ? "warning" : "error",
         auth: { status: "unknown" },
-        message: isCommandMissingCause(error)
+        message: commandMissing
           ? "Claude Agent CLI (`claude`) is not installed or not on PATH."
           : "Failed to execute Claude Agent CLI health check.",
       },

@@ -34,4 +34,33 @@ describe("mergeEnvironmentSettings", () => {
     expect(settings.providerInstances).toBe(serverSettings.providerInstances);
     expect(settings.favorites).toBe(clientSettings.favorites);
   });
+
+  it("prefers shared server favorites over legacy browser-local values", () => {
+    const serverFavorites = [
+      {
+        provider: ProviderInstanceId.make("codex"),
+        model: "gpt-5.6-luna",
+      },
+    ];
+    const settings = mergeEnvironmentSettings(
+      {
+        ...DEFAULT_SERVER_SETTINGS,
+        favorites: serverFavorites,
+        modelPickerOpensFavorites: true,
+      },
+      {
+        ...DEFAULT_CLIENT_SETTINGS,
+        favorites: [
+          {
+            provider: ProviderInstanceId.make("cursor"),
+            model: "claude-sonnet",
+          },
+        ],
+        modelPickerOpensFavorites: false,
+      },
+    );
+
+    expect(settings.favorites).toBe(serverFavorites);
+    expect(settings.modelPickerOpensFavorites).toBe(true);
+  });
 });

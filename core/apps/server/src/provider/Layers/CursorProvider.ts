@@ -28,7 +28,7 @@ import {
   getProviderOptionBooleanSelectionValue,
   getProviderOptionStringSelectionValue,
 } from "@embedino/shared/model";
-import { resolveSpawnCommand } from "@embedino/shared/shell";
+import { resolveCommandPath, resolveSpawnCommand } from "@embedino/shared/shell";
 
 import {
   buildBooleanOptionDescriptor,
@@ -68,11 +68,55 @@ const CURSOR_ACP_MODEL_DISCOVERY_FAILED_MESSAGE = [
   `See ${CURSOR_CLI_INSTALLATION_DOCS_URL}.`,
   "Check server logs for ACP details.",
 ].join(" ");
+const DEFAULT_CURSOR_AGENT_BINARY = "cursor-agent";
+const CURRENT_CURSOR_AGENT_BINARY = "agent";
 export const CURSOR_PARAMETERIZED_MODEL_PICKER_CAPABILITIES = {
   _meta: {
     parameterizedModelPicker: true,
   },
 } satisfies NonNullable<EffectAcpSchema.InitializeRequest["clientCapabilities"]>;
+
+function isKnownCursorCliInstallPath(binaryPath: string): boolean {
+  const normalized = binaryPath.replaceAll("\\", "/").toLowerCase();
+  return (
+    normalized.includes("/.cursor/") ||
+    normalized.includes("/.local/bin/") ||
+    normalized.includes("/cursor/bin/")
+  );
+}
+
+/**
+ * Cursor's CLI has used both `cursor-agent` and `agent` as its executable
+ * name. Prefer the legacy name for compatibility, but accept the current
+ * name only from a known Cursor CLI installation directory. This avoids
+ * accidentally launching another product's unrelated `agent` executable
+ * when multiple providers are installed on the same machine.
+ */
+export const resolveCursorCliBinaryPath = Effect.fn("resolveCursorCliBinaryPath")(function* (
+  cursorSettings: Pick<CursorSettings, "binaryPath">,
+  environment?: NodeJS.ProcessEnv,
+): Effect.fn.Return<string, never, FileSystem.FileSystem | Path.Path> {
+  const configuredPath = cursorSettings.binaryPath.trim() || DEFAULT_CURSOR_AGENT_BINARY;
+  if (configuredPath !== DEFAULT_CURSOR_AGENT_BINARY) {
+    return configuredPath;
+  }
+
+  const resolveOptional = (command: string) =>
+    resolveCommandPath(command, environment ? { env: environment } : {}).pipe(
+      Effect.map((resolved): Option.Option<string> => Option.some(resolved)),
+      Effect.orElseSucceed(() => Option.none<string>()),
+    );
+
+  const legacyPath = yield* resolveOptional(DEFAULT_CURSOR_AGENT_BINARY);
+  if (Option.isSome(legacyPath)) {
+    return legacyPath.value;
+  }
+
+  const currentPath = yield* resolveOptional(CURRENT_CURSOR_AGENT_BINARY);
+  return Option.isSome(currentPath) && isKnownCursorCliInstallPath(currentPath.value)
+    ? currentPath.value
+    : configuredPath;
+});
 
 export function buildInitialCursorProviderSnapshot(
   cursorSettings: CursorSettings,
@@ -992,10 +1036,14 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
   never,
   ChildProcessSpawner.ChildProcessSpawner | Crypto.Crypto | FileSystem.FileSystem | Path.Path
 > {
+  const effectiveCursorSettings = {
+    ...cursorSettings,
+    binaryPath: yield* resolveCursorCliBinaryPath(cursorSettings, environment),
+  } satisfies CursorSettings;
   const checkedAt = DateTime.formatIso(yield* DateTime.now);
-  const fallbackModels = getCursorFallbackModels(cursorSettings);
+  const fallbackModels = getCursorFallbackModels(effectiveCursorSettings);
 
-  if (!cursorSettings.enabled) {
+  if (!effectiveCursorSettings.enabled) {
     return buildServerProvider({
       presentation: CURSOR_PRESENTATION,
       enabled: false,
@@ -1012,28 +1060,35 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
   }
 
   // Single `agent about` probe: returns version + auth status in one call.
-  const aboutProbe = yield* runCursorAboutCommand(cursorSettings, environment).pipe(
+  const aboutProbe = yield* runCursorAboutCommand(effectiveCursorSettings, environment).pipe(
     Effect.timeoutOption(ABOUT_TIMEOUT_MS),
     Effect.result,
   );
 
   if (Result.isFailure(aboutProbe)) {
     const error = aboutProbe.failure;
-    yield* Effect.logWarning("Cursor Agent CLI health check failed.", {
-      errorTag: error._tag,
-    });
+    const commandMissing = isCommandMissingCause(error);
+    if (!commandMissing) {
+      yield* Effect.logWarning("Cursor Agent CLI health check failed.", {
+        errorTag: error._tag,
+      });
+    }
     return buildServerProvider({
       presentation: CURSOR_PRESENTATION,
-      enabled: cursorSettings.enabled,
+      enabled: effectiveCursorSettings.enabled,
       checkedAt,
       models: fallbackModels,
       probe: {
-        installed: !isCommandMissingCause(error),
+        installed: !commandMissing,
         version: null,
-        status: "error",
+        status: commandMissing ? "warning" : "error",
         auth: { status: "unknown" },
-        message: isCommandMissingCause(error)
-          ? buildCursorCliCommandMissingMessage(cursorSettings.binaryPath)
+        message: commandMissing
+          ? buildCursorCliCommandMissingMessage(
+              cursorSettings.binaryPath === DEFAULT_CURSOR_AGENT_BINARY
+                ? "cursor-agent (or agent)"
+                : cursorSettings.binaryPath,
+            )
           : "Failed to execute Cursor Agent CLI health check.",
       },
     });
@@ -1042,7 +1097,7 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
   if (Option.isNone(aboutProbe.success)) {
     return buildServerProvider({
       presentation: CURSOR_PRESENTATION,
-      enabled: cursorSettings.enabled,
+      enabled: effectiveCursorSettings.enabled,
       checkedAt,
       models: fallbackModels,
       probe: {
@@ -1065,7 +1120,7 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
   if (parameterizedModelPickerUnsupportedMessage) {
     return buildServerProvider({
       presentation: CURSOR_PRESENTATION,
-      enabled: cursorSettings.enabled,
+      enabled: effectiveCursorSettings.enabled,
       checkedAt,
       models: fallbackModels,
       probe: {
@@ -1084,7 +1139,7 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
   let discoveryWarning: string | undefined;
   if (parsed.auth.status !== "unauthenticated") {
     const discoveryExit = yield* Effect.exit(
-      discoverCursorModelsViaAcp(cursorSettings, environment).pipe(
+      discoverCursorModelsViaAcp(effectiveCursorSettings, environment).pipe(
         Effect.timeoutOption(CURSOR_ACP_MODEL_DISCOVERY_TIMEOUT_MS),
       ),
     );
@@ -1103,7 +1158,7 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
   }
   return buildCursorProviderSnapshot({
     checkedAt,
-    cursorSettings,
+    cursorSettings: effectiveCursorSettings,
     parsed,
     discoveredModels: Option.getOrElse(
       Option.filter(discoveredModels, (models) => models.length > 0),

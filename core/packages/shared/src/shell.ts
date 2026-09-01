@@ -52,11 +52,10 @@ export class CommandResolutionError extends Data.TaggedError("CommandResolutionE
 const WINDOWS_SHELL_META_CHARS = /([()\][%!^"`<>&|;, *?])/g;
 
 /**
- * Escapes a single argument for `cmd.exe` shell mode (`spawn(..., { shell: true })`
- * on Windows). Node joins the command and arguments with spaces and hands the
- * resulting string to `cmd.exe` without any quoting, so every dynamic argument
- * must be escaped to survive both cmd.exe parsing and the target program's
- * `CommandLineToArgvW` parsing. Mirrors cross-spawn's argument escaping.
+ * Escapes a single argument for `cmd.exe` shell mode. Every dynamic argument
+ * is escaped before the complete command line is passed as the spawn command;
+ * the spawn argument array stays empty to avoid Node's DEP0190 insecure-args
+ * path. Mirrors cross-spawn's argument escaping.
  */
 function escapeWindowsShellArg(arg: string): string {
   // Double up backslashes that precede a double quote, then escape the quote
@@ -657,8 +656,11 @@ export const resolveSpawnCommand = Effect.fn("shell.resolveSpawnCommand")(functi
   }
 
   return {
-    command: escapeWindowsShellArg(resolvedCommand),
-    args: sanitizeShellModeArgsForPlatform(args, platform),
+    command: [
+      escapeWindowsShellArg(resolvedCommand),
+      ...sanitizeShellModeArgsForPlatform(args, platform),
+    ].join(" "),
+    args: [],
     shell: true,
   };
 });

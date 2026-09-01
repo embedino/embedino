@@ -29,7 +29,17 @@ export function buildHardwareSystemPrompt(
   return Effect.gen(function* () {
     // Privacy: without an explicit board selection the agent must not learn
     // what hardware is attached, so the USB scan is skipped entirely.
-    const allDevices: Array<HardwareDevice> = activeDeviceId ? yield* scanDevices() : [];
+    let deviceScanUnavailable = false;
+    const allDevices: Array<HardwareDevice> = activeDeviceId
+      ? yield* scanDevices().pipe(
+          Effect.catch(() =>
+            Effect.sync(() => {
+              deviceScanUnavailable = true;
+              return [];
+            }),
+          ),
+        )
+      : [];
     const binaryPaths = yield* getToolchainBinaryPaths();
     // Sort deterministically: OS enumeration order (WMI/USB) is not stable
     // between scans, and an unstable render would make byte-identical hardware
@@ -43,7 +53,7 @@ export function buildHardwareSystemPrompt(
       ENGINEERING_STANDARDS,
       WIRING_VIEWER_OUTPUT,
       toolchainSection(activeToolchain, binaryPaths),
-      hardwareSection(devices, activeDeviceId),
+      hardwareSection(devices, activeDeviceId, deviceScanUnavailable),
     ].join("\n\n");
   });
 }
@@ -163,11 +173,15 @@ function toolchainSection(
 function hardwareSection(
   devices: ReadonlyArray<HardwareDevice>,
   activeDeviceId: string | undefined,
+  scanUnavailable = false,
 ): string {
   let state: string;
   if (activeDeviceId === undefined) {
     state =
       "- No board is selected for this chat. Do not assume, guess, or name any hardware; ask the user which board to target before generating board-specific configuration.";
+  } else if (scanUnavailable) {
+    state =
+      "- Device detection is temporarily unavailable. Do not infer that the selected board was disconnected; use the user's selected board context and avoid changing its association.";
   } else if (devices.length === 0) {
     state = "- The previously selected device is no longer connected.";
   } else {

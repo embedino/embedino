@@ -192,20 +192,23 @@ export const checkGrokProviderStatus = Effect.fn("checkGrokProviderStatus")(func
 
   if (Result.isFailure(versionResult)) {
     const error = versionResult.failure;
-    yield* Effect.logWarning("Grok CLI health check failed.", {
-      errorTag: error._tag,
-    });
+    const commandMissing = isCommandMissingCause(error);
+    if (!commandMissing) {
+      yield* Effect.logWarning("Grok CLI health check failed.", {
+        errorTag: error._tag,
+      });
+    }
     return buildServerProvider({
       presentation: GROK_PRESENTATION,
       enabled: grokSettings.enabled,
       checkedAt,
       models: fallbackModels,
       probe: {
-        installed: !isCommandMissingCause(error),
+        installed: !commandMissing,
         version: null,
-        status: "error",
+        status: commandMissing ? "warning" : "error",
         auth: { status: "unknown" },
-        message: isCommandMissingCause(error)
+        message: commandMissing
           ? "Grok CLI (`grok`) is not installed or not on PATH."
           : "Failed to execute Grok CLI health check.",
       },

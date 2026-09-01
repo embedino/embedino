@@ -3,7 +3,7 @@ import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon } from "lucide-r
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "~/lib/utils";
-import { useClientSettings } from "~/hooks/useSettings";
+import { usePrimarySettings } from "~/hooks/useSettings";
 import { isProviderInstancePickerReady, type ProviderInstanceEntry } from "../../providerInstances";
 import { sortProviderModelItems } from "../../modelOrdering";
 import { type ModelEsque, getTriggerDisplayModelName } from "./providerIconUtils";
@@ -45,8 +45,8 @@ export const ModelPickerMenu = memo(function ModelPickerMenu(props: {
 }) {
   // Favorites curated in Settings → Providers power the dedicated
   // "Favorites" view; they never reorder a provider's own model list.
-  const favorites = useClientSettings((settings) => settings.favorites ?? []);
-  const opensOnFavorites = useClientSettings(
+  const favorites = usePrimarySettings((settings) => settings.favorites ?? []);
+  const opensOnFavorites = usePrimarySettings(
     (settings) => settings.modelPickerOpensFavorites ?? false,
   );
 

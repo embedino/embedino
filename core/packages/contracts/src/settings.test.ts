@@ -171,6 +171,28 @@ describe("ServerSettings worktree defaults", () => {
   });
 });
 
+describe("ServerSettings shared model-picker preferences", () => {
+  it("keeps shared favorites optional for legacy settings files", () => {
+    expect(decodeServerSettings({}).favorites).toBeUndefined();
+    expect(decodeServerSettings({}).modelPickerOpensFavorites).toBeUndefined();
+  });
+
+  it("accepts shared favorites and the home-view toggle", () => {
+    const favorites = [{ provider: ProviderInstanceId.make("codex"), model: "gpt-5.6-luna" }];
+    const decoded = decodeServerSettings({
+      favorites,
+      modelPickerOpensFavorites: true,
+    });
+
+    expect(decoded.favorites).toEqual(favorites);
+    expect(decoded.modelPickerOpensFavorites).toBe(true);
+    expect(decodeServerSettingsPatch({ favorites, modelPickerOpensFavorites: true })).toEqual({
+      favorites,
+      modelPickerOpensFavorites: true,
+    });
+  });
+});
+
 describe("ServerSettings.sourceControlWritingStyle", () => {
   it("defaults all style settings for legacy configs", () => {
     const settings = decodeServerSettings({});

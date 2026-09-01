@@ -41,6 +41,7 @@ import {
   serverUpdateStateForProgressEvent,
   serverUpdateStateForServerVersion,
   validateServerUpdateReadyEvent,
+  withoutTransientProviderUpdateState,
 } from "./server.ts";
 
 const CONFIG = {
@@ -64,6 +65,30 @@ const TARGET = new PrimaryConnectionTarget({
   label: "Test environment",
   httpBaseUrl: "https://environment.example.test",
   wsBaseUrl: "wss://environment.example.test",
+});
+
+describe("server config persistence", () => {
+  it("removes live provider update progress from cached snapshots", () => {
+    const provider = {
+      instanceId: "codex",
+      updateState: {
+        status: "running",
+        startedAt: "2026-09-01T09:00:00.000Z",
+        finishedAt: null,
+        message: "Updating provider.",
+        output: null,
+      },
+    };
+    const config = {
+      ...CONFIG,
+      providers: [provider],
+    } as unknown as ServerConfig;
+
+    const cached = withoutTransientProviderUpdateState(config);
+
+    expect(cached.providers[0]?.updateState).toBeUndefined();
+    expect(provider.updateState.status).toBe("running");
+  });
 });
 
 function session(client: WsRpcProtocolClient): RpcSession {

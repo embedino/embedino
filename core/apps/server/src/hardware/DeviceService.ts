@@ -28,7 +28,7 @@ function normalizePortDisplayName(port: string): string {
   return port;
 }
 
-function parseWindowsDevices(jsonStr: string): HardwareDevice[] {
+export function parseWindowsDevices(jsonStr: string): HardwareDevice[] {
   try {
     const data = JSON.parse(jsonStr);
     const devices = Array.isArray(data) ? data : [data];
@@ -40,10 +40,10 @@ function parseWindowsDevices(jsonStr: string): HardwareDevice[] {
       const portMatch = dev.Name.match(/(COM\d+)/);
       const vidPidMatch = dev.DeviceID.match(/VID_([0-9A-Fa-f]{4})&PID_([0-9A-Fa-f]{4})/);
 
-      if (portMatch && vidPidMatch) {
+      if (portMatch) {
         const port = portMatch[1];
-        const vid = vidPidMatch[1].toLowerCase();
-        const pid = vidPidMatch[2].toLowerCase();
+        const vid = vidPidMatch?.[1]?.toLowerCase() ?? null;
+        const pid = vidPidMatch?.[2]?.toLowerCase() ?? null;
 
         results.push(resolveDevice(port, vid, pid, dev.Manufacturer));
       }
@@ -92,15 +92,15 @@ function parseMacDevices(jsonStr: string): HardwareDevice[] {
 
 function resolveDevice(
   port: string,
-  vid: string,
-  pid: string,
+  vid: string | null,
+  pid: string | null,
   manufacturer?: string,
 ): HardwareDevice {
   const portDisplayName = normalizePortDisplayName(port);
-  const driverChip = lookupBridgeChip(vid, pid);
+  const driverChip = vid && pid ? lookupBridgeChip(vid, pid) : null;
 
   // Check user-saved associations first
-  const assoc = findAssociation(vid, pid);
+  const assoc = vid && pid ? findAssociation(vid, pid) : null;
   if (assoc) {
     return {
       id: `${vid}:${pid}:${port}`,
@@ -118,7 +118,7 @@ function resolveDevice(
   }
 
   // Tier 1: Instant VID/PID lookup
-  const board = lookupByVidPid(vid, pid);
+  const board = vid && pid ? lookupByVidPid(vid, pid) : null;
   if (board) {
     return {
       id: `${vid}:${pid}:${port}`,
@@ -153,7 +153,7 @@ function resolveDevice(
   }
 
   return {
-    id: `${vid}:${pid}:${port}`,
+    id: `${vid ?? "unknown"}:${pid ?? "unknown"}:${port}`,
     port,
     portDisplayName,
     vid,
@@ -172,42 +172,46 @@ export const scanDevices = () =>
     const platform = yield* HostProcessPlatform;
 
     if (platform === "win32") {
-      try {
-        const result = yield* Effect.promise(() =>
+      const result = yield* Effect.tryPromise({
+        try: () =>
           execFileAsync(
             "powershell.exe",
             [
+              "-NoLogo",
               "-NoProfile",
+              "-NonInteractive",
               "-Command",
-              `Get-CimInstance Win32_PnPEntity | Where-Object -Property Name -Match 'COM\\d+' | Where-Object -Property Present -eq $true | Select-Object Name, DeviceID, Manufacturer | ConvertTo-Json`,
+              `$devices = Get-PnpDevice -PresentOnly -Class Ports -ErrorAction SilentlyContinue; $ports = if ($null -ne $devices) { $devices | Select-Object @{Name='Name';Expression={$_.FriendlyName}}, @{Name='DeviceID';Expression={$_.InstanceId}}, Manufacturer } else { [System.IO.Ports.SerialPort]::GetPortNames() | ForEach-Object { [pscustomobject]@{Name=$_;DeviceID=$_;Manufacturer=$null} } }; $ports | ConvertTo-Json -Compress`,
             ],
             { encoding: "utf-8", timeout: 5000 },
           ),
-        );
-        if (result.stderr && result.stderr.trim().length > 0) {
-          yield* Effect.logError(`Device scan stderr (win32): ${result.stderr}`);
-        }
-        return parseWindowsDevices(result.stdout);
-      } catch (err) {
-        yield* Effect.logError(`Device scan failed (win32): ${err}`);
-        return [];
+        catch: (cause) =>
+          new HardwareDetectionError({
+            message: "Windows serial-device scan failed.",
+            details: cause instanceof Error ? cause.message : String(cause),
+          }),
+      });
+      if (result.stderr && result.stderr.trim().length > 0) {
+        yield* Effect.logWarning(`Device scan stderr (win32): ${result.stderr}`);
       }
+      return parseWindowsDevices(result.stdout);
     } else if (platform === "darwin") {
-      try {
-        const result = yield* Effect.promise(() =>
+      const result = yield* Effect.tryPromise({
+        try: () =>
           execFileAsync("system_profiler", ["SPUSBDataType", "-json"], {
             encoding: "utf-8",
             timeout: 5000,
           }),
-        );
-        if (result.stderr && result.stderr.trim().length > 0) {
-          yield* Effect.logError(`Device scan stderr (darwin): ${result.stderr}`);
-        }
-        return parseMacDevices(result.stdout);
-      } catch (err) {
-        yield* Effect.logError(`Device scan failed (darwin): ${err}`);
-        return [];
+        catch: (cause) =>
+          new HardwareDetectionError({
+            message: "macOS USB-device scan failed.",
+            details: cause instanceof Error ? cause.message : String(cause),
+          }),
+      });
+      if (result.stderr && result.stderr.trim().length > 0) {
+        yield* Effect.logWarning(`Device scan stderr (darwin): ${result.stderr}`);
       }
+      return parseMacDevices(result.stdout);
     } else {
       // Linux
       const devices: HardwareDevice[] = [];
@@ -248,6 +252,7 @@ export const subscribeDevices = () =>
         let cancelled = false;
         let watcher: NodeFS.FSWatcher | null = null;
         let timeout: NodeJS.Timeout | null = null;
+        let scanFailureLogged = false;
 
         const emit = (event: HardwareEvent) => {
           if (cancelled) return;
@@ -258,10 +263,12 @@ export const subscribeDevices = () =>
           Effect.runPromise(scanDevices())
             .then((devices) => {
               if (cancelled) return;
+              scanFailureLogged = false;
               emit({ type: "snapshot", devices });
             })
             .catch((err) => {
-              if (cancelled) return;
+              if (cancelled || scanFailureLogged) return;
+              scanFailureLogged = true;
               Effect.runPromise(Effect.logError(`Device scan stream error: ${err}`)).catch(
                 () => {},
               );

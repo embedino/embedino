@@ -9,7 +9,7 @@
  * access is intentionally named as such so environment-sensitive consumers
  * cannot silently read the wrong server's settings.
  */
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import {
   DEFAULT_SERVER_SETTINGS,
@@ -26,7 +26,11 @@ import {
 import { safeErrorLogAttributes } from "@embedino/client-runtime/errors";
 import { ensureLocalApi } from "~/localApi";
 import * as Struct from "effect/Struct";
-import { primaryServerSettingsAtom, serverEnvironment } from "~/state/server";
+import {
+  primaryServerConfigAtom,
+  primaryServerSettingsAtom,
+  serverEnvironment,
+} from "~/state/server";
 import { usePrimaryEnvironment } from "~/state/environments";
 import { useAtomCommand } from "~/state/use-atom-command";
 
@@ -196,7 +200,16 @@ export function mergeEnvironmentSettings(
   serverSettings: ServerSettings,
   clientSettings: ClientSettings,
 ): UnifiedSettings {
-  return { ...serverSettings, ...clientSettings };
+  return {
+    ...serverSettings,
+    ...clientSettings,
+    // Favorites are shared through the connected server when available. The
+    // client values are retained as a migration fallback for older browsers.
+    ...(serverSettings.favorites !== undefined ? { favorites: serverSettings.favorites } : {}),
+    ...(serverSettings.modelPickerOpensFavorites !== undefined
+      ? { modelPickerOpensFavorites: serverSettings.modelPickerOpensFavorites }
+      : {}),
+  };
 }
 
 function useMergedSettings<T>(
@@ -293,6 +306,47 @@ export function useUpdateEnvironmentSettings(environmentId: EnvironmentId) {
 
 export function useUpdatePrimarySettings() {
   return useUpdateSettingsTarget(usePrimaryEnvironment()?.environmentId ?? null);
+}
+
+/**
+ * Move model-picker favorites created by older browser builds into the
+ * server-authoritative settings file. This runs once after both settings
+ * sources are ready, so changing browsers preserves the user's existing list.
+ */
+export function useSharedModelPickerSettingsMigration(): void {
+  const settingsHydrated = useClientSettingsHydrated();
+  const clientSettings = useClientSettingsValue();
+  const primaryEnvironment = usePrimaryEnvironment();
+  const primaryServerConfig = useAtomValue(primaryServerConfigAtom);
+  const updateSettings = useUpdatePrimarySettings();
+  const migrationAttempted = useRef(false);
+
+  useEffect(() => {
+    if (
+      migrationAttempted.current ||
+      !settingsHydrated ||
+      !primaryEnvironment ||
+      !primaryServerConfig
+    ) {
+      return;
+    }
+
+    const patch = {
+      ...(primaryServerConfig.settings.favorites === undefined &&
+      clientSettings.favorites.length > 0
+        ? { favorites: clientSettings.favorites }
+        : {}),
+      ...(primaryServerConfig.settings.modelPickerOpensFavorites === undefined &&
+      clientSettings.modelPickerOpensFavorites
+        ? { modelPickerOpensFavorites: true }
+        : {}),
+    } satisfies ServerSettingsPatch;
+
+    migrationAttempted.current = true;
+    if (Object.keys(patch).length > 0) {
+      updateSettings(patch);
+    }
+  }, [clientSettings, primaryEnvironment, primaryServerConfig, settingsHydrated, updateSettings]);
 }
 
 export function useUpdateClientSettings() {
