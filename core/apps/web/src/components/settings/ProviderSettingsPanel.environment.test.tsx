@@ -26,9 +26,11 @@ const commands = vi.hoisted(() => ({
 
 const settingsState = vi.hoisted(() => ({
   value: null as UnifiedSettings | null,
+  primaryValue: null as UnifiedSettings | null,
   readEnvironmentIds: [] as EnvironmentId[],
   updateEnvironmentIds: [] as EnvironmentId[],
   updateSettings: vi.fn(),
+  updatePrimarySettings: vi.fn(),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -76,6 +78,8 @@ vi.mock("../../hooks/useSettings", () => ({
     settingsState.updateEnvironmentIds.push(environmentId);
     return settingsState.updateSettings;
   },
+  usePrimarySettings: () => settingsState.primaryValue,
+  useUpdatePrimarySettings: () => settingsState.updatePrimarySettings,
 }));
 
 vi.mock("../../environments/primary", () => ({
@@ -138,9 +142,11 @@ describe("EnvironmentProviderSettings routing", () => {
     hooks.reset();
     atoms.providers = null;
     settingsState.value = DEFAULT_UNIFIED_SETTINGS;
+    settingsState.primaryValue = DEFAULT_UNIFIED_SETTINGS;
     settingsState.readEnvironmentIds = [];
     settingsState.updateEnvironmentIds = [];
     settingsState.updateSettings.mockReset();
+    settingsState.updatePrimarySettings.mockReset();
     commands.refresh.mockReset().mockResolvedValue({ _tag: "Success" });
     commands.updateProvider.mockReset().mockResolvedValue({ _tag: "Success" });
   });
