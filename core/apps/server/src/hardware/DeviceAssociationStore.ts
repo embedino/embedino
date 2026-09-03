@@ -63,13 +63,21 @@ export function findAssociation(
   pid: string,
   serialNumber?: string,
 ): StoredAssociation | null {
-  const associations = loadAssociations();
+  return findAssociationIn(loadAssociations(), vid, pid, serialNumber);
+}
+
+export function findAssociationIn(
+  associations: readonly StoredAssociation[],
+  vid: string,
+  pid: string,
+  serialNumber?: string,
+): StoredAssociation | null {
   return (
     associations.find(
       (a) =>
         a.vid.toLowerCase() === vid.toLowerCase() &&
         a.pid.toLowerCase() === pid.toLowerCase() &&
-        (!serialNumber || a.usbSerialNumber === serialNumber),
+        (serialNumber ? a.usbSerialNumber === serialNumber : a.usbSerialNumber === undefined),
     ) || null
   );
 }

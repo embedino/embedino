@@ -68,13 +68,22 @@ export const BoardSelectorPill = memo(function BoardSelectorPill({
   return (
     <Dialog>
       <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger render={<Button size="xs" variant="outline" className="ps-[8.5px]" />}>
-          <CpuIcon aria-hidden="true" className="size-3.5 text-foreground opacity-100" />
-          <span className="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5 truncate max-w-[150px]">
+        <Popover.Trigger
+          render={
+            <Button
+              size="xs"
+              variant="outline"
+              className="min-w-0 max-w-[min(13rem,45vw)] gap-1.5 overflow-hidden ps-[8.5px]"
+              title={displayText}
+            />
+          }
+        >
+          <CpuIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground opacity-100" />
+          <span className="sr-only min-w-0 flex-1 truncate @3xl/header-actions:not-sr-only @3xl/header-actions:block">
             {displayText}
           </span>
           <ChevronDownIcon
-            className={cn("size-3 opacity-50", deviceCount >= 2 ? "ml-1" : "hidden")}
+            className={cn("size-3 shrink-0 opacity-50", deviceCount >= 2 ? "ml-0.5" : "hidden")}
           />
         </Popover.Trigger>
         {open && (

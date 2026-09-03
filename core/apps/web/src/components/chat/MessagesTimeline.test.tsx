@@ -20,6 +20,7 @@ vi.mock("@legendapp/list/react", async () => {
       onReady?: (info: { anchorIndex: number }) => void;
     };
     contentInsetEndAdjustment?: number;
+    dataVersion?: string | number;
     className?: string;
     maintainScrollAtEnd?:
       | boolean
@@ -51,6 +52,7 @@ vi.mock("@legendapp/list/react", async () => {
         data-anchor-offset={props.anchoredEndSpace?.anchorOffset}
         data-anchor-on-ready={Boolean(props.anchoredEndSpace?.onReady)}
         data-content-inset-end={props.contentInsetEndAdjustment}
+        data-version={props.dataVersion}
         data-class-name={props.className}
         data-maintain-scroll-at-end={props.maintainScrollAtEnd ? "enabled" : undefined}
         data-maintain-scroll-at-end-animated={
@@ -461,7 +463,7 @@ describe("MessagesTimeline", () => {
 
     expect(markup).not.toContain("Show full message");
     expect(markup).toContain('data-user-message-collapsible="false"');
-    expect(markup).toContain("rounded-2xl bg-message p-3");
+    expect(markup).toContain("chat-user-message");
   });
 
   it("renders inline terminal labels with the composer chip UI", () => {
@@ -681,5 +683,36 @@ describe("MessagesTimeline", () => {
 
     expect(markup).toContain("lucide-x");
     expect(markup).toContain('aria-label="Tool call failed"');
+  });
+
+  it("renders agent uploads as a Device Lab action without exposing the command", () => {
+    const command =
+      "& 'C:\\Users\\rapid\\AppData\\Roaming\\Python\\Scripts\\pio.exe' run --target upload";
+    const markup = renderToStaticMarkup(
+      <MessagesTimeline
+        {...buildProps()}
+        timelineEntries={[
+          {
+            id: "agent-flash-entry",
+            kind: "work",
+            createdAt: MESSAGE_CREATED_AT,
+            entry: {
+              id: "agent-flash-work",
+              createdAt: MESSAGE_CREATED_AT,
+              label: "Command",
+              tone: "tool",
+              itemType: "command_execution",
+              toolLifecycleStatus: "inProgress",
+              command,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Flashing board…");
+    expect(markup).toContain("Open Device Lab");
+    expect(markup).not.toContain("pio.exe");
+    expect(markup).not.toContain("--target upload");
   });
 });

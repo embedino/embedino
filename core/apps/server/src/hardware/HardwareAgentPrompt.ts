@@ -83,7 +83,10 @@ const ENGINEERING_STANDARDS = [
 
 const WIRING_VIEWER_OUTPUT = [
   "<wiring_viewer_output>",
-  "Embedino renders interactive circuit diagrams from fenced code blocks tagged `wiring`. Whenever the request involves wiring, pinouts, or connecting components, include exactly one such block containing a single JSON object next to your explanation.",
+  "Embedino renders interactive physical wiring diagrams from fenced code blocks tagged `wiring`.",
+  "Include exactly one such block only when the user must make, change, or inspect physical connections between separate boards or external components.",
+  "Do not emit a wiring block for onboard, built-in, integrated, or internally connected peripherals such as a board's built-in LED, RGB LED, NeoPixel, button, display, sensor, flash, or PSRAM. Internal PCB traces are not user wiring. For those requests, explain the relevant GPIO or board setting in normal text and generate only the firmware/configuration files.",
+  "Do not emit a wiring block for code-only, build-only, or flash-only requests unless external physical wiring is actually required.",
   "",
   "JSON fields:",
   "- title: string; description: string (optional)",
@@ -148,7 +151,7 @@ function toolchainSection(
       `- List required libraries as a comment, e.g. // libraries: ${bin} lib install <Library>`,
       "Commands:",
       `- Compile: ${bin} compile --fqbn <fqbn> <sketch_directory>`,
-      `- Upload: ${bin} upload -p <port> --fqbn <fqbn> <sketch_directory>`,
+      `- Build and upload: ${bin} compile --upload -p <port> --fqbn <fqbn> <sketch_directory>`,
       `- Serial monitor: ${bin} monitor -p <port> --config baudrate=115200`,
       "</toolchain_state>",
     ].join("\n");

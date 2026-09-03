@@ -57,6 +57,39 @@ export function getConnectedDeviceCount(state: HardwareState): number {
   return state.connectedDevices.length;
 }
 
+/** Reconciles a fresh scan with the selected board, including USB/COM replacement. */
+export function reconcileHardwareSnapshot(
+  current: HardwareState,
+  devices: readonly HardwareDevice[],
+): HardwareState {
+  if (!current.activeDeviceId) {
+    return { ...current, connectedDevices: devices, initialized: true };
+  }
+
+  const selectedDevice = devices.find((device) => device.id === current.activeDeviceId);
+  const replacementDevice = selectedDevice ?? (devices.length === 1 ? devices[0] : undefined);
+
+  if (!replacementDevice) {
+    return {
+      ...current,
+      connectedDevices: devices,
+      initialized: true,
+      isOnline: false,
+      targetPortDisplay: null,
+    };
+  }
+
+  return {
+    ...current,
+    connectedDevices: devices,
+    initialized: true,
+    activeDeviceId: replacementDevice.id,
+    targetBoardName: replacementDevice.boardName,
+    targetPortDisplay: replacementDevice.portDisplayName,
+    isOnline: true,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // hardwareListDevices — unary RPC via createRuntimeCommand
 // ---------------------------------------------------------------------------
@@ -77,18 +110,9 @@ function subscribeDevicesEffect(environmentId: EnvironmentId, signal?: AbortSign
           Stream.tap((event: HardwareEvent) =>
             Effect.sync(() => {
               if (event.type === "snapshot") {
-                appAtomRegistry.update(hardwareStateAtom, (current) => {
-                  const isStillConnected = current.activeDeviceId
-                    ? event.devices.some((d) => d.id === current.activeDeviceId)
-                    : false;
-
-                  return {
-                    ...current,
-                    connectedDevices: event.devices,
-                    initialized: true,
-                    isOnline: current.activeDeviceId ? isStillConnected : false,
-                  };
-                });
+                appAtomRegistry.update(hardwareStateAtom, (current) =>
+                  reconcileHardwareSnapshot(current, event.devices),
+                );
               }
             }),
           ),

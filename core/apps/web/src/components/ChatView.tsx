@@ -91,6 +91,7 @@ import {
   deriveWorkLogEntries,
   hasActionableProposedPlan,
   isLatestTurnSettled,
+  type WorkLogEntry,
 } from "../session-logic";
 import { type LegendListRef } from "@legendapp/list/react";
 import { getAnchoredTurnMetrics, type TimelineScrollMode } from "./chat/timelineScrollAnchoring";
@@ -151,6 +152,13 @@ import { PullRequestsUnavailableState } from "./pullRequest/PullRequestsUnavaila
 import { RightPanelTabs, type PullRequestTabStatus } from "./RightPanelTabs";
 import { AgentsPanel } from "./AgentsPanel";
 import { WiringPanel } from "./wiring/WiringPanel";
+import { DeviceLabPanel } from "./deviceLab/DeviceLabPanel";
+import {
+  arduinoSketchDirectory,
+  hardwareExecutableInvocation,
+  quoteHardwareShellArgument,
+} from "./deviceLab/hardwareCommand";
+import { agentFlashActivityKey, detectAgentFlashActivity } from "./deviceLab/agentFlashActivity";
 import {
   deriveAgentPanelModel,
   foldSubagentActivities,
@@ -248,7 +256,7 @@ import {
 import { environmentShell } from "../state/shell";
 import { ChatComposer, type ChatComposerHandle } from "./chat/ChatComposer";
 import { useActiveToolchain, toolchainStateAtom } from "../state/toolchain";
-import { hardwareStateAtom } from "../state/hardware";
+import { getActiveDevice, hardwareStateAtom } from "../state/hardware";
 import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
@@ -313,7 +321,6 @@ import {
   waitForStartedServerThread,
 } from "./ChatView.logic";
 import type { ThreadSyncPhase } from "../threadSync";
-import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
 import { sanitizeThreadErrorMessage } from "~/rpc/transportError";
 import { RightPanelSheet } from "./RightPanelSheet";
@@ -1694,6 +1701,7 @@ function ChatViewContent(props: ChatViewProps) {
   ]);
   const activeEnvironment =
     activeThread == null ? null : (environmentById.get(activeThread.environmentId) ?? null);
+  const activeEnvironmentOs = activeEnvironment?.serverConfig?.environment.platform.os ?? "unknown";
   const activeEnvironmentConnectionPhase = activeEnvironment?.connection.phase ?? "available";
   const activeEnvironmentUnavailable =
     activeEnvironment !== null && activeEnvironmentConnectionPhase !== "connected";
@@ -2633,9 +2641,44 @@ function ChatViewContent(props: ChatViewProps) {
   }, [providerIssue]);
   const hasTimelineTopBanner = Boolean(visibleThreadError);
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
-  const projectEntries = useProjectEntriesQuery(environmentId, activeProjectCwd ?? "");
   const activeThreadWorktreePath = activeThread?.worktreePath ?? null;
   const activeWorkspaceRoot = activeThreadWorktreePath ?? activeProjectCwd ?? undefined;
+  const projectEntries = useProjectEntriesQuery(environmentId, activeWorkspaceRoot ?? "");
+  const openAgentFlashDeviceLab = useCallback(
+    (entry: WorkLogEntry) => {
+      if (!activeThreadRef || !activeWorkspaceRoot) return;
+      const flash = detectAgentFlashActivity(entry);
+      if (!flash) return;
+      const device = getActiveDevice(hardwareState);
+      useRightPanelStore.getState().openDeviceLab(activeThreadRef, {
+        terminalId: `agent-${entry.id}`,
+        boardName:
+          device?.boardName ?? hardwareState.targetBoardName ?? "Agent-managed hardware target",
+        portDisplayName:
+          device?.portDisplayName ?? hardwareState.targetPortDisplay ?? "Agent-managed flash",
+        workspacePath: activeWorkspaceRoot,
+        toolchain: flash.toolchain,
+        startedAt: entry.createdAt,
+        error: null,
+        agentToolCallId: flash.key,
+        agentCommand: entry.command ?? "Agent flash command",
+      });
+    },
+    [activeThreadRef, activeWorkspaceRoot, hardwareState],
+  );
+  const activeDeviceLabAgentActivity = useMemo(() => {
+    if (
+      activeRightPanelSurface?.kind !== "device-lab" ||
+      activeRightPanelSurface.agentToolCallId === undefined
+    ) {
+      return null;
+    }
+    return (
+      workLogEntries.find(
+        (entry) => agentFlashActivityKey(entry) === activeRightPanelSurface.agentToolCallId,
+      ) ?? null
+    );
+  }, [activeRightPanelSurface, workLogEntries]);
   const activeTerminalLaunchContext =
     terminalUiLaunchContext?.threadId === activeThreadId ? terminalUiLaunchContext : null;
   // Default true while loading to avoid toolbar flicker.
@@ -2985,43 +3028,44 @@ function ChatViewContent(props: ChatViewProps) {
   const runHardwareAction = useCallback(
     async (action: "flash" | "monitor", device: any, toolchain: "platformio" | "arduino") => {
       if (!activeThreadId || !activeProject || !activeThreadRef || !activeThread) return;
-
-      const hasPlatformIoIni =
-        projectEntries.data?.entries.some((e: any) => e.path === "platformio.ini") ?? false;
-      const hasInoFile =
-        projectEntries.data?.entries.some((e: any) => e.path.endsWith(".ino")) ?? false;
-
-      const isPlatformIoProject = hasPlatformIoIni;
-      const isArduinoProject = hasInoFile && !hasPlatformIoIni;
-
-      if (toolchain === "platformio" && isArduinoProject) {
-        toastManager.add({
-          title: "Toolchain Mismatch",
-          description:
-            "Your code appears to be an Arduino project, but you have PlatformIO selected. Please ask the AI to convert it, or change your toolchain in Settings.",
-        });
-        return;
-      }
-
-      if (toolchain === "arduino" && isPlatformIoProject) {
-        toastManager.add({
-          title: "Toolchain Mismatch",
-          description:
-            "Your code appears to be a PlatformIO project, but you have Arduino CLI selected. Please ask the AI to convert it, or change your toolchain in Settings.",
-        });
-        return;
-      }
-
       const targetCwd = gitCwd ?? activeProject.workspaceRoot;
-      const targetTerminalId = nextTerminalId(allocatableActiveTerminalIds);
 
-      setTerminalUiLaunchContext({
-        threadId: activeThreadId,
-        cwd: targetCwd,
-        worktreePath: activeThread.worktreePath ?? null,
-      });
-      setTerminalOpen(true);
-      setTerminalFocusRequestId((value) => value + 1);
+      if (action === "flash") {
+        if (toolchain === "arduino" && !device.fqbn) {
+          toastManager.add({
+            title: "Board configuration is incomplete",
+            description: "Select a recognized Arduino board with an FQBN before flashing.",
+          });
+          return;
+        }
+      }
+
+      const targetTerminalId =
+        action === "flash" ? `flash-${randomHex(8)}` : nextTerminalId(allocatableActiveTerminalIds);
+      const deviceLabSurface =
+        action === "flash"
+          ? {
+              terminalId: targetTerminalId,
+              boardName: device.boardName ?? device.driverChip ?? "Unknown board",
+              portDisplayName: device.portDisplayName,
+              workspacePath: targetCwd,
+              toolchain,
+              startedAt: new Date().toISOString(),
+              error: null,
+            }
+          : null;
+
+      if (deviceLabSurface) {
+        useRightPanelStore.getState().openDeviceLab(activeThreadRef, deviceLabSurface);
+      } else {
+        setTerminalUiLaunchContext({
+          threadId: activeThreadId,
+          cwd: targetCwd,
+          worktreePath: activeThread.worktreePath ?? null,
+        });
+        setTerminalOpen(true);
+        setTerminalFocusRequestId((value) => value + 1);
+      }
 
       const runtimeEnv = projectScriptRuntimeEnv({
         project: { cwd: activeProject.workspaceRoot },
@@ -3038,10 +3082,19 @@ function ChatViewContent(props: ChatViewProps) {
         rows: SCRIPT_TERMINAL_ROWS,
       };
 
-      storeNewTerminal(activeThreadRef, targetTerminalId);
+      if (action === "monitor") {
+        storeNewTerminal(activeThreadRef, targetTerminalId);
+      }
 
       const openResult = await openTerminal({ environmentId, input: openTerminalInput });
       if (openResult._tag === "Failure") {
+        if (deviceLabSurface) {
+          const error = squashAtomCommandFailure(openResult);
+          useRightPanelStore.getState().openDeviceLab(activeThreadRef, {
+            ...deviceLabSurface,
+            error: error instanceof Error ? error.message : "Unable to start the flash session.",
+          });
+        }
         return;
       }
 
@@ -3051,39 +3104,43 @@ function ChatViewContent(props: ChatViewProps) {
         console.error("Invalid port name provided. Disallowed characters detected.");
         return;
       }
-      const portArg = `"${device.port}"`;
+      const portArg = quoteHardwareShellArgument(device.port, activeEnvironmentOs);
       let command = "";
 
       // Use binary paths resolved by the server's ToolchainService.
       // This ensures Flash/Monitor works without the binaries being in system PATH.
       if (toolchain === "platformio") {
-        const pioBin = toolchainState.platformioPath ? `"${toolchainState.platformioPath}"` : "pio";
+        const pioBin = hardwareExecutableInvocation({
+          resolvedPath: toolchainState.platformioPath,
+          fallbackCommand: "pio",
+          hostOs: activeEnvironmentOs,
+        });
         command =
           action === "flash"
             ? `${pioBin} run --target upload --upload-port ${portArg}`
             : `${pioBin} device monitor --port ${portArg}`;
       } else {
-        const arduinoBin = toolchainState.arduinoCliPath
-          ? `& "${toolchainState.arduinoCliPath}"`
-          : "arduino-cli";
+        const arduinoBin = hardwareExecutableInvocation({
+          resolvedPath: toolchainState.arduinoCliPath,
+          fallbackCommand: "arduino-cli",
+          hostOs: activeEnvironmentOs,
+        });
 
         const isValidFqbn = !device.fqbn || /^[a-zA-Z0-9_\-:]+$/.test(device.fqbn);
         if (!isValidFqbn) {
           console.error("Invalid FQBN provided. Disallowed characters detected.");
           return;
         }
-        const fqbnArg = device.fqbn ? `-b "${device.fqbn}" ` : "";
+        const fqbnArg = device.fqbn
+          ? `-b ${quoteHardwareShellArgument(device.fqbn, activeEnvironmentOs)} `
+          : "";
 
         // Find the specific directory containing the .ino file
         const inoFileEntry = projectEntries.data?.entries.find((e: any) => e.path.endsWith(".ino"));
-        let sketchDir = `"."`;
-        if (inoFileEntry) {
-          const lastSlashIndex = inoFileEntry.path.lastIndexOf("/");
-          sketchDir =
-            lastSlashIndex === -1
-              ? `"."`
-              : `".\\${inoFileEntry.path.substring(0, lastSlashIndex).replace(/\//g, "\\")}"`;
-        }
+        const sketchDir = quoteHardwareShellArgument(
+          arduinoSketchDirectory(inoFileEntry?.path ?? null),
+          activeEnvironmentOs,
+        );
 
         command =
           action === "flash"
@@ -3091,7 +3148,7 @@ function ChatViewContent(props: ChatViewProps) {
             : `${arduinoBin} monitor -p ${portArg}`;
       }
 
-      await writeTerminal({
+      const writeResult = await writeTerminal({
         environmentId,
         input: {
           threadId: activeThreadId,
@@ -3099,9 +3156,17 @@ function ChatViewContent(props: ChatViewProps) {
           data: `${command}\r`,
         },
       });
+      if (writeResult._tag === "Failure" && deviceLabSurface) {
+        const error = squashAtomCommandFailure(writeResult);
+        useRightPanelStore.getState().openDeviceLab(activeThreadRef, {
+          ...deviceLabSurface,
+          error: error instanceof Error ? error.message : "Unable to send the flash command.",
+        });
+      }
     },
     [
       activeProject,
+      activeEnvironmentOs,
       activeThread,
       activeThreadId,
       activeThreadRef,
@@ -3390,6 +3455,22 @@ function ChatViewContent(props: ChatViewProps) {
     gitCwd,
     openTerminal,
   ]);
+  const openExistingTerminalSurface = useCallback(
+    (terminalId: string) => {
+      if (!activeThreadRef) return;
+      useRightPanelStore.getState().openTerminal(activeThreadRef, terminalId);
+      setTerminalFocusRequestId((value) => value + 1);
+    },
+    [activeThreadRef],
+  );
+  const openActiveDeviceLabTerminal = useCallback(() => {
+    if (activeRightPanelSurface?.kind !== "device-lab") return;
+    if (activeRightPanelSurface.agentToolCallId !== undefined) {
+      addTerminalSurface();
+      return;
+    }
+    openExistingTerminalSurface(activeRightPanelSurface.terminalId);
+  }, [activeRightPanelSurface, addTerminalSurface, openExistingTerminalSurface]);
   const activatePanelTerminal = useCallback(
     (terminalId: string) => {
       if (!activeThreadRef || activeRightPanelSurface?.kind !== "terminal") return;
@@ -6332,6 +6413,13 @@ function ChatViewContent(props: ChatViewProps) {
       />
     ) : activeRightPanelSurface?.kind === "wiring" ? (
       <WiringPanel threadRef={activeThreadRef} />
+    ) : activeRightPanelSurface?.kind === "device-lab" && activeThreadRef ? (
+      <DeviceLabPanel
+        surface={activeRightPanelSurface}
+        threadRef={activeThreadRef}
+        agentActivity={activeDeviceLabAgentActivity}
+        onOpenTerminal={openActiveDeviceLabTerminal}
+      />
     ) : (activeRightPanelSurface?.kind === "files" || activeRightPanelSurface?.kind === "file") &&
       activeProject &&
       activeWorkspaceRoot ? (
@@ -6458,6 +6546,7 @@ function ChatViewContent(props: ChatViewProps) {
               <MessagesTimeline
                 agentPanelModel={agentPanelModel}
                 onOpenAgents={addAgentsSurface}
+                onOpenAgentFlash={openAgentFlashDeviceLab}
                 key={activeThread.id}
                 isWorking={isWorking}
                 workingStepLabel={workingStepLabel}

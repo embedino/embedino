@@ -197,6 +197,13 @@ export const BOARD_CATALOG: readonly BoardEntry[] = [
   },
   // Adafruit
   {
+    name: "Adafruit MatrixPortal ESP32-S3",
+    vendor: "Adafruit",
+    mcu: "ESP32-S3",
+    fqbn: "esp32:esp32:adafruit_matrixportal_esp32s3",
+    pioBoard: "adafruit_matrixportal_esp32s3",
+  },
+  {
     name: "Adafruit Feather M0",
     vendor: "Adafruit",
     mcu: "SAMD21G18A",
@@ -443,6 +450,36 @@ export const VID_PID_DATABASE: ReadonlyMap<string, BoardEntry> = new Map([
       mcu: "i.MX RT1062",
       fqbn: "teensy:avr:teensy40",
       pioBoard: "teensy40",
+    },
+  ],
+  [
+    "239a:8125",
+    {
+      name: "Adafruit MatrixPortal ESP32-S3",
+      vendor: "Adafruit",
+      mcu: "ESP32-S3",
+      fqbn: "esp32:esp32:adafruit_matrixportal_esp32s3",
+      pioBoard: "adafruit_matrixportal_esp32s3",
+    },
+  ],
+  [
+    "239a:0125",
+    {
+      name: "Adafruit MatrixPortal ESP32-S3",
+      vendor: "Adafruit",
+      mcu: "ESP32-S3",
+      fqbn: "esp32:esp32:adafruit_matrixportal_esp32s3",
+      pioBoard: "adafruit_matrixportal_esp32s3",
+    },
+  ],
+  [
+    "239a:8126",
+    {
+      name: "Adafruit MatrixPortal ESP32-S3",
+      vendor: "Adafruit",
+      mcu: "ESP32-S3",
+      fqbn: "esp32:esp32:adafruit_matrixportal_esp32s3",
+      pioBoard: "adafruit_matrixportal_esp32s3",
     },
   ],
   [

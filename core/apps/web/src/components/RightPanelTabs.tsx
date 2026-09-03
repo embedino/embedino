@@ -5,6 +5,7 @@ import type {
 } from "@embedino/contracts";
 import { getTerminalLabel } from "@embedino/shared/terminalLabels";
 import {
+  Activity,
   Bot,
   Cpu,
   FileDiff,
@@ -404,6 +405,8 @@ function surfaceTitle(
       return "Agents";
     case "wiring":
       return "Wiring";
+    case "device-lab":
+      return "Device Lab";
     case "preview": {
       const snapshot = surface.resourceId ? sessions[surface.resourceId] : null;
       if (!snapshot || snapshot.navStatus._tag === "Idle") return "Browser";
@@ -491,6 +494,8 @@ function SurfaceIcon({
       return <Bot className="size-3 shrink-0" />;
     case "wiring":
       return <Cpu className="size-3 shrink-0" />;
+    case "device-lab":
+      return <Activity className="size-3 shrink-0" />;
   }
 }
 

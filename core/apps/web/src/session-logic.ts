@@ -77,6 +77,8 @@ export interface WorkLogEntry {
   requestKind?: PendingApproval["requestKind"];
   /** From runtime item / task payload `status` when present (e.g. tool.updated). */
   toolLifecycleStatus?: WorkLogToolLifecycleStatus;
+  /** Stable provider call id shared by streaming updates for one tool execution. */
+  toolCallId?: string;
   /** Originating orchestration activity kind (e.g. `user-input.requested`) for row chrome. */
   sourceActivityKind?: OrchestrationThreadActivity["kind"];
   /** Live reasoning ("thinking") preview streamed by the provider while the turn runs. */

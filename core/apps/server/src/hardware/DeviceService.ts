@@ -28,6 +28,14 @@ function normalizePortDisplayName(port: string): string {
   return port;
 }
 
+/** Extracts the per-device instance suffix from a Windows USB PnP id. */
+export function windowsUsbSerialNumber(deviceId: string): string | null {
+  if (!/^USB\\/i.test(deviceId)) return null;
+  const separatorIndex = deviceId.lastIndexOf("\\");
+  if (separatorIndex < 0 || separatorIndex === deviceId.length - 1) return null;
+  return deviceId.slice(separatorIndex + 1).trim() || null;
+}
+
 export function parseWindowsDevices(jsonStr: string): HardwareDevice[] {
   try {
     const data = JSON.parse(jsonStr);
@@ -45,7 +53,9 @@ export function parseWindowsDevices(jsonStr: string): HardwareDevice[] {
         const vid = vidPidMatch?.[1]?.toLowerCase() ?? null;
         const pid = vidPidMatch?.[2]?.toLowerCase() ?? null;
 
-        results.push(resolveDevice(port, vid, pid, dev.Manufacturer));
+        results.push(
+          resolveDevice(port, vid, pid, dev.Manufacturer, windowsUsbSerialNumber(dev.DeviceID)),
+        );
       }
     }
     return results;
@@ -71,7 +81,7 @@ function parseMacDevices(jsonStr: string): HardwareDevice[] {
             // macOS typically lists the bsd_name if it's a serial port
             if (node.bsd_name) {
               const port = `/dev/${node.bsd_name}`;
-              results.push(resolveDevice(port, vid, pid, node.manufacturer));
+              results.push(resolveDevice(port, vid, pid, node.manufacturer, node.serial_num));
             } else {
               // We could look in /dev for tty.* but let's assume one is enough for now or it matches later
             }
@@ -95,19 +105,23 @@ function resolveDevice(
   vid: string | null,
   pid: string | null,
   manufacturer?: string,
+  usbSerialNumber?: string | null,
 ): HardwareDevice {
   const portDisplayName = normalizePortDisplayName(port);
   const driverChip = vid && pid ? lookupBridgeChip(vid, pid) : null;
+  const normalizedSerialNumber = usbSerialNumber?.trim() || null;
+  const deviceIdentity = normalizedSerialNumber ?? port;
 
   // Check user-saved associations first
-  const assoc = vid && pid ? findAssociation(vid, pid) : null;
+  const assoc = vid && pid ? findAssociation(vid, pid, normalizedSerialNumber ?? undefined) : null;
   if (assoc) {
     return {
-      id: `${vid}:${pid}:${port}`,
+      id: `${vid}:${pid}:${deviceIdentity}`,
       port,
       portDisplayName,
       vid,
       pid,
+      usbSerialNumber: normalizedSerialNumber,
       manufacturer: manufacturer ?? null,
       boardName: assoc.boardName,
       fqbn: assoc.fqbn ?? null,
@@ -121,11 +135,12 @@ function resolveDevice(
   const board = vid && pid ? lookupByVidPid(vid, pid) : null;
   if (board) {
     return {
-      id: `${vid}:${pid}:${port}`,
+      id: `${vid}:${pid}:${deviceIdentity}`,
       port,
       portDisplayName,
       vid,
       pid,
+      usbSerialNumber: normalizedSerialNumber,
       manufacturer: manufacturer ?? board.vendor,
       boardName: board.name,
       fqbn: board.fqbn ?? null,
@@ -138,11 +153,12 @@ function resolveDevice(
   // Tier 3: Generic bridge or fully unknown
   if (driverChip) {
     return {
-      id: `${vid}:${pid}:${port}`,
+      id: `${vid}:${pid}:${deviceIdentity}`,
       port,
       portDisplayName,
       vid,
       pid,
+      usbSerialNumber: normalizedSerialNumber,
       manufacturer: manufacturer ?? null,
       boardName: null,
       fqbn: null,
@@ -158,6 +174,7 @@ function resolveDevice(
     portDisplayName,
     vid,
     pid,
+    usbSerialNumber: normalizedSerialNumber,
     manufacturer: manufacturer ?? null,
     boardName: null,
     fqbn: null,
@@ -226,7 +243,11 @@ export const scanDevices = () =>
               if (NodeFS.existsSync(vidPath) && NodeFS.existsSync(pidPath)) {
                 const vid = NodeFS.readFileSync(vidPath, "utf-8").trim();
                 const pid = NodeFS.readFileSync(pidPath, "utf-8").trim();
-                devices.push(resolveDevice(`/dev/${tty}`, vid, pid));
+                const serialPath = `${devicePath}/../serial`;
+                const serialNumber = NodeFS.existsSync(serialPath)
+                  ? NodeFS.readFileSync(serialPath, "utf-8").trim()
+                  : null;
+                devices.push(resolveDevice(`/dev/${tty}`, vid, pid, undefined, serialNumber));
               }
             }
           } catch {
@@ -330,6 +351,7 @@ export const setDeviceAssociation = (input: DeviceAssociationInput) =>
     const assoc: StoredAssociation = {
       vid: device.vid,
       pid: device.pid,
+      ...(device.usbSerialNumber ? { usbSerialNumber: device.usbSerialNumber } : {}),
       boardName: input.boardName,
       ...(input.fqbn ? { fqbn: input.fqbn } : {}),
       ...(input.pioBoard ? { pioBoard: input.pioBoard } : {}),

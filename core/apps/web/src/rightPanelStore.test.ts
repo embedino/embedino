@@ -565,6 +565,69 @@ describe("rightPanelStore", () => {
     expect(state.activeSurfaceId).toBe("terminal:term-2");
   });
 
+  it("opens Device Lab automatically and replaces the previous flash session", () => {
+    useRightPanelStore.getState().open(refA, "wiring");
+    useRightPanelStore.getState().openDeviceLab(refA, {
+      terminalId: "term-1",
+      boardName: "ESP32 DevKit",
+      portDisplayName: "COM3",
+      workspacePath: "C:\\workspace",
+      toolchain: "platformio",
+      startedAt: "2026-09-02T10:00:00.000Z",
+      error: null,
+    });
+    useRightPanelStore.getState().openDeviceLab(refA, {
+      terminalId: "term-2",
+      boardName: "ESP32 DevKit",
+      portDisplayName: "COM3",
+      workspacePath: "C:\\workspace",
+      toolchain: "platformio",
+      startedAt: "2026-09-02T10:01:00.000Z",
+      error: null,
+    });
+
+    expect(selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA)).toEqual({
+      isOpen: true,
+      activeSurfaceId: "device-lab",
+      surfaces: [
+        { id: "wiring", kind: "wiring" },
+        {
+          id: "device-lab",
+          kind: "device-lab",
+          terminalId: "term-2",
+          boardName: "ESP32 DevKit",
+          portDisplayName: "COM3",
+          workspacePath: "C:\\workspace",
+          toolchain: "platformio",
+          startedAt: "2026-09-02T10:01:00.000Z",
+          error: null,
+        },
+      ],
+    });
+  });
+
+  it("persists the agent command identity for an automatically observed flash", () => {
+    useRightPanelStore.getState().openDeviceLab(refA, {
+      terminalId: "agent-activity-1",
+      boardName: "ESP32 DevKit",
+      portDisplayName: "COM3",
+      workspacePath: "C:\\workspace",
+      toolchain: "platformio",
+      startedAt: "2026-09-02T10:00:00.000Z",
+      error: null,
+      agentToolCallId: "call-1",
+      agentCommand: "pio run --target upload",
+    });
+
+    expect(
+      selectActiveRightPanelSurface(useRightPanelStore.getState().byThreadKey, refA),
+    ).toMatchObject({
+      kind: "device-lab",
+      agentToolCallId: "call-1",
+      agentCommand: "pio run --target upload",
+    });
+  });
+
   it("tracks the active pane within a terminal surface", () => {
     useRightPanelStore.getState().openTerminal(refA, "term-1");
     useRightPanelStore.getState().openTerminal(refA, "term-2");

@@ -7,6 +7,7 @@ import {
   type TurnPlanEntry,
   type WorkLogEntry,
 } from "../../session-logic";
+import { detectAgentFlashActivity } from "../deviceLab/agentFlashActivity";
 import { type ChatMessage, type ProposedPlan, type TurnDiffSummary } from "../../types";
 import { type MessageId, type OrchestrationLatestTurn, type TurnId } from "@embedino/contracts";
 
@@ -571,7 +572,8 @@ export function deriveMessagesTimelineRows(input: {
         cursor += 1;
       }
       const visibleGroupedEntries = groupedEntries.filter(
-        (entry) => !workEntryIndicatesToolNeutralStatus(entry),
+        (entry) =>
+          detectAgentFlashActivity(entry) !== null || !workEntryIndicatesToolNeutralStatus(entry),
       );
       if (visibleGroupedEntries.length > 0) {
         if (visibleGroupedEntries.length <= MAX_VISIBLE_WORK_LOG_ENTRIES) {

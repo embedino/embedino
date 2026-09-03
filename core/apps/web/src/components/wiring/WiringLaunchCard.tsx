@@ -12,6 +12,8 @@ import { cn } from "~/lib/utils";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { useWiringStore } from "~/state/wiring";
 
+import { isInternalOnlyWiring } from "./wiringVisibility";
+
 export interface WiringLaunchCardProps {
   code: string;
   fenceTitle?: string | undefined;
@@ -39,6 +41,10 @@ export function WiringLaunchCard({
 
   const boards = useMemo(() => (circuit ? getCircuitBoards(circuit) : []), [circuit]);
   const peripherals = useMemo(() => (circuit ? getCircuitPeripherals(circuit) : []), [circuit]);
+  const isInternalOnly = useMemo(
+    () => (circuit ? isInternalOnlyWiring(circuit) : false),
+    [circuit],
+  );
 
   const handleOpenWiring = useCallback(() => {
     useWiringStore.getState().setCircuit(threadRef, code, fenceTitle);
@@ -90,6 +96,8 @@ export function WiringLaunchCard({
       </div>
     );
   }
+
+  if (isInternalOnly) return null;
 
   const title = circuit.title || fenceTitle || "Circuit Wiring Diagram";
   const summary = [

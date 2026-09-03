@@ -23,6 +23,7 @@ export const RIGHT_PANEL_KINDS = [
   "pull-request",
   "agents",
   "wiring",
+  "device-lab",
 ] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
 
@@ -63,13 +64,31 @@ export type RightPanelSurface =
       number: number;
     }
   | { id: "agents"; kind: "agents" }
-  | { id: "wiring"; kind: "wiring" };
+  | { id: "wiring"; kind: "wiring" }
+  | {
+      id: "device-lab";
+      kind: "device-lab";
+      terminalId: string;
+      boardName: string;
+      portDisplayName: string;
+      workspacePath: string;
+      toolchain: "platformio" | "arduino";
+      startedAt: string;
+      error: string | null;
+      /** Present when Device Lab mirrors an agent-owned command rather than an Embedino PTY. */
+      agentToolCallId?: string;
+      agentCommand?: string;
+    };
+
+export type DeviceLabSurface = Extract<RightPanelSurface, { kind: "device-lab" }>;
 
 const RIGHT_PANEL_STORAGE_KEY = "embedino:right-panel-state:v2";
 // v9 removed the "plan" surface kind (plans render inline in the transcript).
 // v10 keys pull-request surfaces by reference instead of a singleton tab.
 // v11 stops persisting the pull-request list's shared panel, so a restart opens the page fresh.
-const RIGHT_PANEL_STORAGE_VERSION = 11;
+// v12 adds the Device Lab flash-session surface.
+// v13 records the exact workspace used for a flash session.
+const RIGHT_PANEL_STORAGE_VERSION = 13;
 
 /**
  * The pull-request list's shared panel (see PULL_REQUESTS_PANEL_ID in the route) is session
@@ -87,7 +106,7 @@ interface RightPanelStoreState {
   byThreadKey: Record<string, ThreadRightPanelState>;
   open: (
     ref: ScopedThreadRef,
-    kind: Exclude<RightPanelKind, "file" | "terminal" | "pull-request">,
+    kind: Exclude<RightPanelKind, "file" | "terminal" | "pull-request" | "device-lab">,
   ) => void;
   openBrowser: (ref: ScopedThreadRef, tabId: string | null) => void;
   openFile: (ref: ScopedThreadRef, relativePath: string, line?: number) => void;
@@ -96,6 +115,7 @@ interface RightPanelStoreState {
     target: { environmentId?: string; projectId: string; repository: string; number: number },
   ) => void;
   openTerminal: (ref: ScopedThreadRef, terminalId: string) => void;
+  openDeviceLab: (ref: ScopedThreadRef, surface: Omit<DeviceLabSurface, "id" | "kind">) => void;
   activateTerminal: (ref: ScopedThreadRef, surfaceId: string, terminalId: string) => void;
   closeTerminal: (ref: ScopedThreadRef, surfaceId: string, terminalId: string) => void;
   activateSurface: (ref: ScopedThreadRef, surfaceId: string) => void;
@@ -110,7 +130,7 @@ interface RightPanelStoreState {
   toggleVisibility: (ref: ScopedThreadRef) => void;
   toggle: (
     ref: ScopedThreadRef,
-    kind: Exclude<RightPanelKind, "file" | "terminal" | "pull-request">,
+    kind: Exclude<RightPanelKind, "file" | "terminal" | "pull-request" | "device-lab">,
   ) => void;
   removeThread: (ref: ScopedThreadRef) => void;
 }
@@ -122,7 +142,7 @@ const EMPTY_THREAD_STATE: ThreadRightPanelState = {
 };
 
 const singletonSurface = (
-  kind: Exclude<RightPanelKind, "file" | "preview" | "terminal" | "pull-request">,
+  kind: Exclude<RightPanelKind, "file" | "preview" | "terminal" | "pull-request" | "device-lab">,
 ): RightPanelSurface => {
   switch (kind) {
     case "diff":
@@ -296,6 +316,30 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                         }),
                       ];
                     }
+                    if (surface.kind === "device-lab") {
+                      if (
+                        typeof surface.terminalId !== "string" ||
+                        typeof surface.boardName !== "string" ||
+                        typeof surface.portDisplayName !== "string" ||
+                        typeof surface.workspacePath !== "string" ||
+                        (surface.toolchain !== "platformio" && surface.toolchain !== "arduino") ||
+                        typeof surface.startedAt !== "string"
+                      ) {
+                        return [];
+                      }
+                      return [
+                        {
+                          ...surface,
+                          error: typeof surface.error === "string" ? surface.error : null,
+                          ...(typeof surface.agentToolCallId === "string"
+                            ? { agentToolCallId: surface.agentToolCallId }
+                            : {}),
+                          ...(typeof surface.agentCommand === "string"
+                            ? { agentCommand: surface.agentCommand }
+                            : {}),
+                        },
+                      ];
+                    }
                     if (surface.kind !== "terminal") return [surface];
                     if (
                       !("resourceId" in surface) ||
@@ -419,6 +463,20 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
           byThreadKey: updateThread(state.byThreadKey, scopedThreadKey(ref), (current) =>
             upsertSurface(current, terminalSurface(terminalId)),
           ),
+        })),
+      openDeviceLab: (ref, surface) =>
+        set((state) => ({
+          byThreadKey: updateThread(state.byThreadKey, scopedThreadKey(ref), (current) => {
+            const next: DeviceLabSurface = { id: "device-lab", kind: "device-lab", ...surface };
+            const existing = current.surfaces.some((entry) => entry.kind === "device-lab");
+            return {
+              isOpen: true,
+              activeSurfaceId: next.id,
+              surfaces: existing
+                ? current.surfaces.map((entry) => (entry.kind === "device-lab" ? next : entry))
+                : [...current.surfaces, next],
+            };
+          }),
         })),
       activateTerminal: (ref, surfaceId, terminalId) =>
         set((state) => ({

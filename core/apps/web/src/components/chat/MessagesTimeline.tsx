@@ -14,6 +14,7 @@ import {
 
 const EMPTY_AGENT_PANEL_MODEL = emptyAgentPanelModel();
 const NOOP_OPEN_AGENTS = () => {};
+const NOOP_OPEN_AGENT_FLASH = (_entry: WorkLogEntry) => {};
 import { resolveChatListAnchoredEndSpace } from "@embedino/shared/chatList";
 import {
   createContext,
@@ -34,11 +35,13 @@ import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import { FileDiff } from "@pierre/diffs/react";
 import {
   deriveTimelineEntries,
+  type WorkLogEntry,
   workEntryIndicatesToolFailure,
   workEntryIndicatesToolNeutralStatus,
   workEntryIndicatesToolSuccess,
   workLogEntryIsToolLike,
 } from "../../session-logic";
+import { detectAgentFlashActivity } from "../deviceLab/agentFlashActivity";
 import { type TurnDiffSummary } from "../../types";
 import {
   getRenderablePatch,
@@ -149,6 +152,7 @@ interface TimelineRowSharedState {
   onToggleWorkGroup: (groupId: string, anchorKey: string) => void;
   agentPanelModel: AgentPanelModel;
   onOpenAgents: () => void;
+  onOpenAgentFlash: (entry: WorkLogEntry) => void;
 }
 
 interface TimelineRowActivityState {
@@ -209,6 +213,7 @@ const TIMELINE_MAINTAIN_SCROLL_AT_END = {
 interface MessagesTimelineProps {
   agentPanelModel?: AgentPanelModel;
   onOpenAgents?: () => void;
+  onOpenAgentFlash?: (entry: WorkLogEntry) => void;
   isWorking: boolean;
   workingStepLabel?: string | null;
   activeTurnInProgress: boolean;
@@ -259,6 +264,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   activeTurnStartedAt,
   agentPanelModel = EMPTY_AGENT_PANEL_MODEL,
   onOpenAgents = NOOP_OPEN_AGENTS,
+  onOpenAgentFlash = NOOP_OPEN_AGENT_FLASH,
   listRef,
   timelineEntries,
   latestTurn,
@@ -425,6 +431,15 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     ],
   );
   const rows = useStableRows(rawRows);
+  // LegendList normally detects structural updates from the data reference,
+  // but disclosure updates insert previously-folded rows in the middle of an
+  // already-measured list. Give those updates an explicit version so its
+  // container pool and item positions are reconciled instead of only
+  // repainting the fold chevron (which left the expanded body blank).
+  const disclosureDataVersion = useMemo(
+    () => JSON.stringify([[...expandedTurnIds].toSorted(), [...expandedWorkGroupIds].toSorted()]),
+    [expandedTurnIds, expandedWorkGroupIds],
+  );
   const minimapItems = useMemo(() => deriveTimelineMinimapItems(rows), [rows]);
   const [timelineViewportElement, setTimelineViewportElement] = useState<HTMLDivElement | null>(
     null,
@@ -551,6 +566,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       onToggleWorkGroup,
       agentPanelModel,
       onOpenAgents,
+      onOpenAgentFlash,
     }),
     [
       timestampFormat,
@@ -567,6 +583,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       onToggleWorkGroup,
       agentPanelModel,
       onOpenAgents,
+      onOpenAgentFlash,
     ],
   );
   const activityState = useMemo<TimelineRowActivityState>(
@@ -609,6 +626,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           <LegendList<MessagesTimelineRow>
             ref={listRef}
             data={rows}
+            dataVersion={disclosureDataVersion}
             keyExtractor={keyExtractor}
             getItemType={getItemType}
             renderItem={renderItem}
@@ -1011,8 +1029,8 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   const canRevertAgentWork = typeof row.revertTurnCount === "number";
 
   return (
-    <div className="group flex flex-col items-end gap-1">
-      <div className="relative max-w-[80%] rounded-2xl bg-message p-3 text-message-foreground">
+    <div className="group flex flex-col items-end gap-1.5">
+      <div className="chat-user-message relative max-w-[min(82%,42rem)] rounded-[1.35rem] rounded-br-md border border-border/45 bg-message px-4 py-3 text-[15px] leading-[1.55] text-message-foreground shadow-xs">
         {regularImages.length > 0 && (
           <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
             {regularImages.map((image: NonNullable<TimelineMessage["attachments"]>[number]) => (
@@ -1145,6 +1163,7 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
     <>
       <div className="relative min-w-0 px-1 py-0.5">
         <ChatMarkdown
+          className="chat-markdown-assistant"
           text={messageText}
           cwd={ctx.markdownCwd}
           threadRef={ctx.threadRef ?? undefined}
@@ -1381,7 +1400,11 @@ const WorkGroupSection = memo(function WorkGroupSection({
 }) {
   const { workspaceRoot } = use(TimelineRowCtx);
   const nonEmptyEntries = useMemo(
-    () => groupedEntries.filter((entry) => !workEntryIndicatesToolNeutralStatus(entry)),
+    () =>
+      groupedEntries.filter(
+        (entry) =>
+          detectAgentFlashActivity(entry) !== null || !workEntryIndicatesToolNeutralStatus(entry),
+      ),
     [groupedEntries],
   );
   const onlyToolEntries = nonEmptyEntries.every((entry) => workLogEntryIsToolLike(entry));
@@ -1394,11 +1417,21 @@ const WorkGroupSection = memo(function WorkGroupSection({
   if (nonEmptyEntries.length === 0) return null;
 
   return (
-    <section className="-mx-1 space-y-0.5 px-1 py-0.5" aria-label={groupLabel}>
-      {!onlyToolEntries && (
-        <p className="px-0.5 pb-0.5 font-medium text-secondary-label text-[11px]">{groupLabel}</p>
-      )}
-      <div className="space-y-px">
+    <section
+      className="my-1 overflow-hidden rounded-xl border border-border/60 bg-secondary/45 p-2 shadow-xs dark:bg-input/20"
+      aria-label={groupLabel}
+    >
+      <div className="flex items-center justify-between px-1 pb-1.5">
+        <p className="font-semibold text-[11px] text-secondary-label uppercase tracking-[0.08em]">
+          {onlyToolEntries ? "Actions" : groupLabel}
+        </p>
+        {onlyToolEntries ? (
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {nonEmptyEntries.length} {nonEmptyEntries.length === 1 ? "action" : "actions"}
+          </span>
+        ) : null}
+      </div>
+      <div className="space-y-0.5">
         {nonEmptyEntries.map((workEntry) => (
           <SimpleWorkEntryRow
             key={workEntry.id}
@@ -2253,7 +2286,61 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   if (workEntry.agentSpawn) {
     return <AgentSpawnCtaRow workEntry={workEntry} />;
   }
+  if (detectAgentFlashActivity(workEntry)) {
+    return <AgentFlashCtaRow workEntry={workEntry} />;
+  }
   return <PlainWorkEntryRow workEntry={workEntry} workspaceRoot={workspaceRoot} />;
+});
+
+const AgentFlashCtaRow = memo(function AgentFlashCtaRow({
+  workEntry,
+}: {
+  workEntry: TimelineWorkEntry;
+}) {
+  const { onOpenAgentFlash } = use(TimelineRowCtx);
+  const lifecycle = workEntry.toolLifecycleStatus;
+  const running = lifecycle === "inProgress";
+  const failed = lifecycle === "failed";
+  const label = running
+    ? "Flashing board…"
+    : lifecycle === "completed"
+      ? "Flashed board"
+      : lifecycle === "stopped"
+        ? "Flash stopped"
+        : lifecycle === "declined"
+          ? "Flash not started"
+          : failed
+            ? "Flash failed"
+            : "Board flash";
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenAgentFlash(workEntry)}
+      aria-label={`${label}. Open Device Lab`}
+      className="-mx-1 flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left text-[12px] transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+    >
+      <span className="flex size-5 shrink-0 items-center justify-center text-icon-muted">
+        <ZapIcon aria-hidden className="size-3.5 stroke-[1.8]" />
+      </span>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate font-medium",
+          failed ? "text-destructive" : "text-foreground",
+        )}
+      >
+        {label}
+      </span>
+      {running ? (
+        <LoaderIcon aria-hidden className="size-3 shrink-0 animate-spin text-muted-foreground" />
+      ) : failed ? (
+        <XIcon aria-hidden className="size-3 shrink-0 text-destructive" />
+      ) : lifecycle === "completed" ? (
+        <CheckIcon aria-hidden className="size-3 shrink-0 text-success" />
+      ) : null}
+      <span className="shrink-0 text-[11px] text-info-foreground">Open Device Lab ▸</span>
+    </button>
+  );
 });
 
 const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
@@ -2371,13 +2458,13 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
   return (
     <div
       className={cn(
-        "flex flex-col rounded-md px-0.5 py-0.5 transition-colors",
+        "flex flex-col rounded-lg px-1.5 py-1 transition-colors",
         canExpand &&
           "cursor-pointer hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70",
       )}
       {...rowToggleProps}
     >
-      <div className="flex select-none items-center gap-1.5 transition-[opacity,translate] duration-200">
+      <div className="flex min-h-7 select-none items-center gap-2 transition-[opacity,translate] duration-200">
         <span className={iconWrapperClass}>
           <WorkEntryIconSvg
             name={entryIconName}
@@ -2386,7 +2473,7 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
         </span>
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <p className="flex min-w-0 w-full items-baseline gap-1.5 text-[12px] leading-5">
+            <p className="flex min-w-0 w-full items-baseline gap-2 text-[13px] leading-5">
               <span className={cn("min-w-0 shrink truncate", headingClass)}>{heading}</span>
               {preview && (
                 <span
@@ -2475,14 +2562,14 @@ const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
       </div>
       {expanded && canExpand && expandedBody ? (
         <div
-          className="mt-1 ms-5 cursor-default"
+          className="mt-1.5 ms-7 cursor-default"
           onClick={stopRowToggle}
           onPointerDown={stopRowToggle}
         >
           <pre
             ref={isToolRunning ? liveBodyRef : undefined}
             className={cn(
-              "max-h-64 cursor-text overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 font-mono text-[11px] leading-relaxed select-text",
+              "max-h-72 cursor-text overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/55 bg-background/75 p-3 font-mono text-[11px] leading-[1.55] shadow-inner select-text",
               isToolRunning ? "text-foreground/80" : "text-secondary-label",
             )}
           >

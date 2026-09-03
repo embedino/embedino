@@ -18,6 +18,8 @@ export const HardwareDevice = Schema.Struct({
   vid: Schema.NullOr(Schema.String),
   /** USB Product ID if available (e.g. "0x0043"). */
   pid: Schema.NullOr(Schema.String),
+  /** USB instance serial reported by the OS, used to distinguish devices that share a bridge. */
+  usbSerialNumber: Schema.NullOr(Schema.String),
   /** USB manufacturer string reported by OS. */
   manufacturer: Schema.NullOr(Schema.String),
   /** Resolved board name (null if unrecognized generic bridge). */

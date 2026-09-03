@@ -23,6 +23,7 @@ const makeDevice = (overrides: Partial<HardwareDevice>): HardwareDevice => ({
   portDisplayName: "COM3",
   vid: null,
   pid: null,
+  usbSerialNumber: null,
   manufacturer: null,
   boardName: null,
   fqbn: null,
@@ -64,6 +65,7 @@ describe("HardwareAgentPrompt Assembly", () => {
       expect(prompt).toContain("Selected toolchain: Arduino CLI");
       expect(prompt).toContain("BlinkLED/BlinkLED.ino");
       expect(prompt).toContain("arduino-cli compile --fqbn <fqbn> <sketch_directory>");
+      expect(prompt).toContain("arduino-cli compile --upload -p <port>");
       expect(prompt).not.toContain("platformio.ini");
     }),
   );
@@ -154,6 +156,19 @@ describe("HardwareAgentPrompt Assembly", () => {
   );
 
   describe("wiring viewer contract", () => {
+    it.effect("reserves wiring diagrams for external physical connections", () =>
+      Effect.gen(function* () {
+        const prompt = yield* runPrompt("platformio");
+
+        expect(prompt).toContain(
+          "only when the user must make, change, or inspect physical connections",
+        );
+        expect(prompt).toContain("Do not emit a wiring block for onboard, built-in, integrated");
+        expect(prompt).toContain("Internal PCB traces are not user wiring");
+        expect(prompt).toContain("code-only, build-only, or flash-only requests");
+      }),
+    );
+
     it.effect("contains exactly one ```wiring directive block", () =>
       Effect.gen(function* () {
         const prompt = yield* runPrompt("arduino");
