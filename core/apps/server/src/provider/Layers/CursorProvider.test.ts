@@ -440,7 +440,7 @@ describe("checkCursorProviderStatus", () => {
 
     expect(provider).toMatchObject({
       installed: false,
-      status: "error",
+      status: "warning",
       auth: { status: "unknown" },
       message: cursorCliCommandMissingMessage,
     });

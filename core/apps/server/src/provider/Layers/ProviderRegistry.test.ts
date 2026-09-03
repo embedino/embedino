@@ -2315,7 +2315,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
             defaultClaudeSettings,
             claudeCapabilities(),
           );
-          assert.strictEqual(status.status, "error");
+          assert.strictEqual(status.status, "warning");
           assert.strictEqual(status.installed, false);
           assert.strictEqual(status.auth.status, "unknown");
           assert.strictEqual(

@@ -57,7 +57,7 @@ it.layer(NodeServices.layer)("checkGrokProviderStatus", (it) => {
       );
       expect(snapshot.enabled).toBe(true);
       expect(snapshot.installed).toBe(false);
-      expect(snapshot.status).toBe("error");
+      expect(snapshot.status).toBe("warning");
       expect(snapshot.message).toMatch(/not installed|not on PATH|Failed to execute/);
     }),
   );

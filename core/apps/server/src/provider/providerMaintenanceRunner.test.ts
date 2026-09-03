@@ -683,17 +683,15 @@ describe("providerMaintenanceRunner", () => {
       assert.strictEqual(captured.length, 1);
       const call = captured[0];
       assert.ok(call, "expected the spawner to be invoked once");
-      // The resolved command is the escaped `.cmd` path. Asserting the precise
-      // escaped string is brittle, so verify it carries the resolved shim and
-      // that shell mode was used.
+      // The resolved command contains the escaped `.cmd` path and arguments in
+      // one shell command line so Node never receives shell arguments through
+      // its deprecated insecure-args path.
       assert.match(call.command, /npm\.cmd/i);
       assert.strictEqual(call.shell, true);
-      // Args are escaped for cmd.exe shell mode (each quoted) but still carry
-      // the original install command (`install -g @openai/codex@latest`) in order.
-      assert.strictEqual(call.args.length, 3);
-      assert.match(call.args[0] ?? "", /install/);
-      assert.match(call.args[1] ?? "", /-g/);
-      assert.match(call.args[2] ?? "", /@openai\/codex@latest/);
+      assert.match(call.command, /install/);
+      assert.match(call.command, /-g/);
+      assert.match(call.command, /@openai\/codex@latest/);
+      assert.deepStrictEqual(call.args, []);
       assert.strictEqual(result.providers[0]?.updateState?.status, "succeeded");
     }).pipe(
       Effect.provide(
