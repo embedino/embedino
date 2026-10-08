@@ -1,76 +1,36 @@
 <div align="center">
-  <br />
-  <img src="https://raw.githubusercontent.com/embedino/embedino/f5ef203ffdd8c615b2cb552da1f54628052c8c47/logo.svg" alt="Embedino Logo" width="100" height="100" />
-  <br />
-  <br />
-  <h1>Embedino Workspace</h1>
-  <p><b>Shaping the Future of Hardware</b></p>
-  <p>An open-source developer workspace built to reduce complexity and unleash hardware potential.</p>
-  <br />
-
-  <a href="https://embedino.app"><strong>Website</strong></a> &nbsp;&bull;&nbsp;
-  <a href="#overview"><strong>Overview</strong></a> &nbsp;&bull;&nbsp;
-  <a href="#core-pillars"><strong>Pillars</strong></a> &nbsp;&bull;&nbsp;
-  <a href="#getting-started"><strong>Getting Started</strong></a>
-  
-  <br />
-  <br />
+  <img src="logo.svg" alt="Embedino logo" width="92" height="92">
+  <h1>Embedino</h1>
+  <p><strong>Hardware context for AI-assisted firmware development.</strong></p>
+  <p><a href="https://www.embedino.app/">Website</a> · <a href="#what-were-building">What we're building</a> · <a href="#project-status">Project status</a> · <a href="https://github.com/embedino/embedino/issues">Give feedback</a></p>
 </div>
 
----
+## The problem
 
-## Overview
+AI can draft firmware, but it needs more than a feature request to write code for a real device. The board variant, connected components, pin assignments, electrical limits, libraries, and build errors all affect whether that code is useful. Today those facts are often scattered across datasheets, wiring notes, configuration files, and developer knowledge.
 
-**Embedino Workspace** is a modern, unified environment created to bridge the gap between hardware engineering and software workflows. Built on the principles of minimal friction and high extensibility, Embedino simplifies how developers interact with, configure, and deploy to embedded devices.
+**Embedino is building a harness that carries hardware context through the firmware workflow.** The aim is to help an AI assistant write and revise firmware against an explicit description of the hardware and feedback from builds and device tests.
 
-We are building this project in the open. Rather than adding unnecessary layers of abstraction, Embedino focuses on clean design patterns, intuitive developer tooling, and modular components.
+## What we're building
 
----
+The intended workflow has three parts:
 
-## Core Pillars
+1. **Describe the target.** Capture the board, peripherals, interfaces, pins, and constraints in reusable project context.
+2. **Draft firmware with that context.** Supply the relevant hardware facts and requirements to an AI assistant when it creates or edits code.
+3. **Check and iterate.** Feed compiler output and observed device behavior back into the next revision.
 
-- **Minimal Complexity** — Streamlined developer experience designed to get out of your way and let you build.
-- **Maximum Potential** — Extensible architecture engineered to handle everything from microcontrollers to intelligent edge nodes.
-- **Built in the Open** — Open-source foundation prioritizing transparency, community feedback, and modular extension.
+This is the product direction, not a claim that the full loop is available today. Generated firmware still needs engineering review and testing on the actual hardware.
 
----
+## Project status
 
-## Project Structure
+Embedino is in early development. This repository currently contains the project overview and branding; it does **not** yet contain an installable harness or a public firmware release. We will document the architecture, examples, and setup steps here as they become available.
 
-```text
-embedino-workspace/
-├── docs/             # Technical specifications & design notes
-├── packages/         # Core workspace modules & developer tools
-└── examples/         # Reference implementations & hardware templates
-```
+Our near-term focus is to define a useful hardware context format, connect it to an AI-assisted firmware workflow, and make build and test feedback actionable. See [embedino.app](https://www.embedino.app/) for the current product description.
 
----
+## Give feedback
 
-## Getting Started
-
-> [!NOTE]
-> Embedino Workspace is currently under active development. Core modules and initial releases are being staged.
-
-To follow progress or contribute to early feedback:
-
-1. **Visit the official portal**: [embedino.app](https://embedino.app)
-2. **Explore open repositories**: Star or watch this repository for updates as initial modules drop.
-3. **Join the effort**: Review open issues and contribution guidelines as modules are published.
-
----
-
-## Philosophy
-
-Hardware development shouldn't be hard. Traditional embedded workflows are often fractured across legacy toolchains, inconsistent environment setups, and fragmented hardware abstractions. 
-
-Embedino is engineered to restore clarity to the development lifecycle—combining modern tooling standards with low-level execution performance.
-
----
+If you build embedded systems, we would especially value examples where generated firmware fails because it lacked board or component context. [Open an issue](https://github.com/embedino/embedino/issues/new) with the target board, the missing hardware fact, and the failure you observed. Please avoid posting secrets or private design files.
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
-
-<div align="center">
-  <sub>Built with precision by the Embedino core team.</sub>
-</div>
+The files in this repository are distributed under the [MIT License](LICENSE). Future code releases will state their license alongside the code.
