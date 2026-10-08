@@ -21,6 +21,8 @@ The intended workflow has three parts:
 
 This is the product direction, not a claim that the full loop is available today. Generated firmware still needs engineering review and testing on the actual hardware.
 
+We plan to integrate **Claude** as the assistant for drafting and revising firmware from this structured hardware context and build feedback. That integration is planned; there is no public Claude-powered feature yet.
+
 ## Project status
 
 Embedino is in early development. This repository currently contains the project overview and branding; it does **not** yet contain an installable harness or a public firmware release. We will document the architecture, examples, and setup steps here as they become available.
